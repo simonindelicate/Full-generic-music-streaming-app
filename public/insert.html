@@ -28,6 +28,11 @@
             <div>
               <label for="artworkUrl">Artwork URL</label>
               <input type="url" id="artworkUrl" name="artworkUrl" placeholder="https://.../cover.jpg" />
+              <div class="inline-actions" style="margin-top:8px;">
+                <input type="file" id="artworkFile" accept="image/*" />
+                <button type="button" id="uploadArtworkButton" class="button-link button-secondary">Upload artwork</button>
+              </div>
+              <small id="artworkUploadStatus" class="meta"></small>
             </div>
             <div>
               <label for="albumArtworkUrl">Album Artwork URL (optional)</label>
@@ -62,8 +67,39 @@
       const addTrackButton = document.getElementById('addTrackButton');
       const formStatus = document.getElementById('formStatus');
       const submitButton = document.getElementById('submitButton');
+      const artworkFileInput = document.getElementById('artworkFile');
+      const uploadArtworkButton = document.getElementById('uploadArtworkButton');
+      const artworkUploadStatus = document.getElementById('artworkUploadStatus');
 
       let nextTrackNumber = 1;
+
+      const readAsBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      async function uploadFileToMediaHost(file, folder, pinCode) {
+        const contentBase64 = await readAsBase64(file);
+        const response = await fetch('/.netlify/functions/uploadMedia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pinCode,
+            fileName: file.name,
+            contentBase64,
+            folder
+          })
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.message || 'Upload failed');
+        }
+
+        return result.url;
+      }
 
       function createTrackRow() {
         const wrapper = document.createElement('div');
@@ -82,6 +118,50 @@
         urlInput.name = 'mp3Url';
         urlInput.placeholder = 'https://.../audio.mp3';
         urlInput.required = true;
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.className = 'trackFile';
+        fileInput.accept = 'audio/*';
+
+        const uploadButton = document.createElement('button');
+        uploadButton.type = 'button';
+        uploadButton.className = 'button-link button-secondary';
+        uploadButton.textContent = 'Upload audio';
+
+        const uploadState = document.createElement('small');
+        uploadState.className = 'meta';
+
+        uploadButton.addEventListener('click', async () => {
+          const file = fileInput.files[0];
+          const pinCode = document.getElementById('pinCode').value.trim();
+
+          if (!pinCode) {
+            uploadState.textContent = 'Enter PIN before uploading files.';
+            return;
+          }
+
+          if (!file) {
+            uploadState.textContent = 'Choose an audio file first.';
+            return;
+          }
+
+          uploadButton.disabled = true;
+          const original = uploadButton.textContent;
+          uploadButton.textContent = 'Uploading…';
+          uploadState.textContent = 'Uploading to media host…';
+
+          try {
+            const uploadedUrl = await uploadFileToMediaHost(file, 'audio', pinCode);
+            urlInput.value = uploadedUrl;
+            uploadState.textContent = 'Uploaded and URL filled in automatically.';
+          } catch (error) {
+            uploadState.textContent = error.message;
+          } finally {
+            uploadButton.disabled = false;
+            uploadButton.textContent = original;
+          }
+        });
 
         const durationInput = document.createElement('input');
         durationInput.type = 'number';
@@ -128,6 +208,15 @@
         urlLabel.textContent = 'MP3 URL';
         urlLabel.appendChild(urlInput);
 
+        const uploadLabel = document.createElement('label');
+        uploadLabel.textContent = 'Or upload MP3 now';
+        const uploadRow = document.createElement('div');
+        uploadRow.className = 'inline-actions';
+        uploadRow.appendChild(fileInput);
+        uploadRow.appendChild(uploadButton);
+        uploadLabel.appendChild(uploadRow);
+        uploadLabel.appendChild(uploadState);
+
         const numberLabel = document.createElement('label');
         numberLabel.textContent = 'Order';
         numberLabel.appendChild(numberInput);
@@ -154,6 +243,7 @@
 
         wrapper.appendChild(nameLabel);
         wrapper.appendChild(urlLabel);
+        wrapper.appendChild(uploadLabel);
         wrapper.appendChild(numberLabel);
         wrapper.appendChild(durationLabel);
         wrapper.appendChild(yearLabel);
@@ -165,14 +255,48 @@
         return wrapper;
       }
 
+      async function uploadAlbumArtwork() {
+        const file = artworkFileInput.files[0];
+        const pinCode = document.getElementById('pinCode').value.trim();
+
+        if (!pinCode) {
+          artworkUploadStatus.textContent = 'Enter PIN before uploading files.';
+          return;
+        }
+
+        if (!file) {
+          artworkUploadStatus.textContent = 'Choose an image file first.';
+          return;
+        }
+
+        uploadArtworkButton.disabled = true;
+        const original = uploadArtworkButton.textContent;
+        uploadArtworkButton.textContent = 'Uploading…';
+        artworkUploadStatus.textContent = 'Uploading to media host…';
+
+        try {
+          const uploadedUrl = await uploadFileToMediaHost(file, 'artwork', pinCode);
+          document.getElementById('artworkUrl').value = uploadedUrl;
+          if (!document.getElementById('albumArtworkUrl').value.trim()) {
+            document.getElementById('albumArtworkUrl').value = uploadedUrl;
+          }
+          artworkUploadStatus.textContent = 'Artwork uploaded and URLs updated.';
+        } catch (error) {
+          artworkUploadStatus.textContent = error.message;
+        } finally {
+          uploadArtworkButton.disabled = false;
+          uploadArtworkButton.textContent = original;
+        }
+      }
+
       function addTrackRow() {
         const row = createTrackRow();
         tracksContainer.appendChild(row);
       }
 
+      uploadArtworkButton.addEventListener('click', uploadAlbumArtwork);
       addTrackButton.addEventListener('click', addTrackRow);
 
-      // seed first row
       addTrackRow();
 
       addTrackForm.addEventListener('submit', event => {
@@ -232,6 +356,7 @@
           .then(() => {
             showStatus('Album and tracks saved. You can add more or jump to editing.', false);
             addTrackForm.reset();
+            artworkUploadStatus.textContent = '';
             tracksContainer.innerHTML = '';
             nextTrackNumber = 1;
             addTrackRow();

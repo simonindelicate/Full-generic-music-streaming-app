@@ -11,125 +11,79 @@ A music streaming website to stream tracks from albums contained in a MongoDb Da
 
 ## Install (friendly guided flow)
 
-Start with the visual guide at `public/install.html`. It explains every step in plain language, includes copy buttons for all commands, and helps you build your `.env` file without guesswork.
+If you hate setup docs, use this order:
 
-### 1) Open the setup guide
-- If this repo is running locally, open: `http://localhost:8888/install.html`
-- Or open the file directly from this repo: `public/install.html`
+1. Deploy the repo to Netlify.
+2. Open `https://your-site.netlify.app/install.html`.
+3. Pick one mode:
+   - **Simple mode (easiest):** keep track data in a JSON file (`public/albumfooter.json`) on Netlify.
+   - **Full mode:** use MongoDB for dynamic editing and API-driven updates.
+4. Configure uploads so users click one button in-app and files are stored on your media host automatically.
 
-### 2) Follow each card from top to bottom
-The guide walks you through:
-- Installing the two tools the app needs (Node.js + MongoDB)
-- Cloning the repo and running `npm install`
-- Running `npm run fresh-install`
-- Filling `.env` with required values
-- Starting the app with `npx netlify dev`
-
-### 3) Start listening
-When setup is complete, open: `http://localhost:8888/player.html`
-
-### Troubleshooting (copy/paste checks)
-```bash
-node -v
-npm -v
-cat .env
-npm run setup
-npm run migrate
-```
-If any command fails, the output now includes a specific stage marker (for example: `Checking MongoDB connection`, `Running setup`, `Running migration`) so the failing step is obvious.
+The install page is written for non-technical users and keeps jargon to a minimum. It now includes fields that gather FTP credentials and outputs ready-to-paste Netlify environment variables.
 
 ## Usage
 
-In order for there to be content in your streaming site, you need a mongo database. Google what that is and set one up then add a json document that looks something like this:
+### First decision: do you actually need MongoDB?
 
-``` {
-  "_id": {
-    "$oid": "64c3da35be72e17c4c3fddc9"
-  },
+**No, not always.**
+
+- If you want the easiest install, store your track list in `public/albumfooter.json` and deploy on Netlify.
+- If you want dynamic editing, server-side writes, and easier scaling, use MongoDB and set `MONGODB_URI` + `MONGODB_DB_NAME` in Netlify environment variables.
+
+### Data shape example
+
+Whether the data comes from JSON or MongoDB, each track entry should look like this:
+
+```json
+{
   "albumName": "Arcadia Park",
   "artistName": "Simon Indelicate",
-  "artworkUrl": "https://indelicates.xyz/resources/img/AP/1a.png",
-  "mp3Url": "https://www.storygoblins.com/AP-stream/1.mp3",
+  "artworkUrl": "https://example.com/artwork.png",
+  "mp3Url": "https://example.com/audio.mp3",
   "trackName": "Entrance Plaza",
   "trackNumber": "1",
-  "albumArtworkUrl": "https://frolicking-chimera-0e5ae9.netlify.app/img/AP/1.png",
+  "albumArtworkUrl": "https://example.com/album-art.png",
   "trackDuration": "3:32"
-} 
+}
 ```
 
-Set MongoDB details in `.env` (`MONGODB_URI`, `MONGODB_DB_NAME`, and optionally `MONGODB_TRACKS_COLLECTION`).
+### Uploads for non-technical users (one-click flow)
 
-The site should now work locally.
+The desired UX is:
 
-To put it online, sign up for a Netlify account, connect your github and set up a new site to continuously deploy from your new repo.
+1. User clicks upload in this app.
+2. Netlify Function uploads the file to your storage provider (S3-compatible or SFTP host).
+3. Function writes the returned public URL into your track data automatically.
 
-You can add tracks to your database however you like. This repo includes a few tools to make this easier - to use them open the html files directly.
+That avoids the broken workflow of "go to another website, upload, then come back and paste URLs."
 
-- insert.html allows you to add new tracks. You can add multiple tracks with the same album info by using the button at the bottom.
-- edit.html will show you a list of all tracks in your db. click on any track to see the data associated with it.
-- from an indicidual track view page reached in this way, click edit to alter details from your browser.
+This repository now includes `/.netlify/functions/uploadMedia`, used by `public/insert.html` upload buttons for artwork and track audio.
 
-for these to work you will need to ensure your `.env` MongoDB settings are correct.
+Set these environment variables in Netlify for one-click uploads:
 
-**IMPORTANT**
+- `FTP_HOST`
+- `FTP_USER`
+- `FTP_PASSWORD`
+- `FTP_PUBLIC_BASE_URL` (for example `https://media.yourdomain.com`)
+- Optional: `FTP_BASE_PATH` (defaults to `uploads`)
+- Optional: `FTP_SECURE=true`
 
-Legacy pages in this repo still support URL-based tracks, but the newer backend now includes an upload endpoint (`/.netlify/functions/upload`) that stores audio in local `storage/` and prefills metadata from tags. If you stay on the legacy pages, external hosting URLs are still supported.
+### Quick checks
 
-### Quick way to backfill missing track durations
+```bash
+node -v
+npm -v
+```
 
-1. Install dependencies once: `npm install`
-2. Start the local functions so the endpoint is available: `npx netlify dev`
-3. In another terminal, run: `curl -X POST http://localhost:8888/.netlify/functions/fillTrackDurations`
+For local development:
 
-That POST will find any tracks without a `durationSeconds` value, calculate it from each track’s `mp3Url`, and save the results back to your MongoDB using the connection details in `.env`.
+```bash
+npm install
+npx netlify dev
+```
 
-
-### Consolidate and optimise album artwork
-
-A reusable script (`tools/consolidateArtwork.js`) can downsize all artwork referenced in MongoDB, upload the compressed JPEGs to an FTP folder, and repoint the database to the new URLs. It runs as a dry run by default so you can review planned changes before anything is uploaded or written back to MongoDB.
-
-1. Install dependencies: `npm install`
-2. Run a dry run to see what would change (replace the public URL with the HTTP URL that serves your FTP folder):
-
-   ```bash
-   node tools/consolidateArtwork.js --public-base-url=https://indelicates.xyz/consolidated-artwork
-   ```
-
-3. When happy, run with `--apply` and FTP credentials to upload and update MongoDB. You can pass credentials as CLI flags or environment variables:
-
-   ```bash
-   FTP_HOST=indelicates.xyz \
-   FTP_USER=u489957361.simonindelicate \
-   FTP_PASSWORD=flopsyBunney27 \
-   PUBLIC_BASE_URL=https://indelicates.xyz/consolidated-artwork \
-   node tools/consolidateArtwork.js --apply --ftp-folder=consolidated-artwork
-   ```
-
-The script de-duplicates artwork by hashing the original URLs, resizes to a sensible width (max 1200px) while iteratively adjusting JPEG quality to keep files under ~100KB, skips files already present on the FTP server, avoids re-touching database records that already point at the consolidated location, and **leaves GIF artwork untouched**.
-
-### Generate shareable MP4s from your MongoDB tracks
-
-If you want lightweight MP4s that combine each track's artwork with its MP3 (useful for uploads to video-first platforms), you can generate them locally without reprocessing entries that already have videos.
-
-1. Install ffmpeg locally so the CLI is on your `PATH`.
-2. Run the generator (it reads from the same MongoDB details in `.env`):
-
-   ```bash
-   node tools/generateMp4s.js
-   ```
-
-   - Videos are written to `uploads/mp4` by default.
-   - The script skips tracks that lack artwork/MP3 URLs and any videos that already exist in the output folder.
-   - You can override settings like the output folder, maximum artwork dimension, AAC bitrate, and CRF if you want to tune quality/size: `node tools/generateMp4s.js --output-dir=/path/to/mp4s --max-dimension=1080 --audio-bitrate=160k --crf=24`.
-
-Each MP4 uses a static H.264 video stream built from the artwork, `-tune stillimage`, a modest CRF for smaller file sizes, and AAC audio at the configured bitrate.
-
-**CORS**
-
-You will also likely run into problems with cross origin source requests for some functionality in this repo - you will need to allow requests that come from the url where you host your site to access resources from wherever you host them - especially the artwork. If you don't allow requests from locahost urls, the background color sampling will not work in your dev environment.
-
-Album covers that load as CSS backgrounds can succeed even when the host does not send permissive CORS headers because the browser does not attempt to read pixel data. Features like the ColorThief-based theme extraction, however, draw the image to a canvas, which requires a CORS-allowed response; otherwise the canvas is “tainted” and palette detection fails. To keep artwork visible in the UI **and** usable for color extraction, the player routes image URLs through the Netlify function at `api/proxyImage.js`, which fetches the original image and returns it with an `Access-Control-Allow-Origin: *` header and caching enabled.【F:api/proxyImage.js†L1-L31】【F:public/player.html†L270-L340】
-
+Then open `http://localhost:8888/player.html`.
 
 ## Contributing
 
