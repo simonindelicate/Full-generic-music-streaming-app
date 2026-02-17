@@ -130,24 +130,26 @@
 <body>
   <main class="container">
     <section class="intro">
-      <h1>Launch your music site on Netlify with zero guesswork</h1>
+      <h1>Set up your music site the simple way</h1>
       <p>
-        This page focuses on a production-safe hosted flow: Netlify for the app,
-        MongoDB for data, and external paid hosting for music/artwork files.
+        No jargon. No bouncing between ten tools. Follow these cards in order.
+        You can choose either:
+        <strong>Simple mode</strong> (JSON file on Netlify, easiest) or
+        <strong>Full mode</strong> (MongoDB + built-in upload workflow).
       </p>
       <p class="small">
-        Tip: keep this page open while you work through the steps.
+        Tip: keep this page open and tick each box as you complete it.
       </p>
     </section>
 
     <section class="steps" id="steps">
       <article class="step">
         <div class="step-head">
-          <h2>1) Deploy this repository to Netlify</h2>
+          <h2>1) Deploy to Netlify</h2>
           <span class="tag">Start here</span>
         </div>
-        <p>In Netlify, click <strong>Add new site → Import an existing project</strong>, select this repo, and deploy.</p>
-        <p>Use the default build settings from the repository unless you've already customized them.</p>
+        <p>In Netlify click <strong>Add new site → Import an existing project</strong>, choose this repo, then deploy.</p>
+        <p>Leave build settings as default unless you already changed them on purpose.</p>
         <div class="command">
           <code>Netlify dashboard → Add new site → Import an existing project → Deploy site</code>
           <div class="row">
@@ -160,82 +162,85 @@
 
       <article class="step">
         <div class="step-head">
-          <h2>2) Open the hosted install page</h2>
+          <h2>2) Pick your data mode</h2>
           <span class="tag">Required</span>
         </div>
-        <p>Go to your deployed site and open <code>/install.html</code> in the browser.</p>
+        <p><strong>Simple mode (recommended for beginners):</strong> keep your tracks in a JSON file inside the site.</p>
+        <p><strong>Full mode:</strong> use MongoDB when you want dynamic editing, API writes, and scaling.</p>
+        <p class="small">So yes: MongoDB is optional for a basic install, but required for full admin/API features.</p>
         <div class="command">
-          <code>https://your-netlify-site.netlify.app/install.html</code>
+          <code>Simple mode file: public/albumfooter.json<br/>Full mode uses MONGODB_URI + MONGODB_DB_NAME</code>
           <div class="row">
-            <button data-copy="https://your-netlify-site.netlify.app/install.html">Copy URL template</button>
+            <button data-copy="Simple mode file: public/albumfooter.json\nFull mode uses MONGODB_URI + MONGODB_DB_NAME">Copy mode summary</button>
           </div>
         </div>
-        <label class="check"><input type="checkbox" data-step="2"/> I am on the hosted install page</label>
+        <label class="check"><input type="checkbox" data-step="2"/> I picked Simple mode or Full mode</label>
       </article>
 
       <article class="step">
         <div class="step-head">
-          <h2>3) Node runtime is already handled</h2>
-          <span class="tag">No local install</span>
+          <h2>3) Configure environment values (Full mode only)</h2>
+          <span class="tag">Skip in Simple mode</span>
         </div>
-        <p>Yes — Node is already running in Netlify Functions for your deployed site. You do <strong>not</strong> need to install Node.js locally for this flow.</p>
-        <p>Just continue with cloud configuration below.</p>
-        <div class="command">
-          <code>No local terminal commands needed for deployment setup.</code>
-          <div class="row">
-            <button data-copy="No local terminal commands needed for deployment setup.">Copy note</button>
-          </div>
-        </div>
-        <label class="check"><input type="checkbox" data-step="3"/> Understood: no local Node install is required</label>
-      </article>
-
-      <article class="step">
-        <div class="step-head">
-          <h2>4) Set up MongoDB (Atlas recommended)</h2>
-          <span class="tag">Required</span>
-        </div>
-        <p>Create a MongoDB Atlas cluster (or use an existing one), then create a database user and allow Netlify access in Network Access.</p>
-        <p>Copy your connection string and database name, then paste values below to generate environment variables for Netlify.</p>
+        <p>If you chose Full mode, paste your MongoDB details below and copy the generated variables into Netlify.</p>
+        <p>If you chose Simple mode, leave this section and continue to step 4.</p>
         <div class="env-builder">
           <div class="grid">
             <label>MongoDB connection string<input id="mongoUri" placeholder="mongodb+srv://..."/></label>
             <label>Database name<input id="dbName" placeholder="music"/></label>
             <label>Your Netlify app URL<input id="appBaseUrl" placeholder="https://your-site.netlify.app"/></label>
             <label>Paid file-hosting public base URL<input id="mediaBaseUrl" placeholder="https://media.yourdomain.com/music"/></label>
+            <label>FTP host<input id="ftpHost" placeholder="ftp.yourdomain.com"/></label>
+            <label>FTP username<input id="ftpUser" placeholder="your-ftp-user"/></label>
+            <label>FTP password<input id="ftpPassword" type="password" placeholder="your-ftp-password"/></label>
+            <label>FTP public base URL<input id="ftpPublicBaseUrl" placeholder="https://media.yourdomain.com"/></label>
+            <label>FTP base path (optional)<input id="ftpBasePath" placeholder="uploads"/></label>
+            <label style="display:flex; align-items:center; gap:8px;">
+              <input id="ftpSecure" type="checkbox"/>
+              Use secure FTP/SFTP mode
+            </label>
+            <label>Admin PIN for uploads (optional)<input id="adminPin" type="password" placeholder="1310"/></label>
           </div>
           <pre id="envOutput">MONGODB_URI=
 MONGODB_DB_NAME=
 APP_BASE_URL=https://your-site.netlify.app
-MEDIA_BASE_URL=https://media.yourdomain.com/music</pre>
+MEDIA_BASE_URL=https://media.yourdomain.com/music
+FTP_HOST=
+FTP_USER=
+FTP_PASSWORD=
+FTP_PUBLIC_BASE_URL=https://media.yourdomain.com
+FTP_BASE_PATH=uploads
+FTP_SECURE=false
+ADMIN_PIN=1310</pre>
           <div class="row">
             <button data-copy-target="envOutput">Copy environment variables</button>
             <span class="small">Paste these into <strong>Netlify → Site configuration → Environment variables</strong>.</span>
           </div>
         </div>
-        <label class="check"><input type="checkbox" data-step="4"/> MongoDB is configured and variables are saved in Netlify</label>
+        <label class="check"><input type="checkbox" data-step="3"/> Done this (or skipped because I chose Simple mode)</label>
       </article>
 
       <article class="step">
         <div class="step-head">
-          <h2>5) Configure external file hosting for uploads</h2>
+          <h2>4) Set up one-click uploads to external media hosting</h2>
           <span class="tag">Important</span>
         </div>
-        <p>Netlify is great for frontend + functions, but it is <strong>not</strong> where your long-term music/art files should live.</p>
-        <p>Use paid hosting/object storage for audio + artwork (for example: S3-compatible storage like Cloudflare R2/Bunny, or your own server via SFTP). Then store public file URLs in MongoDB.</p>
+        <p>You were right: upload should happen <strong>inside this app</strong>, not by sending people away to another site.</p>
+        <p>Configure your storage credentials (S3-compatible or SFTP) as Netlify environment variables so the upload button can send files directly there and save the returned URL automatically.</p>
         <div class="command">
-          <code>Recommended now: upload files to your paid host, then add resulting URLs in the app's insert/edit flows.</code>
+          <code>Goal flow: Click upload in app → function sends to your media host → URL saved automatically</code>
           <div class="row">
-            <button data-copy="Recommended now: upload files to your paid host, then add resulting URLs in the app's insert/edit flows.">Copy note</button>
-            <span class="small">This keeps the UX mostly click-based while avoiding Netlify storage limits.</span>
+            <button data-copy="Goal flow: Click upload in app → function sends to your media host → URL saved automatically">Copy goal flow</button>
+            <span class="small">No manual "upload elsewhere then paste URL" workflow.</span>
           </div>
         </div>
-        <p class="small"><strong>Upload UX plan:</strong> keep the in-app upload button, but route uploads from Netlify Function to your paid host (FTP/SFTP or S3-compatible API), then save returned URL to MongoDB.</p>
-        <label class="check"><input type="checkbox" data-step="5"/> External media hosting is configured and tested</label>
+        <p class="small">The upload buttons in `insert.html` already use `/.netlify/functions/uploadMedia`; once FTP environment variables are set, uploads happen in-app in one click.</p>
+        <label class="check"><input type="checkbox" data-step="4"/> Upload button stores files on my media host in one flow</label>
       </article>
 
       <article class="step">
         <div class="step-head">
-          <h2>6) Redeploy and verify</h2>
+          <h2>5) Redeploy and verify</h2>
           <span class="tag">Go live</span>
         </div>
         <div class="command">
@@ -245,11 +250,11 @@ MEDIA_BASE_URL=https://media.yourdomain.com/music</pre>
             <span class="small">Example: <code>https://your-site.netlify.app/player.html</code>.</span>
           </div>
         </div>
-        <label class="check"><input type="checkbox" data-step="6"/> The live app opened successfully</label>
+        <label class="check"><input type="checkbox" data-step="5"/> The live app opened successfully</label>
       </article>
     </section>
 
-    <p id="progress" class="small">Progress: 0/6 complete</p>
+    <p id="progress" class="small">Progress: 0/5 complete</p>
     <p id="status" class="done" aria-live="polite"></p>
   </main>
 
@@ -299,6 +304,13 @@ MEDIA_BASE_URL=https://media.yourdomain.com/music</pre>
     const dbName = document.getElementById('dbName');
     const appBaseUrl = document.getElementById('appBaseUrl');
     const mediaBaseUrl = document.getElementById('mediaBaseUrl');
+    const ftpHost = document.getElementById('ftpHost');
+    const ftpUser = document.getElementById('ftpUser');
+    const ftpPassword = document.getElementById('ftpPassword');
+    const ftpPublicBaseUrl = document.getElementById('ftpPublicBaseUrl');
+    const ftpBasePath = document.getElementById('ftpBasePath');
+    const ftpSecure = document.getElementById('ftpSecure');
+    const adminPin = document.getElementById('adminPin');
     const envOutput = document.getElementById('envOutput');
 
     function updateEnvPreview() {
@@ -306,11 +318,19 @@ MEDIA_BASE_URL=https://media.yourdomain.com/music</pre>
         `MONGODB_URI=${mongoUri.value.trim()}`,
         `MONGODB_DB_NAME=${dbName.value.trim()}`,
         `APP_BASE_URL=${appBaseUrl.value.trim() || 'https://your-site.netlify.app'}`,
-        `MEDIA_BASE_URL=${mediaBaseUrl.value.trim() || 'https://media.yourdomain.com/music'}`
+        `MEDIA_BASE_URL=${mediaBaseUrl.value.trim() || 'https://media.yourdomain.com/music'}`,
+        `FTP_HOST=${ftpHost.value.trim()}`,
+        `FTP_USER=${ftpUser.value.trim()}`,
+        `FTP_PASSWORD=${ftpPassword.value.trim()}`,
+        `FTP_PUBLIC_BASE_URL=${ftpPublicBaseUrl.value.trim() || 'https://media.yourdomain.com'}`,
+        `FTP_BASE_PATH=${ftpBasePath.value.trim() || 'uploads'}`,
+        `FTP_SECURE=${ftpSecure.checked ? 'true' : 'false'}`,
+        `ADMIN_PIN=${adminPin.value.trim() || '1310'}`
       ].join('\n');
     }
 
-    [mongoUri, dbName, appBaseUrl, mediaBaseUrl].forEach(input => input.addEventListener('input', updateEnvPreview));
+    [mongoUri, dbName, appBaseUrl, mediaBaseUrl, ftpHost, ftpUser, ftpPassword, ftpPublicBaseUrl, ftpBasePath, adminPin].forEach(input => input.addEventListener('input', updateEnvPreview));
+    ftpSecure.addEventListener('change', updateEnvPreview);
     updateEnvPreview();
   </script>
 </body>
