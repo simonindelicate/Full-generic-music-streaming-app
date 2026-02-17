@@ -132,8 +132,8 @@
     <section class="intro">
       <h1>Launch your music site on Netlify with zero guesswork</h1>
       <p>
-        This page focuses on the hosted flow only: deploy to Netlify, add MongoDB,
-        and run the app in production. No local machine setup required.
+        This page focuses on a production-safe hosted flow: Netlify for the app,
+        MongoDB for data, and external paid hosting for music/artwork files.
       </p>
       <p class="small">
         Tip: keep this page open while you work through the steps.
@@ -201,10 +201,12 @@
             <label>MongoDB connection string<input id="mongoUri" placeholder="mongodb+srv://..."/></label>
             <label>Database name<input id="dbName" placeholder="music"/></label>
             <label>Your Netlify app URL<input id="appBaseUrl" placeholder="https://your-site.netlify.app"/></label>
+            <label>Paid file-hosting public base URL<input id="mediaBaseUrl" placeholder="https://media.yourdomain.com/music"/></label>
           </div>
           <pre id="envOutput">MONGODB_URI=
 MONGODB_DB_NAME=
-APP_BASE_URL=https://your-site.netlify.app</pre>
+APP_BASE_URL=https://your-site.netlify.app
+MEDIA_BASE_URL=https://media.yourdomain.com/music</pre>
           <div class="row">
             <button data-copy-target="envOutput">Copy environment variables</button>
             <span class="small">Paste these into <strong>Netlify → Site configuration → Environment variables</strong>.</span>
@@ -215,7 +217,25 @@ APP_BASE_URL=https://your-site.netlify.app</pre>
 
       <article class="step">
         <div class="step-head">
-          <h2>5) Redeploy and verify</h2>
+          <h2>5) Configure external file hosting for uploads</h2>
+          <span class="tag">Important</span>
+        </div>
+        <p>Netlify is great for frontend + functions, but it is <strong>not</strong> where your long-term music/art files should live.</p>
+        <p>Use paid hosting/object storage for audio + artwork (for example: your own server via FTP/SFTP, Bunny/S3, Cloudflare R2, etc.), then store public file URLs in MongoDB.</p>
+        <div class="command">
+          <code>Recommended now: upload files to your paid host, then add resulting URLs in the app's insert/edit flows.</code>
+          <div class="row">
+            <button data-copy="Recommended now: upload files to your paid host, then add resulting URLs in the app's insert/edit flows.">Copy note</button>
+            <span class="small">This keeps the UX mostly click-based while avoiding Netlify storage limits.</span>
+          </div>
+        </div>
+        <p class="small"><strong>Upload UX plan:</strong> keep the in-app upload button, but route uploads from Netlify Function to your paid host (FTP/SFTP or S3-compatible API), then save returned URL to MongoDB.</p>
+        <label class="check"><input type="checkbox" data-step="5"/> External media hosting is configured and tested</label>
+      </article>
+
+      <article class="step">
+        <div class="step-head">
+          <h2>6) Redeploy and verify</h2>
           <span class="tag">Go live</span>
         </div>
         <div class="command">
@@ -225,11 +245,11 @@ APP_BASE_URL=https://your-site.netlify.app</pre>
             <span class="small">Example: <code>https://your-site.netlify.app/player.html</code>.</span>
           </div>
         </div>
-        <label class="check"><input type="checkbox" data-step="5"/> The live app opened successfully</label>
+        <label class="check"><input type="checkbox" data-step="6"/> The live app opened successfully</label>
       </article>
     </section>
 
-    <p id="progress" class="small">Progress: 0/5 complete</p>
+    <p id="progress" class="small">Progress: 0/6 complete</p>
     <p id="status" class="done" aria-live="polite"></p>
   </main>
 
@@ -278,17 +298,19 @@ APP_BASE_URL=https://your-site.netlify.app</pre>
     const mongoUri = document.getElementById('mongoUri');
     const dbName = document.getElementById('dbName');
     const appBaseUrl = document.getElementById('appBaseUrl');
+    const mediaBaseUrl = document.getElementById('mediaBaseUrl');
     const envOutput = document.getElementById('envOutput');
 
     function updateEnvPreview() {
       envOutput.textContent = [
         `MONGODB_URI=${mongoUri.value.trim()}`,
         `MONGODB_DB_NAME=${dbName.value.trim()}`,
-        `APP_BASE_URL=${appBaseUrl.value.trim() || 'https://your-site.netlify.app'}`
+        `APP_BASE_URL=${appBaseUrl.value.trim() || 'https://your-site.netlify.app'}`,
+        `MEDIA_BASE_URL=${mediaBaseUrl.value.trim() || 'https://media.yourdomain.com/music'}`
       ].join('\n');
     }
 
-    [mongoUri, dbName, appBaseUrl].forEach(input => input.addEventListener('input', updateEnvPreview));
+    [mongoUri, dbName, appBaseUrl, mediaBaseUrl].forEach(input => input.addEventListener('input', updateEnvPreview));
     updateEnvPreview();
   </script>
 </body>
