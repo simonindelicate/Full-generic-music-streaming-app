@@ -1,0 +1,10 @@
+{
+  "featuredRelease": {
+    "title": "Arcadia Park: Phariseeland",
+    "albumId": "arcadia-park-phariseeland",
+    "coverImageUrl": "https://phariseeland.indelicates.xyz/mp3/cover.jpg",
+    "tagline": "We welcome thee to phar'seeland and bid thee stay awhile.",
+    "ctaText": "Listen Now",
+    "ctaUrl": "player.html?album=arcadia-park-phariseeland"
+  }
+}

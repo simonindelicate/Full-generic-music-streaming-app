@@ -1,0 +1,28 @@
+[build]
+  publish = "public"
+  functions = "api"
+
+[[redirects]]
+  from = "/"
+  to = "/player.html"
+  status = 200
+
+[[redirects]]
+  from = "/album/:albumId"
+  to = "/.netlify/functions/makeSharePage?album=:albumId"
+  status = 200
+
+[[redirects]]
+  from = "/album/:albumId/track/:trackId"
+  to = "/.netlify/functions/makeSharePage?album=:albumId&track=:trackId"
+  status = 200
+
+[[redirects]]
+  from = "/track/:trackId"
+  to = "/.netlify/functions/makeSharePage?track=:trackId"
+  status = 200
+
+[[redirects]]
+  from = "/track/:trackId/:slug"
+  to = "/.netlify/functions/makeSharePage?track=:trackId"
+  status = 200

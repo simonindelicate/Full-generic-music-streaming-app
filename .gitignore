@@ -1,0 +1,6 @@
+# Local Netlify folder
+.netlify
+node_modules/
+
+# Generated media
+uploads/mp4/

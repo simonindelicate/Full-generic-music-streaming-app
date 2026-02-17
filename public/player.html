@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+    <head>
+      <title>Stream Everything By Simon Indelicate</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta name="description" content="Listen to 6+ hours of solo produced music by Simon Indelicate." />
+      <meta property="og:title" content="Stream Everything By Simon Indelicate" />
+      <meta property="og:description" content="Listen to 6+ hours of solo produced music by Simon Indelicate." />
+      <meta property="og:type" content="website" />
+      <meta property="og:url" content="" />
+      <meta property="og:image" content="/img/og_image.jpg" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Stream Everything By Simon Indelicate" />
+      <meta name="twitter:description" content="Listen to 6+ hours of solo produced music by Simon Indelicate." />
+      <meta name="twitter:image" content="/img/og_image.jpg" />
+      <meta name="theme-color" content="#0f0c14" />
+      <link rel="manifest" href="/manifest.webmanifest" />
+      <link rel="apple-touch-icon" href="/sigil.png" />
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
+      <link rel="stylesheet" href="/styles/style.css" />
+    </head>
+  <body>
+    <nav class="topbar">
+      <a class="nav-brand" id="brandHome" aria-label="Home" href="#">
+        <span class="brand-mark" id="brandMark"></span>
+        <span class="brand-word" id="brandWord">Simon Indelicate</span>
+      </a>
+      <div class="nav-actions">
+        <a
+          class="nav-link icon-only hidden"
+          id="tipJarLink"
+          aria-label="Tip jar"
+          title="Tip jar"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <i class="icon fa-solid fa-circle-dollar-to-slot" aria-hidden="true"></i>
+          <span class="sr-only">Tip jar</span>
+        </a>
+        <button class="nav-link icon-only" id="navAlbums" aria-label="Albums" title="Albums">
+          <i class="icon fa-solid fa-compact-disc" aria-hidden="true"></i>
+          <span class="sr-only">Albums</span>
+        </button>
+        <button class="nav-link icon-only" id="navNowPlaying" aria-label="Now playing" title="Open now playing">
+          <i class="icon fa-solid fa-wave-square" aria-hidden="true"></i>
+          <span class="sr-only">Now playing</span>
+        </button>
+        <button class="nav-link icon-only" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <i class="icon fa-solid fa-moon" aria-hidden="true"></i>
+          <span class="sr-only">Toggle dark mode</span>
+        </button>
+      </div>
+    </nav>
+
+    <main class="player-layout">
+      <section id="albumGallery" class="album-gallery-view">
+        <div class="gallery-header">
+          <div>
+            <p class="eyebrow">Library</p>
+            <h1 id="albumGalleryTitle">Albums</h1>
+            <p id="albumGallerySubtitle" class="gallery-subtitle hidden"></p>
+          </div>
+          <button id="refreshButton" type="button" class="refresh-button" title="Refresh albums"></button>
+        </div>
+        <div class="gallery-filters">
+          <a
+            id="aboutSiteLink"
+            class="about-site-link hidden"
+            href="info.html"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            about this website
+          </a>
+          <input id="filter-search" class="filter-search" type="search" placeholder="Search albums or tracks" aria-label="Search library" />
+          <!--
+          <label class="sr-only" for="filter-artist">Filter by artist</label>
+          <select id="filter-artist" aria-label="Filter albums by artist"></select>
+          <label class="sr-only" for="filter-year">Filter by year</label>
+          <select id="filter-year" aria-label="Filter albums by year"></select>
+          <label class="sr-only" for="filter-genre">Filter by genre</label>
+          <select id="filter-genre" aria-label="Filter albums by genre"></select>
+          -->
+        </div>
+        <section id="welcomeHero" class="welcome-hero hidden" aria-live="polite">
+          <div class="welcome-hero__media">
+            <img id="welcomeHeroCover" class="welcome-hero__cover" src="" alt="Featured release cover art" />
+          </div>
+          <div class="welcome-hero__body">
+            <p class="welcome-hero__label">Featured Release</p>
+            <h2 id="welcomeHeroTitle" class="welcome-hero__title">Featured Release</h2>
+            <p id="welcomeHeroCopy" class="welcome-hero__copy">
+              Let the welcome ritual continue with the release we are celebrating right now.
+            </p>
+            <div class="welcome-hero__actions">
+              <a id="welcomeHeroCta" class="pill primary" href="#" target="_blank" rel="noopener noreferrer">Listen now</a>
+            </div>
+          </div>
+        </section>
+        <div id="albumGalleryGrid" class="album-gallery-grid"></div>
+      </section>
+
+      <section id="albumDetail" class="album-detail-view hidden">
+        <div class="detail-header">
+          <button id="backToAlbums" class="ghost-button icon-only" aria-label="Back to albums" title="Back to albums">
+            <i class="icon fa-solid fa-arrow-left" aria-hidden="true"></i>
+            <span class="sr-only">Back to albums</span>
+          </button>
+          <div class="detail-title">
+            <p class="eyebrow">Album</p>
+            <h2 id="albumHeading"></h2>
+            <p id="albumLength" class="album-length" aria-live="polite"></p>
+          </div>
+        </div>
+        <div class="detail-body">
+          <div class="detail-cover" id="albumDetailCover" aria-hidden="true"></div>
+          <aside class="track-panel">
+            <div class="panel-header">
+              <h3>Track list</h3>
+              <button id="trackListToggle" class="icon-button" aria-expanded="true" aria-controls="tracksList">
+                <i class="icon fa-solid fa-chevron-up" aria-hidden="true"></i>
+                <span class="sr-only">Toggle track list</span>
+              </button>
+            </div>
+            <div class="track-list-container">
+              <ul id="tracksList"></ul>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="player-pane hidden" id="playerPane">
+        <div class="player-stage">
+          <div class="stage-visual">
+            <img class="track-artwork" src="" alt="Album Artwork" />
+            <div class="stage-meta">
+              <p class="eyebrow">Now playing</p>
+              <h1 class="track-title"></h1>
+              <p class="track-artist"></p>
+              <p class="album-title"></p>
+            </div>
+          </div>
+          <div class="player-controls">
+            <button class="circle ghost" id="prev-button" title="Previous track" aria-label="Previous track">
+              <i class="icon fa-solid fa-backward-step" aria-hidden="true"></i>
+              <span class="sr-only">Previous</span>
+            </button>
+            <button class="circle primary" id="play-button" title="Play or pause" aria-label="Play or pause">
+              <i class="icon fa-solid fa-play" aria-hidden="true"></i>
+              <span class="sr-only">Play or pause</span>
+            </button>
+            <button class="circle ghost" id="next-button" title="Next track" aria-label="Next track">
+              <i class="icon fa-solid fa-forward-step" aria-hidden="true"></i>
+              <span class="sr-only">Next</span>
+            </button>
+            <button class="circle ghost" id="shuffle-button" aria-label="Toggle shuffle" title="Toggle shuffle">
+              <i class="icon fa-solid fa-shuffle" aria-hidden="true"></i>
+              <span class="sr-only">Shuffle</span>
+            </button>
+            <button class="circle ghost" id="repeat-button" aria-label="Toggle repeat" title="Toggle repeat">
+              <i class="icon fa-solid fa-repeat" aria-hidden="true"></i>
+              <span class="sr-only">Repeat</span>
+            </button>
+            <div class="time-control">
+              <span class="timestamp" id="current-time">0:00</span>
+              <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" aria-label="Seek" />
+              <span class="timestamp" id="duration">0:00</span>
+            </div>
+            <label class="volume-control" aria-label="Volume" title="Adjust volume">
+              <i class="icon fa-solid fa-volume-high" aria-hidden="true"></i>
+              <span class="sr-only">Volume</span>
+              <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" aria-label="Volume" />
+            </label>
+          </div>
+          <div class="player-actions">
+            <button id="copy-link-button" class="pill" aria-label="Share track" title="Share track">
+              <i class="icon fa-solid fa-share-nodes" aria-hidden="true"></i>
+              <span class="sr-only">Share track</span>
+            </button>
+            <button class="pill ghost" id="expand-track" aria-label="Open full player" title="Full screen player">
+              <i class="icon fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+              <span class="sr-only">Full view</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="verse" class="stage-verse">
+          <p class="verse-text"></p>
+          <p class="track-medium"></p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="content"></div>
+      <details class="footer-disclosure">
+        <summary>&copy; Simon Indelicate</summary>
+        <div class="default-footer">
+          <p>
+            Unless otherwise stated elsewhere, you can assume that content on this website is &copy; Simon Indelicate. Arcadia Park
+            was acquired for the Public Domain by its passholders.
+          </p>
+          <p>
+            This website was created specifically as an attempt to circumnavigate the enshittified effective monopolies that
+            control Bandcamp and Spotify. Here, it is always Friday.
+          </p>
+          <p>
+            The code is a mess, but I'm going to make a public version of the repo set to public on github for you to clone, re-use,
+            improve and deploy for your own purposes, will link here, but <a href="https://discord.gg/xPTXeDZe">Join our discord.</a>
+            for updates
+          </p>
+          <p>
+            The downside of this is being cut off from discoverability algorithms, playlists etc. If you can, please enable my folly
+            by buying a physical copy or a download from <a href="https://www.indelicates.xyz">indelicates.xyz</a>. Don't worry if
+            you can't - but please do me a favour and share your favourite tracks on your socials - if you use the 'copy link'
+            button above it will create a song-specific sharing link that you can use to send your followers straight to your pick.
+            If you can review the work, discuss the work, invite me on your podcast to defend the work or otherwise engage with the
+            work publicly, that is even better. We can do this stuff well, I swear.
+          </p>
+        </div>
+      </details>
+    </footer>
+
+    <div class="now-playing inactive" id="now-playing">
+      <div class="np-meta" id="np-open">
+        <div class="np-art"></div>
+        <div class="np-text">
+          <p class="np-label">Now playing</p>
+          <p class="np-title"></p>
+          <p class="np-artist"></p>
+        </div>
+      </div>
+      <div class="np-controls">
+        <button class="circle ghost" id="np-prev" aria-label="Previous track" title="Previous track">
+          <i class="icon fa-solid fa-backward-step" aria-hidden="true"></i>
+          <span class="sr-only">Previous</span>
+        </button>
+        <button class="circle primary" id="np-play" aria-label="Play or pause" title="Play or pause">
+          <i class="icon fa-solid fa-play" aria-hidden="true"></i>
+          <span class="sr-only">Play or pause</span>
+        </button>
+        <button class="circle ghost" id="np-next" aria-label="Next track" title="Next track">
+          <i class="icon fa-solid fa-forward-step" aria-hidden="true"></i>
+          <span class="sr-only">Next</span>
+        </button>
+      </div>
+      <div class="np-secondary">
+        <button class="icon-pill" id="np-share" aria-label="Share track" title="Share track">
+          <i class="icon fa-solid fa-share-nodes" aria-hidden="true"></i>
+          <span class="sr-only">Share track</span>
+        </button>
+        <button class="icon-pill ghost" id="np-shuffle" aria-label="Toggle shuffle" title="Toggle shuffle">
+          <i class="icon fa-solid fa-shuffle" aria-hidden="true"></i>
+          <span class="sr-only">Shuffle</span>
+        </button>
+        <button class="icon-pill ghost" id="np-repeat" aria-label="Toggle repeat" title="Toggle repeat">
+          <i class="icon fa-solid fa-repeat" aria-hidden="true"></i>
+          <span class="sr-only">Repeat</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="track-overlay" id="track-overlay" aria-hidden="true">
+      <div class="overlay-content">
+        <button class="close-overlay" id="close-overlay" aria-label="Close full player" title="Close full player">
+          <i class="icon fa-solid fa-chevron-down" aria-hidden="true"></i>
+          <span class="sr-only">Close</span>
+        </button>
+        <div class="overlay-visual">
+          <img class="overlay-art" alt="Album art" />
+        </div>
+        <div class="overlay-meta">
+          <p class="eyebrow">Now playing</p>
+          <h2 class="overlay-title"></h2>
+          <p class="overlay-artist"></p>
+          <p class="overlay-album"></p>
+        </div>
+        <div class="overlay-controls">
+          <div class="overlay-progress">
+            <span class="timestamp" id="overlay-current-time">0:00</span>
+            <input type="range" id="overlay-seek-bar" min="0" max="100" value="0" step="0.1" aria-label="Seek in track" />
+            <span class="timestamp" id="overlay-duration">0:00</span>
+          </div>
+          <div class="transport">
+            <button class="circle ghost" id="overlay-prev" aria-label="Previous track" title="Previous track">
+              <i class="icon fa-solid fa-backward-step" aria-hidden="true"></i>
+              <span class="sr-only">Previous</span>
+            </button>
+            <button class="circle primary" id="overlay-play" aria-label="Play or pause" title="Play or pause">
+              <i class="icon fa-solid fa-play" aria-hidden="true"></i>
+              <span class="sr-only">Play or pause</span>
+            </button>
+            <button class="circle ghost" id="overlay-next" aria-label="Next track" title="Next track">
+              <i class="icon fa-solid fa-forward-step" aria-hidden="true"></i>
+              <span class="sr-only">Next</span>
+            </button>
+          </div>
+          <div class="overlay-actions">
+            <button id="overlay-share" class="icon-pill" aria-label="Share track" title="Share track">
+              <i class="icon fa-solid fa-share-nodes" aria-hidden="true"></i>
+              <span class="sr-only">Share track</span>
+            </button>
+            <button id="overlay-shuffle" class="icon-pill ghost" aria-label="Toggle shuffle" title="Toggle shuffle">
+              <i class="icon fa-solid fa-shuffle" aria-hidden="true"></i>
+              <span class="sr-only">Shuffle</span>
+            </button>
+            <button id="overlay-repeat" class="icon-pill ghost" aria-label="Toggle repeat" title="Toggle repeat">
+              <i class="icon fa-solid fa-repeat" aria-hidden="true"></i>
+              <span class="sr-only">Repeat</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/vendor/color-thief.min.js"></script>
+    <script type="module" src="/player/ui.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js').catch((error) => {
+            console.error('Service worker registration failed:', error);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

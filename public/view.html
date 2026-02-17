@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>View Track</title>
+    <link rel="stylesheet" href="/styles/admin.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <div class="card">
+        <h1>View Track</h1>
+        <div id="track" class="tracks-preview"></div>
+        <div id="status" class="status" style="display:none;"></div>
+        <div class="actions">
+          <a id="editLink" class="button-link" href="#">Edit Track</a>
+          <button id="publishToggle" type="button" class="button-link button-secondary">Toggle publish</button>
+          <button id="deleteTrack" type="button" class="button-link button-danger">Delete</button>
+          <a class="button-link button-secondary" href="edit.html">Back to list</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+      const status = document.getElementById('status');
+      const publishToggle = document.getElementById('publishToggle');
+      const deleteButton = document.getElementById('deleteTrack');
+      let currentTrack = null;
+
+      function formatTime(seconds = 0) {
+        if (!seconds) return '—';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60).toString().padStart(2, '0');
+        return `${mins}:${secs}`;
+      }
+
+      function showStatus(message, isError = false) {
+        status.textContent = message;
+        status.style.display = 'block';
+        status.style.background = isError ? '#fff3f3' : '#f1f7ff';
+        status.style.borderColor = isError ? '#f1aeb5' : '#d5e5ff';
+        status.style.color = isError ? '#8c1d2e' : '#1f4b99';
+      }
+
+      function renderTrack(track) {
+        const container = document.getElementById('track');
+        const rows = [
+          ['Track Name', track.trackName],
+          ['Artist', track.artistName],
+          ['Album', track.albumName],
+          ['Album ID', track.albumId],
+          ['Album Artwork', track.albumArtworkUrl],
+          ['Artwork URL', track.artworkUrl],
+          ['Audio URL', track.mp3Url],
+          ['Track Number', track.trackNumber],
+          ['Duration (seconds)', track.durationSeconds],
+          ['Duration (mm:ss)', formatTime(track.durationSeconds)],
+          ['Year', track.year],
+          ['Genre', track.genre],
+          ['Medium/Version', track.trackMedium],
+          ['Play Count', track.playCount],
+          ['Background', track.bgcolor],
+          ['Published', track.published === false ? 'No' : 'Yes'],
+          ['Track Text', track.trackText]
+        ];
+        container.innerHTML = rows
+          .map(([label, value]) => `<p><b>${label}</b>: ${value ?? '—'}</p>`)
+          .join('');
+        publishToggle.textContent = track.published === false ? 'Publish' : 'Unpublish';
+      }
+
+      async function togglePublish() {
+        if (!currentTrack) return;
+        const newStatus = currentTrack.published === false;
+        await fetch('/.netlify/functions/edit', {
+          method: 'POST',
+          body: JSON.stringify({ _id: currentTrack._id, published: newStatus })
+        });
+        currentTrack.published = newStatus;
+        renderTrack(currentTrack);
+        showStatus(`Track ${newStatus ? 'published' : 'unpublished'}.`, false);
+      }
+
+      async function deleteTrack() {
+        if (!currentTrack) return;
+        const confirmed = window.confirm(`Delete ${currentTrack.trackName}? This cannot be undone.`);
+        if (!confirmed) return;
+        await fetch('/.netlify/functions/edit', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: currentTrack._id })
+        });
+        showStatus('Track deleted. Use the back button to return to the list.', false);
+        publishToggle.disabled = true;
+        deleteButton.disabled = true;
+      }
+
+      fetch('/.netlify/functions/edit?id=' + id)
+        .then(res => res.json())
+        .then(track => {
+          currentTrack = track;
+          renderTrack(track);
+          document.getElementById('editLink').href = `fiddle.html?id=${id}`;
+        });
+
+      publishToggle.addEventListener('click', togglePublish);
+      deleteButton.addEventListener('click', deleteTrack);
+    </script>
+  </body>
+</html>

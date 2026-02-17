@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Edit Track</title>
+    <link rel="stylesheet" href="/styles/admin.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <div class="card">
+        <h1>Edit Track</h1>
+        <form id="editForm">
+          <input type="hidden" id="_id" />
+          <div class="form-grid">
+            <div>
+              <label>Track Name</label>
+              <input type="text" id="trackName" />
+            </div>
+            <div>
+              <label>Artist Name</label>
+              <input type="text" id="artistName" />
+            </div>
+            <div>
+              <label>Album Name</label>
+              <input type="text" id="albumName" />
+            </div>
+            <div>
+              <label>Album ID</label>
+              <input type="text" id="albumId" />
+            </div>
+            <div>
+              <label>Artwork URL</label>
+              <input type="text" id="artworkUrl" />
+            </div>
+            <div>
+              <label>Album Artwork URL</label>
+              <input type="text" id="albumArtworkUrl" />
+            </div>
+            <div>
+              <label>MP3 URL</label>
+              <div class="inline-field">
+                <input type="text" id="mp3Url" />
+                <button type="button" id="fetchMetadata" class="button-secondary">Fetch metadata</button>
+              </div>
+            </div>
+            <div>
+              <label>Track Number</label>
+              <input type="number" id="trackNumber" />
+            </div>
+            <div>
+              <label>Duration (seconds)</label>
+              <input type="number" id="durationSeconds" />
+            </div>
+            <div>
+              <label>Year</label>
+              <input type="number" id="year" />
+            </div>
+            <div>
+              <label>Genre</label>
+              <input type="text" id="genre" />
+            </div>
+            <div>
+              <label>Play Count</label>
+              <input type="number" id="playCount" />
+            </div>
+            <div>
+              <label>Track Medium</label>
+              <input type="text" id="trackMedium" />
+            </div>
+            <div>
+              <label>Background Colour</label>
+              <input type="text" id="bgcolor" placeholder="#ffffff" />
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="published" />
+              <label for="published" style="margin:0;">Published?</label>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="fav" />
+              <label for="fav" style="margin:0;">Favourite?</label>
+            </div>
+          </div>
+          <label>Track Text</label>
+          <textarea id="trackText"></textarea>
+          <div class="actions" style="margin-top:16px;">
+            <button type="submit">Update</button>
+            <a class="button-link button-secondary" href="edit.html">Back to list</a>
+          </div>
+          <div id="status" class="status" style="display:none;margin-top:12px;"></div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+      const status = document.getElementById('status');
+      const fetchMetadataBtn = document.getElementById('fetchMetadata');
+
+      const textDecoderLatin1 = new TextDecoder('latin1');
+      const textDecoderUtf16 = new TextDecoder('utf-16');
+
+      function decodeSynchsafe(bytes) {
+        return ((bytes[0] & 0x7f) << 21) | ((bytes[1] & 0x7f) << 14) | ((bytes[2] & 0x7f) << 7) | (bytes[3] & 0x7f);
+      }
+
+      function decodeFrameText(view) {
+        const encoding = view.getUint8(0);
+        const raw = new Uint8Array(view.buffer, view.byteOffset + 1, view.byteLength - 1);
+        if (encoding === 1 || encoding === 2) {
+          return textDecoderUtf16.decode(raw).replace(/\u0000/g, '').trim();
+        }
+        return textDecoderLatin1.decode(raw).replace(/\u0000/g, '').trim();
+      }
+
+      function parseId3Tags(buffer) {
+        const view = new DataView(buffer);
+        if (view.getUint8(0) !== 0x49 || view.getUint8(1) !== 0x44 || view.getUint8(2) !== 0x33) {
+          return {};
+        }
+
+        const version = view.getUint8(3);
+        const tagSize = decodeSynchsafe([view.getUint8(6), view.getUint8(7), view.getUint8(8), view.getUint8(9)]);
+        let offset = 10;
+        const metadata = {};
+
+        while (offset + 10 <= tagSize + 10) {
+          const frameId = String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3));
+          if (!frameId.trim()) break;
+
+          const frameSizeBytes = [view.getUint8(offset + 4), view.getUint8(offset + 5), view.getUint8(offset + 6), view.getUint8(offset + 7)];
+          const frameSize = version === 4 ? decodeSynchsafe(frameSizeBytes) : new DataView(new Uint8Array(frameSizeBytes).buffer).getUint32(0);
+          const frameStart = offset + 10;
+          const frameEnd = frameStart + frameSize;
+
+          if (frameEnd > buffer.byteLength) break;
+
+          const frameView = new DataView(buffer, frameStart, frameSize);
+          if (frameId.startsWith('T') && frameSize > 0) {
+            const text = decodeFrameText(frameView);
+            if (frameId === 'TIT2') metadata.trackName = text;
+            if (frameId === 'TPE1') metadata.artistName = text;
+            if (frameId === 'TALB') metadata.albumName = text;
+            if (frameId === 'TRCK') metadata.trackNumber = text.replace(/\D+/g, '') || text;
+            if (frameId === 'TDRC' || frameId === 'TYER') metadata.year = text;
+            if (frameId === 'TCON') metadata.genre = text;
+          }
+
+          offset = frameEnd;
+        }
+
+        return metadata;
+      }
+
+      function populateFieldsFromMetadata(metadata) {
+        if (metadata.trackName) document.getElementById('trackName').value = metadata.trackName;
+        if (metadata.artistName) document.getElementById('artistName').value = metadata.artistName;
+        if (metadata.albumName) document.getElementById('albumName').value = metadata.albumName;
+        if (metadata.trackNumber) document.getElementById('trackNumber').value = metadata.trackNumber;
+        if (metadata.year) document.getElementById('year').value = metadata.year;
+        if (metadata.genre) document.getElementById('genre').value = metadata.genre;
+        if (metadata.durationSeconds) {
+          document.getElementById('durationSeconds').value = Math.round(metadata.durationSeconds);
+        }
+      }
+
+      async function fetchAudioMetadata(url) {
+        status.style.display = 'block';
+        status.textContent = 'Fetching metadata...';
+        status.style.background = '#f1f7ff';
+        status.style.borderColor = '#d5e5ff';
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('Unable to fetch audio');
+
+          const arrayBuffer = await response.arrayBuffer();
+          const tagMetadata = parseId3Tags(arrayBuffer);
+
+          const audio = new Audio();
+          const blob = new Blob([arrayBuffer]);
+          audio.src = URL.createObjectURL(blob);
+
+          const duration = await new Promise((resolve, reject) => {
+            audio.addEventListener('loadedmetadata', () => resolve(audio.duration));
+            audio.addEventListener('error', () => reject(new Error('Could not load audio metadata')));
+          });
+
+          URL.revokeObjectURL(audio.src);
+          return { ...tagMetadata, durationSeconds: duration };
+        } catch (error) {
+          console.error(error);
+          status.textContent = 'Could not fetch metadata. Check the URL and CORS permissions.';
+          status.style.background = '#fff3f3';
+          status.style.borderColor = '#f1aeb5';
+          throw error;
+        }
+      }
+
+      fetch('/.netlify/functions/edit?id=' + id)
+        .then(response => response.json())
+        .then(track => {
+          document.getElementById('_id').value = track._id;
+          document.getElementById('trackName').value = track.trackName || '';
+          document.getElementById('artistName').value = track.artistName || '';
+          document.getElementById('albumName').value = track.albumName || '';
+          document.getElementById('albumId').value = track.albumId || '';
+          document.getElementById('artworkUrl').value = track.artworkUrl || '';
+          document.getElementById('albumArtworkUrl').value = track.albumArtworkUrl || '';
+          document.getElementById('mp3Url').value = track.mp3Url || '';
+          document.getElementById('trackNumber').value = track.trackNumber || '';
+          document.getElementById('durationSeconds').value = track.durationSeconds || '';
+          document.getElementById('year').value = track.year || '';
+          document.getElementById('genre').value = track.genre || '';
+          document.getElementById('playCount').value = track.playCount || '';
+          document.getElementById('trackText').value = track.trackText || '';
+          document.getElementById('trackMedium').value = track.trackMedium || '';
+          document.getElementById('bgcolor').value = track.bgcolor || '';
+          document.getElementById('published').checked = track.published !== false;
+          document.getElementById('fav').checked = track.fav === true || track.fav === 'true';
+
+          document.getElementById('editForm').onsubmit = event => {
+            event.preventDefault();
+
+            const updatedTrack = {
+              _id: document.getElementById('_id').value
+            };
+
+            if (track.trackName !== document.getElementById('trackName').value) {
+              updatedTrack.trackName = document.getElementById('trackName').value;
+            }
+            if (track.artistName !== document.getElementById('artistName').value) {
+              updatedTrack.artistName = document.getElementById('artistName').value;
+            }
+            if (track.albumName !== document.getElementById('albumName').value) {
+              updatedTrack.albumName = document.getElementById('albumName').value;
+            }
+            if (track.albumId !== document.getElementById('albumId').value) {
+              updatedTrack.albumId = document.getElementById('albumId').value;
+            }
+            if (track.artworkUrl !== document.getElementById('artworkUrl').value) {
+              updatedTrack.artworkUrl = document.getElementById('artworkUrl').value;
+            }
+            if (track.albumArtworkUrl !== document.getElementById('albumArtworkUrl').value) {
+              updatedTrack.albumArtworkUrl = document.getElementById('albumArtworkUrl').value;
+            }
+            if (track.mp3Url !== document.getElementById('mp3Url').value) {
+              updatedTrack.mp3Url = document.getElementById('mp3Url').value;
+            }
+            if (track.trackNumber != document.getElementById('trackNumber').value) {
+              updatedTrack.trackNumber = document.getElementById('trackNumber').value;
+            }
+            if (track.durationSeconds != document.getElementById('durationSeconds').value) {
+              updatedTrack.durationSeconds = document.getElementById('durationSeconds').value;
+              updatedTrack.duration = document.getElementById('durationSeconds').value;
+            }
+            if (track.year != document.getElementById('year').value) {
+              updatedTrack.year = document.getElementById('year').value;
+            }
+            if (track.genre !== document.getElementById('genre').value) {
+              updatedTrack.genre = document.getElementById('genre').value;
+            }
+            if (track.playCount != document.getElementById('playCount').value) {
+              updatedTrack.playCount = document.getElementById('playCount').value;
+            }
+            if (track.trackText !== document.getElementById('trackText').value) {
+              updatedTrack.trackText = document.getElementById('trackText').value;
+            }
+            if (track.trackMedium !== document.getElementById('trackMedium').value) {
+              updatedTrack.trackMedium = document.getElementById('trackMedium').value;
+            }
+            if (track.bgcolor !== document.getElementById('bgcolor').value) {
+              updatedTrack.bgcolor = document.getElementById('bgcolor').value;
+            }
+            const currentlyPublished = track.published !== false;
+            if (currentlyPublished !== document.getElementById('published').checked) {
+              updatedTrack.published = document.getElementById('published').checked;
+            }
+            updatedTrack.fav = document.getElementById('fav').checked;
+
+            fetch('/.netlify/functions/edit', {
+              method: 'POST',
+              body: JSON.stringify(updatedTrack)
+            })
+              .then(() => {
+                status.textContent = 'Track updated!';
+                status.style.display = 'block';
+              })
+              .catch(error => {
+                console.error('Error updating track:', error);
+                status.textContent = 'Error updating track';
+                status.style.display = 'block';
+                status.style.background = '#fff3f3';
+                status.style.borderColor = '#f1aeb5';
+              });
+          };
+
+          fetchMetadataBtn.addEventListener('click', async () => {
+            const url = document.getElementById('mp3Url').value.trim();
+            if (!url) {
+              status.textContent = 'Please provide an MP3 URL first.';
+              status.style.display = 'block';
+              status.style.background = '#fff3f3';
+              status.style.borderColor = '#f1aeb5';
+              return;
+            }
+
+            try {
+              const metadata = await fetchAudioMetadata(url);
+              populateFieldsFromMetadata(metadata);
+              status.textContent = 'Metadata populated from audio file.';
+              status.style.background = '#f1f7ff';
+              status.style.borderColor = '#d5e5ff';
+            } catch (error) {
+              console.error(error);
+            }
+          });
+        });
+    </script>
+  </body>
+</html>

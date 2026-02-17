@@ -1,0 +1,80 @@
+*********
+
+Simon Indelicate's Music Player
+
+*********
+
+***What is this website?***
+
+This website is designed to allow you to stream most of Simon Indelicate's solo catalogue.
+
+
+
+***How do I use it?***
+
+
+Press play. 
+
+Use the track skip controls or swipe left and right to skip tracks.
+
+Use the tracklist button to pick a track from the current album.
+
+Use the list of albums covers to choose a different album.
+
+On desktop, toggle the more albums menu with the albums button.
+
+Use the copy link to clipboard button and paste the formatted link in your socials to share the track directly.
+
+
+
+***Why Does it exist?***
+
+
+Several reasons.
+
+1. I think it's nice to sit down and focus on a single album. This site provides a way to do this digitally with the convenience of streaming but without the distractions of a streaming app.
+
+2. I wanted to put all these records in one place.
+
+3. I wanted a better way to share individual tracks.
+
+4. I am very bored of the convention that says that if I want to make music available to you I have to pay rent to a platform landlord owned by a megacorporation. Bandcamp, Spotify, YouTube, Distributors - all these centralised quasi monopolies in an inevitable spiral of enshittification. If I'm not going to get paid anything worth having for streaming, I may as well stream on my terms in a space I control.
+
+
+
+***That sounds worthwile, but how can I compensate you if you're not getting a subatomioc fraction of the money I pay to Spotify?***
+
+
+You can use the Ko-fi button on the site to just send me some money. You can go to indelicates.xyz and buy merch, physical media and digital downloads just like on bandcamp only much better. You can pay in kind by sharing tracks as often and as irritatingly as you can. You can just not worry about it and enjoy all the art - let me know if you like it.
+
+
+
+***You are right, this is a better way to do this than via some bunch of parasitical rake-taking wankers who have ruined music by making musicians the customers rather than the merchants in a business where they are the only ones actually creating value! How can I copy you?***
+
+
+Alright, calm down - no need to go overboard - but look, you can do this too. I've made my (very shit) code available for free on github. Copy it, change it - get chatGPT to help, it's amazing at fixing bits of code - and do exactly the same. It's not that hard.
+
+
+
+***Is this what you've been doing instead of finishing the new Indelicates album and the Paradise Rocks Cast Recording?***
+
+
+Shut up.
+
+
+
+***No but seriously, tho***
+
+
+This is an experiment. If you support it there will probably be a version for The Indelicates catalogue too and it will probably have a new album on it with Julia and everything.
+
+
+
+***cool***
+
+
+cool cool cool.
+
+
+
+
