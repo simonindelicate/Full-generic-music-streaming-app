@@ -165,9 +165,9 @@
         </div>
         <p>Go to your deployed site and open <code>/install.html</code> in the browser.</p>
         <div class="command">
-          <code>https://&lt;your-netlify-site&gt;/install.html</code>
+          <code>https://your-netlify-site.netlify.app/install.html</code>
           <div class="row">
-            <button data-copy="https://<your-netlify-site>/install.html">Copy URL template</button>
+            <button data-copy="https://your-netlify-site.netlify.app/install.html">Copy URL template</button>
           </div>
         </div>
         <label class="check"><input type="checkbox" data-step="2"/> I am on the hosted install page</label>
@@ -221,7 +221,7 @@ MEDIA_BASE_URL=https://media.yourdomain.com/music</pre>
           <span class="tag">Important</span>
         </div>
         <p>Netlify is great for frontend + functions, but it is <strong>not</strong> where your long-term music/art files should live.</p>
-        <p>Use paid hosting/object storage for audio + artwork (for example: your own server via FTP/SFTP, Bunny/S3, Cloudflare R2, etc.), then store public file URLs in MongoDB.</p>
+        <p>Use paid hosting/object storage for audio + artwork (for example: S3-compatible storage like Cloudflare R2/Bunny, or your own server via SFTP). Then store public file URLs in MongoDB.</p>
         <div class="command">
           <code>Recommended now: upload files to your paid host, then add resulting URLs in the app's insert/edit flows.</code>
           <div class="row">
