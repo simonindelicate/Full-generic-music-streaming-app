@@ -80,6 +80,13 @@
         reader.readAsDataURL(file);
       });
 
+      function buildUploadErrorMessage(result, fallback = 'Upload failed') {
+        const parts = [result?.message || fallback];
+        if (result?.detail) parts.push(`detail: ${result.detail}`);
+        if (result?.requestId) parts.push(`requestId: ${result.requestId}`);
+        return parts.join(' | ');
+      }
+
       async function uploadFileToMediaHost(file, folder, pinCode) {
         const contentBase64 = await readAsBase64(file);
         const response = await fetch('/.netlify/functions/uploadMedia', {
@@ -93,10 +100,28 @@
           })
         });
 
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.message || 'Upload failed');
+        let result = null;
+        try {
+          result = await response.json();
+        } catch (error) {
+          throw new Error('Upload endpoint returned non-JSON response.');
         }
+
+        if (!response.ok) {
+          console.error('Media upload error response', result);
+          throw new Error(buildUploadErrorMessage(result));
+        }
+
+        if (!result?.url) {
+          throw new Error(buildUploadErrorMessage(result, 'Upload finished but no media URL was returned.'));
+        }
+
+        console.info('Media upload succeeded', {
+          requestId: result.requestId,
+          bytes: result.bytes,
+          path: result.path,
+          diagnostics: result.diagnostics,
+        });
 
         return result.url;
       }
@@ -154,7 +179,7 @@
           try {
             const uploadedUrl = await uploadFileToMediaHost(file, 'audio', pinCode);
             urlInput.value = uploadedUrl;
-            uploadState.textContent = 'Uploaded and URL filled in automatically.';
+            uploadState.textContent = `Uploaded and URL filled in automatically: ${uploadedUrl}`;
           } catch (error) {
             uploadState.textContent = error.message;
           } finally {
@@ -280,7 +305,7 @@
           if (!document.getElementById('albumArtworkUrl').value.trim()) {
             document.getElementById('albumArtworkUrl').value = uploadedUrl;
           }
-          artworkUploadStatus.textContent = 'Artwork uploaded and URLs updated.';
+          artworkUploadStatus.textContent = `Artwork uploaded and URLs updated: ${uploadedUrl}`;
         } catch (error) {
           artworkUploadStatus.textContent = error.message;
         } finally {
