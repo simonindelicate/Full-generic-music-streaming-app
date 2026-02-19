@@ -144,6 +144,9 @@
         wrapper.innerHTML = `
           <label>Track name<input type="text" class="trackName" required /></label>
           <label>MP3 URL<input type="url" class="mp3Url" required /></label>
+          <label>Upload MP3<input type="file" class="trackFile" accept="audio/*" /></label>
+          <div class="inline-actions"><button type="button" class="button-link button-secondary uploadTrackButton">Upload audio</button></div>
+          <small class="meta trackUploadStatus"></small>
           <label>Order<input type="number" class="trackNumber" min="1" value="${nextTrackNumber}" required /></label>
           <label>Duration (s)<input type="number" class="durationSeconds" /></label>
           <label>Year<input type="number" class="trackYear" /></label>
@@ -153,6 +156,42 @@
           <small class="meta metadataHint">Metadata will auto-load from MP3 URL.</small>`;
 
         wrapper.querySelector('.mp3Url').addEventListener('change', () => autoFillTrackMetadata(wrapper));
+        wrapper.querySelector('.uploadTrackButton').addEventListener('click', async () => {
+          const fileInput = wrapper.querySelector('.trackFile');
+          const urlInput = wrapper.querySelector('.mp3Url');
+          const uploadState = wrapper.querySelector('.trackUploadStatus');
+          const file = fileInput.files[0];
+          const pinCode = document.getElementById('pinCode').value.trim();
+
+          if (!pinCode) {
+            uploadState.textContent = 'Enter PIN before uploading files.';
+            return;
+          }
+
+          if (!file) {
+            uploadState.textContent = 'Choose an audio file first.';
+            return;
+          }
+
+          const uploadButton = wrapper.querySelector('.uploadTrackButton');
+          uploadButton.disabled = true;
+          const originalLabel = uploadButton.textContent;
+          uploadButton.textContent = 'Uploading…';
+          uploadState.textContent = 'Uploading to media host…';
+
+          try {
+            const uploadedUrl = await uploadFileToMediaHost(file, 'audio', pinCode);
+            urlInput.value = uploadedUrl;
+            uploadState.textContent = `Audio uploaded: ${uploadedUrl}`;
+            autoFillTrackMetadata(wrapper);
+          } catch (error) {
+            uploadState.textContent = error.message;
+          } finally {
+            uploadButton.disabled = false;
+            uploadButton.textContent = originalLabel;
+          }
+        });
+
         nextTrackNumber++;
         return wrapper;
       }
