@@ -1,25 +1,11 @@
-const fs = require('fs');
-const path = require('path');
-const config = require('./dbConfig');
 const { fetchTrackDurationSeconds } = require('./audioUtils');
+const { appendTracks } = require('./lib/legacyTracksStore');
 
-const JSON_TRACKS_PATH = path.join(process.cwd(), 'public', 'tracks.json');
-
-const readJsonTracks = async () => {
-  try {
-    const content = await fs.promises.readFile(JSON_TRACKS_PATH, 'utf8');
-    const parsed = JSON.parse(content || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    if (error.code === 'ENOENT') return [];
-    throw error;
-  }
-};
-
-const writeJsonTracks = async (tracks) => {
-  await fs.promises.mkdir(path.dirname(JSON_TRACKS_PATH), { recursive: true });
-  await fs.promises.writeFile(JSON_TRACKS_PATH, JSON.stringify(tracks, null, 2));
-};
+const jsonResponse = (statusCode, payload) => ({
+  statusCode,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(payload),
+});
 
 const toTrackDocument = async (album, track, defaultPublished) => {
   let durationSeconds = 0;
@@ -67,15 +53,17 @@ const toTrackDocument = async (album, track, defaultPublished) => {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== 'POST') {
-      return {
-        statusCode: 405,
-        body: JSON.stringify({ message: 'Method not allowed' }),
-      };
+      return jsonResponse(405, { message: 'Method not allowed' });
     }
 
     const data = JSON.parse(event.body || '{}');
     const album = data.album || {};
-    const tracks = data.tracks || [];
+    const tracks = Array.isArray(data.tracks) ? data.tracks : [];
+
+    if (!album.albumName || !tracks.length) {
+      return jsonResponse(400, { message: 'album.albumName and at least one track are required' });
+    }
+
     const published = album.published === false || album.published === 'false' ? false : true;
 
     const trackDocuments = [];
@@ -83,40 +71,19 @@ exports.handler = async (event) => {
       trackDocuments.push(await toTrackDocument(album, track, published));
     }
 
-    const preferredStore = String(process.env.LEGACY_TRACK_STORE || 'json').toLowerCase();
+    const result = await appendTracks(trackDocuments);
 
-    if (preferredStore === 'mongodb') {
-      const { MongoClient } = require('mongodb');
-      const client = new MongoClient(config.mongodbUri, { useNewUrlParser: true, useUnifiedTopology: true });
-      try {
-        await client.connect();
-        const tracksCollection = client.db(config.databaseName).collection(config.collectionName);
-        for (const trackDocument of trackDocuments) {
-          await tracksCollection.insertOne(trackDocument);
-        }
-      } finally {
-        await client.close();
-      }
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Tracks added!', store: 'mongodb' }),
-      };
-    }
-
-    const existingTracks = await readJsonTracks();
-    const mergedTracks = existingTracks.concat(trackDocuments);
-    await writeJsonTracks(mergedTracks);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Tracks added!', store: 'json', count: trackDocuments.length }),
-    };
+    return jsonResponse(200, {
+      message: 'Tracks added!',
+      count: trackDocuments.length,
+      store: result.store,
+      path: result.path,
+    });
   } catch (err) {
     console.error(err);
-    return {
-      statusCode: 500,
-      body: err.message,
-    };
+    return jsonResponse(500, {
+      message: 'Failed to add tracks',
+      detail: err.message,
+    });
   }
 };
