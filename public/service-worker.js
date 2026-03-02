@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tmc-pwa-cache-v2';
+const CACHE_NAME = 'tmc-pwa-cache-v3';
 const OFFLINE_URL = '/player.html';
 const PRECACHE_ASSETS = [
   '/',
@@ -14,6 +14,10 @@ const PRECACHE_ASSETS = [
   '/title.png',
   '/favicon.ico'
 ];
+
+function isStaticAsset(pathname) {
+  return /\.(?:css|js|mjs|html|webmanifest)$/i.test(pathname);
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -34,18 +38,28 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') {
-    return;
-  }
+  if (event.request.method !== 'GET') return;
 
   const requestUrl = new URL(event.request.url);
-  if (requestUrl.origin !== self.location.origin) {
+  if (requestUrl.origin !== self.location.origin) return;
+
+  const pathname = requestUrl.pathname;
+
+  // Never cache the service worker script itself, otherwise updates can get stuck.
+  if (pathname === '/service-worker.js') {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
     return;
   }
 
-  const isApiRequest = requestUrl.pathname.startsWith('/.netlify/functions/');
-
+  const isApiRequest = pathname.startsWith('/.netlify/functions/');
   if (isApiRequest) {
+    // API responses must be fresh; do not persist stale copies across deploys.
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
+    return;
+  }
+
+  const isNavigation = event.request.mode === 'navigate';
+  if (isNavigation || isStaticAsset(pathname)) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -53,19 +67,14 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
           return response;
         })
-        .catch(() =>
-          caches.match(event.request).then((cachedResponse) => cachedResponse || caches.match(OFFLINE_URL))
-        )
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match(OFFLINE_URL)))
     );
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
+      if (cachedResponse) return cachedResponse;
       return fetch(event.request)
         .then((response) => {
           const responseClone = response.clone();
