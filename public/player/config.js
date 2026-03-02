@@ -1,7 +1,7 @@
 export const playerConfig = {
   siteBranding: {
     siteTitle: 'Tracks',
-    brandName: 'Simon Indelicate',
+    brandName: 'Independent Artist',
     logoUrl: ''
   },
   tipJar: {
@@ -13,8 +13,8 @@ export const playerConfig = {
     tracksFirstOnDesktop: false
   },
   welcomeAlbums: {
-    title: 'Albums by Simon Indelicate',
-    subtitle: 'Please enjoy this self-hosted, spiralling collection of music unsullied by middle men and landlords. Your <a href="support.html">support is welcomed</a>'
+    title: 'Albums',
+    subtitle: 'Explore this self-hosted collection. <a href="support.html">Support is welcome</a>.'
   },
   initialBackgroundColor: '#bdadb6',
   initialOverlayTone: 'rgba(189, 173, 182, 0.92);',

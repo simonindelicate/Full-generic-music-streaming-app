@@ -89,13 +89,14 @@ const INITIAL_OVERLAY_TONE = playerConfig?.initialOverlayTone || 'rgba(12, 12, 1
 const dynamicThemingEnabled = playerConfig?.dynamicTheming !== false;
 const DEFAULT_ART_PLACEHOLDER = '/img/icons8-music-album-64.png';
 const ALL_TRACKS_ALBUM_ID = playerConfig?.allTracksAlbum?.albumId || 'all-songs-shuffle';
-const DEFAULT_META_DESCRIPTION = 'Listen to tracks and albums.';
-const SITE_TITLE = playerConfig?.siteBranding?.siteTitle || 'Tracks';
-const BRAND_NAME = playerConfig?.siteBranding?.brandName || 'Simon Indelicate';
-const BRAND_LOGO_URL = playerConfig?.siteBranding?.logoUrl || '';
+let DEFAULT_META_DESCRIPTION = 'Listen to tracks and albums.';
+let SITE_TITLE = playerConfig?.siteBranding?.siteTitle || 'Tracks';
+let BRAND_NAME = playerConfig?.siteBranding?.brandName || 'Independent Artist';
+let BRAND_LOGO_URL = playerConfig?.siteBranding?.logoUrl || '';
 const DEFAULT_ALBUM_HEADING = 'Albums';
-const WELCOME_ALBUM_TITLE = playerConfig?.welcomeAlbums?.title || DEFAULT_ALBUM_HEADING;
-const WELCOME_ALBUM_SUBTITLE = playerConfig?.welcomeAlbums?.subtitle || '';
+let WELCOME_ALBUM_TITLE = playerConfig?.welcomeAlbums?.title || DEFAULT_ALBUM_HEADING;
+let WELCOME_ALBUM_SUBTITLE = playerConfig?.welcomeAlbums?.subtitle || '';
+let ABOUT_LINK_LABEL = 'about this website';
 const TRACKS_FIRST_DESKTOP = playerConfig?.layout?.tracksFirstOnDesktop === true;
 const TIP_JAR_CONFIG = playerConfig?.tipJar || {};
 const THEME_STORAGE_KEY = 'tmc-player-theme';
@@ -218,6 +219,27 @@ function refreshThemeForCurrentTrack() {
   }
   applyNeutralTheme();
   updateThemeBackground(currentBackgroundLayers);
+}
+
+
+async function applySiteSettings() {
+  try {
+    const response = await fetch('/.netlify/functions/siteSettings');
+    if (!response.ok) return;
+    const settings = await response.json();
+    SITE_TITLE = settings.siteTitle || SITE_TITLE;
+    BRAND_NAME = settings.brandName || BRAND_NAME;
+    DEFAULT_META_DESCRIPTION = settings.metaDescription || DEFAULT_META_DESCRIPTION;
+    BRAND_LOGO_URL = settings.logoUrl || BRAND_LOGO_URL;
+    WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
+    WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
+    ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
+    if (dom.aboutSiteLink) dom.aboutSiteLink.textContent = ABOUT_LINK_LABEL;
+    const footerSummary = document.querySelector('.footer-disclosure summary');
+    if (footerSummary && settings.footerSummary) footerSummary.innerHTML = settings.footerSummary;
+    const footerContent = document.querySelector('.default-footer');
+    if (footerContent && settings.footerContent) footerContent.innerHTML = settings.footerContent;
+  } catch (_error) {}
 }
 
 function applyBranding() {
@@ -1758,6 +1780,7 @@ function bindEvents() {
 
 export async function init() {
   initTheme();
+  await applySiteSettings();
   applyBranding();
   applyTipJarConfig();
   applyDesktopLayoutPreference();

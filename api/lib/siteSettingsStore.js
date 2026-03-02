@@ -14,10 +14,32 @@ const getFilePath = () => process.env.SITE_SETTINGS_PATH || path.join(config.sto
 
 const defaults = {
   siteTitle: 'My Streaming Site',
+  brandName: 'Independent Artist',
+  metaDescription: 'Stream music directly from this independent catalogue.',
+  shareDescription: 'Listen online via this self-hosted music player.',
+  ogImage: '/img/og_image.jpg',
+  aboutLinkLabel: 'About this site',
   palette: 'default',
   fontFamily: 'Inter, system-ui, sans-serif',
   headingFont: 'Inter, system-ui, sans-serif',
-  welcomeMessage: 'Welcome to the music archive.'
+  welcomeMessage: 'Welcome to the music archive.',
+  welcomeTitle: 'Albums',
+  welcomeSubtitle: 'Explore releases, intros, and shuffle collections.',
+  supportPageTitle: 'Support this project',
+  supportIntro: 'If you enjoy this archive and want to help sustain it, these options support future work.',
+  supportPrimaryHeading: 'Visit the store',
+  supportPrimaryBody: 'Pick up music, merch, or downloads through the main store.',
+  supportPrimaryUrl: 'https://example.com',
+  supportPrimaryCta: 'Visit store',
+  supportSecondaryHeading: 'Leave a tip',
+  supportSecondaryBody: 'Tips help fund hosting and future releases.',
+  supportEmbedUrl: '',
+  supportEmbedTitle: 'Support embed',
+  aboutPageTitle: 'About this site',
+  aboutPageEyebrow: 'Independent music player',
+  aboutPageContent: '<section><h2>What is this website?</h2><p>This player is designed for direct publishing, direct listening, and easy self-hosting.</p></section>',
+  footerSummary: '&copy; Independent Artist',
+  footerContent: '<p>Customize this footer in Site Settings.</p>'
 };
 
 async function readFtp() {
