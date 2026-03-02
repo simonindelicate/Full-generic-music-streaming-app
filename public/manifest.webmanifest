@@ -1,23 +1,14 @@
 {
-  "name": "Stream Everything By Simon Indelicate",
-  "short_name": "Indelicate Player",
-  "description": "Listen to the full Simon Indelicate catalogue.",
+  "name": "Music Streaming Player",
+  "short_name": "Music Player",
+  "description": "Listen to tracks and albums.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f0c14",
   "theme_color": "#0f0c14",
   "icons": [
-    {
-      "src": "/icon_192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/icon_512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/icon_192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

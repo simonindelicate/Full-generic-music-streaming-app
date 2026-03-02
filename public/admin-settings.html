@@ -11,14 +11,36 @@
       <div data-admin-tabs></div>
       <div class="card">
         <h1>Site settings</h1>
-        <p class="meta">Placeholder settings editor. Values are stored in JSON (FTP/file) so templates can be rendered dynamically rather than hardcoded in Netlify HTML.</p>
+        <p class="meta">Manage global branding/content. Values are stored in JSON (FTP/file) and consumed by site pages dynamically.</p>
         <form id="settingsForm">
-          <div class="form-grid">
+                    <div class="form-grid">
             <div><label for="siteTitle">Site title</label><input type="text" id="siteTitle" /></div>
+            <div><label for="brandName">Brand name</label><input type="text" id="brandName" /></div>
+            <div><label for="metaDescription">Meta description</label><input type="text" id="metaDescription" /></div>
+            <div><label for="shareDescription">Share description fallback</label><input type="text" id="shareDescription" /></div>
+            <div><label for="ogImage">OG image URL</label><input type="text" id="ogImage" placeholder="/img/og_image.jpg" /></div>
+            <div><label for="aboutLinkLabel">About-link label</label><input type="text" id="aboutLinkLabel" /></div>
             <div><label for="palette">Palette</label><input type="text" id="palette" placeholder="default | dark | warm" /></div>
             <div><label for="fontFamily">Body font</label><input type="text" id="fontFamily" placeholder="Inter, system-ui, sans-serif" /></div>
             <div><label for="headingFont">Heading font</label><input type="text" id="headingFont" /></div>
             <div style="grid-column: 1 / -1;"><label for="welcomeMessage">Welcome message</label><textarea id="welcomeMessage"></textarea></div>
+            <div><label for="welcomeTitle">Library heading</label><input type="text" id="welcomeTitle" /></div>
+            <div style="grid-column: 1 / -1;"><label for="welcomeSubtitle">Library subtitle (HTML allowed)</label><textarea id="welcomeSubtitle"></textarea></div>
+            <div><label for="aboutPageTitle">About page title</label><input type="text" id="aboutPageTitle" /></div>
+            <div><label for="aboutPageEyebrow">About page eyebrow</label><input type="text" id="aboutPageEyebrow" /></div>
+            <div style="grid-column: 1 / -1;"><label for="aboutPageContent">About page body HTML</label><textarea id="aboutPageContent" style="min-height:180px;"></textarea></div>
+            <div><label for="supportPageTitle">Support page title</label><input type="text" id="supportPageTitle" /></div>
+            <div style="grid-column: 1 / -1;"><label for="supportIntro">Support intro</label><textarea id="supportIntro"></textarea></div>
+            <div><label for="supportPrimaryHeading">Support card 1 heading</label><input type="text" id="supportPrimaryHeading" /></div>
+            <div><label for="supportPrimaryUrl">Support card 1 URL</label><input type="text" id="supportPrimaryUrl" /></div>
+            <div style="grid-column: 1 / -1;"><label for="supportPrimaryBody">Support card 1 body</label><textarea id="supportPrimaryBody"></textarea></div>
+            <div><label for="supportPrimaryCta">Support card 1 CTA</label><input type="text" id="supportPrimaryCta" /></div>
+            <div><label for="supportSecondaryHeading">Support card 2 heading</label><input type="text" id="supportSecondaryHeading" /></div>
+            <div style="grid-column: 1 / -1;"><label for="supportSecondaryBody">Support card 2 body</label><textarea id="supportSecondaryBody"></textarea></div>
+            <div><label for="supportEmbedUrl">Support embed URL</label><input type="text" id="supportEmbedUrl" /></div>
+            <div><label for="supportEmbedTitle">Support embed title</label><input type="text" id="supportEmbedTitle" /></div>
+            <div><label for="footerSummary">Footer summary (HTML allowed)</label><input type="text" id="footerSummary" /></div>
+            <div style="grid-column: 1 / -1;"><label for="footerContent">Footer content HTML</label><textarea id="footerContent" style="min-height:160px;"></textarea></div>
           </div>
           <div class="actions" style="margin-top:16px;"><button type="submit">Save settings</button></div>
         </form>
@@ -28,7 +50,14 @@
 
     <script>
       const status = document.getElementById('status');
-      const fields = ['siteTitle', 'palette', 'fontFamily', 'headingFont', 'welcomeMessage'];
+      const fields = [
+        'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel',
+        'palette','fontFamily','headingFont','welcomeMessage','welcomeTitle','welcomeSubtitle',
+        'aboutPageTitle','aboutPageEyebrow','aboutPageContent',
+        'supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
+        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle',
+        'footerSummary','footerContent'
+      ];
 
       function showStatus(message, isError = false) {
         status.textContent = message;

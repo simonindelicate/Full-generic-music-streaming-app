@@ -1,7 +1,8 @@
 const { ObjectId } = require('mongodb');
 const { loadTracks } = require('./lib/legacyTracksStore');
+const { loadSiteSettings } = require('./lib/siteSettingsStore');
 
-const DEFAULT_DESCRIPTION = 'Listen to Simon Indelicate online.';
+const FALLBACK_DESCRIPTION = 'Listen online via this self-hosted music player.';
 const DEFAULT_IMAGE = '/img/icons8-music-album-64.png';
 
 function slugify(text = '') {
@@ -58,9 +59,10 @@ function absoluteUrl(origin, url) {
   return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function buildShareHtml(meta = {}, redirectUrl) {
-  const title = meta.title || 'Simon Indelicate';
-  const description = meta.description || DEFAULT_DESCRIPTION;
+function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
+  const siteTitle = siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player';
+  const title = meta.title || siteTitle;
+  const description = meta.description || siteSettings.shareDescription || FALLBACK_DESCRIPTION;
   const image = meta.image;
   const canonical = meta.url;
   const type = meta.type || 'website';
@@ -74,7 +76,7 @@ function buildShareHtml(meta = {}, redirectUrl) {
     <meta name="description" content="${description}" />
     <meta property="og:title" content="${title}" />
     <meta property="og:description" content="${description}" />
-    <meta property="og:site_name" content="Simon Indelicate" />
+    <meta property="og:site_name" content="${siteTitle}" />
     <meta property="og:type" content="${type}" />
     ${canonical ? `<meta property="og:url" content="${canonical}" />` : ''}
     ${image ? `<meta property="og:image" content="${image}" />` : ''}
@@ -203,7 +205,8 @@ exports.handler = async event => {
   const { trackParam, albumParam } = extractRequestParams(event);
 
   try {
-    const { tracks } = await loadTracks();
+    const [trackData, siteSettings] = await Promise.all([loadTracks(), loadSiteSettings().catch(() => ({}))]);
+    const { tracks } = trackData;
 
     const track = fetchTrack(tracks, trackParam);
     const albumTrack = track ? null : fetchAlbumLeadTrack(tracks, albumParam);
@@ -211,14 +214,14 @@ exports.handler = async event => {
     const meta =
       buildTrackMeta(track, origin, albumParam) ||
       buildAlbumMeta(albumTrack, origin, albumParam) || {
-        title: 'Simon Indelicate',
-        description: DEFAULT_DESCRIPTION,
-        image: absoluteUrl(origin, DEFAULT_IMAGE),
+        title: siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player',
+        description: siteSettings.shareDescription || FALLBACK_DESCRIPTION,
+        image: absoluteUrl(origin, siteSettings.ogImage || DEFAULT_IMAGE),
         url: buildSlugPath(origin, track || albumTrack, albumParam),
         redirectUrl: buildRedirect(origin, { track: trackParam, album: albumParam }),
       };
 
-    const html = buildShareHtml(meta, meta.redirectUrl || meta.url);
+    const html = buildShareHtml(meta, meta.redirectUrl || meta.url, siteSettings);
 
     return {
       statusCode: track || albumTrack ? 200 : 404,
@@ -228,7 +231,7 @@ exports.handler = async event => {
   } catch (error) {
     console.error('Unable to generate share page', error);
     const fallbackUrl = buildRedirect(origin, { track: trackParam, album: albumParam });
-    const html = buildShareHtml({ title: 'Simon Indelicate', description: DEFAULT_DESCRIPTION }, fallbackUrl, requestUrl);
+    const html = buildShareHtml({ title: 'Music Streaming Player', description: FALLBACK_DESCRIPTION }, fallbackUrl, {});
     return {
       statusCode: 500,
       headers: { 'Content-Type': 'text/html; charset=UTF-8' },

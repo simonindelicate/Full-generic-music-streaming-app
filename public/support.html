@@ -3,188 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Support Simon Indelicate</title>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-      crossorigin="anonymous"
-    />
+    <title>Support</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
     <link rel="stylesheet" href="/styles/style.css" />
-    <style>
-      .support-hero {
-        max-width: 1080px;
-        margin: 48px auto 24px;
-        padding: 0 18px;
-        text-align: center;
-      }
-
-      .support-hero h1 {
-        font-size: clamp(32px, 4vw, 44px);
-        margin-bottom: 12px;
-      }
-
-      .support-hero p {
-        margin: 0 auto;
-        max-width: 720px;
-        color: rgba(17, 17, 24, 0.8);
-      }
-
-      .support-grid {
-        max-width: 1080px;
-        margin: 0 auto 48px;
-        padding: 0 18px 48px;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 18px;
-      }
-
-      .support-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 18px;
-        box-shadow: var(--shadow-soft);
-        text-align: center;
-      }
-
-      .support-card h2 {
-        font-size: 2rem;
-        margin-bottom: 8px;
-        text-align: center;
-      }
-
-      .support-card p {
-        margin-top: 0;
-        color: rgba(17, 17, 24, 0.8);
-        text-align: center;
-        margin-bottom: 30px;
-      }
-
-      .support-card .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        align-items: center;
-        margin-top: 12px;
-        justify-content: center;
-      }
-
-      .pill.primary {
-        text-decoration: none;
-      }
-
-      .embed-frame {
-        width: 100%;
-        border: none;
-        border-radius: 12px;
-        background: #f9f9f9;
-      }
-
-      .paypal-embed {
-        margin-top: 12px;
-      }
-      .support-hero img {
-        max-width: 90%;
-        width:400px;
-        margin: 20px auto 0;
-      }
-      .support-grid img {
-        max-width: 90%;
-        width:400px;
-        margin: auto;
-      }
-    </style>
+    <script src="/site-settings.js" defer></script>
   </head>
   <body>
     <nav class="topbar">
-      <a class="nav-brand" href="/" aria-label="Home">
-        <span class="brand-mark"></span>
-        <span class="brand-word">Simon Indelicate</span>
-      </a>
+      <a class="nav-brand" href="/" aria-label="Home"><span class="brand-mark"></span><span class="brand-word" id="supportBrand">Site</span></a>
       <div class="nav-actions">
-        <a class="nav-link" href="/player.html">
-          <i class="icon fa-solid fa-compact-disc" aria-hidden="true"></i>
-          <span>Listen</span>
-        </a>
-        <a class="nav-link icon-only" href="/support.html" aria-label="Support" title="Support">
-          <i class="icon fa-solid fa-circle-dollar-to-slot" aria-hidden="true"></i>
-          <span class="sr-only">Support</span>
-        </a>
+        <a class="nav-link" href="/player.html"><i class="icon fa-solid fa-compact-disc"></i><span>Listen</span></a>
       </div>
     </nav>
-
     <main>
-      <section class="support-hero">
+      <section class="support-hero" style="max-width:980px;margin:40px auto;padding:0 18px;text-align:center;">
         <p class="eyebrow">Support</p>
-                <img src="img/begging.jpg">
-        <h1>Support Simon Indelicate</h1>
-        <p>
-          If you'd like to make sure I keep making this stuff - this will make no difference, I have no more power over this compulsive content dissemination than you do. But if you think I should be rewarded financially, please either  find something you want to buy from the shop at indelicates.xyz, tip me or setup a recurring subscription on Ko-Fi. 
-        </p>
-
+        <h1 id="supportTitle">Support this project</h1>
+        <p id="supportIntro">If you enjoy this archive and want to help sustain it, these options support future work.</p>
       </section>
-
-      <section class="support-grid">
-        <article class="support-card">
-          <h2>Visit The Indelicates' Shop</h2>
-          
-          <p>
-            Just buy something - head to indelicates.xyz to pick up albums, merch and more. The margins on the Shirts are tiny, so if your main motivation is arts patronage buy something else.
-          </p>
-          <a href="https://indelicates.xyz"><img src="img/ishop.jpg"></a>
-          <div class="actions">
-            <a
-              class="pill primary"
-              href="https://indelicates.xyz"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <i class="icon fa-solid fa-store" aria-hidden="true"></i>
-              <span>Go to indelicates.xyz</span>
-            </a>
-          </div>
+      <section class="support-grid" style="max-width:1080px;margin:0 auto 48px;padding:0 18px 48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;">
+        <article class="support-card" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center;">
+          <h2 id="supportPrimaryHeading">Visit the store</h2>
+          <p id="supportPrimaryBody">Pick up music, merch, or downloads through the main store.</p>
+          <div class="actions"><a id="supportPrimaryLink" class="pill primary" href="#" target="_blank" rel="noopener noreferrer"><span id="supportPrimaryCta">Visit store</span></a></div>
         </article>
-
-        <article class="support-card">
-          <h2>Non-Universal Basic Patronage</h2>
-          <p>Ko-fi tips are quick, easy, and help keep the lighst on.</p>
-          <iframe
-            id="kofiframe"
-            class="embed-frame"
-            src="https://ko-fi.com/simonindelicate/?hidefeed=true&widget=true&embed=true&preview=true"
-            height="712"
-            title="Ko-fi: simonindelicate"
-          ></iframe>
-        </article>
-
-        <!-- <article class="support-card">
-          <h2>Subscribe on PayPal</h2>
-          <p>Set up a recurring contribution via PayPal to keep the music and projects moving.</p>
-          <div id="paypal-button-container-P-78906947SX963700YNESGPZI" class="paypal-embed"></div>
+        <article class="support-card" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center;">
+          <h2 id="supportSecondaryHeading">Leave a tip</h2>
+          <p id="supportSecondaryBody">Tips help fund hosting and future releases.</p>
+          <iframe id="supportEmbed" class="embed-frame" src="" height="712" title="Support embed"></iframe>
         </article>
       </section>
     </main>
-
-    <script src="https://www.paypal.com/sdk/js?client-id=ASO6QYzE0uWt_V12t3IUSEOdBSnXIghuMwzwmGP_g39bVXXi6_gjty4IpeIMd9XW4inji1App18hehmj&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
     <script>
-      paypal
-        .Buttons({
-          style: {
-            shape: 'rect',
-            color: 'white',
-            layout: 'vertical',
-            label: 'subscribe'
-          },
-          createSubscription: function (data, actions) {
-            return actions.subscription.create({
-              plan_id: 'P-78906947SX963700YNESGPZI'
-            });
-          },
-          onApprove: function (data, actions) {
-            alert(data.subscriptionID);
-          }
-        })
-        .render('#paypal-button-container-P-78906947SX963700YNESGPZI');
-    </script> -->
+      window.addEventListener('DOMContentLoaded', async () => {
+        const settings = await window.SiteSettings.loadSiteSettings();
+        document.title = settings.supportPageTitle || 'Support';
+        document.getElementById('supportBrand').textContent = settings.brandName || settings.siteTitle || 'Site';
+        document.getElementById('supportTitle').textContent = settings.supportPageTitle || 'Support this project';
+        document.getElementById('supportIntro').textContent = settings.supportIntro || '';
+        document.getElementById('supportPrimaryHeading').textContent = settings.supportPrimaryHeading || 'Visit the store';
+        document.getElementById('supportPrimaryBody').textContent = settings.supportPrimaryBody || '';
+        document.getElementById('supportPrimaryCta').textContent = settings.supportPrimaryCta || 'Visit store';
+        document.getElementById('supportPrimaryLink').href = settings.supportPrimaryUrl || '#';
+        document.getElementById('supportSecondaryHeading').textContent = settings.supportSecondaryHeading || 'Leave a tip';
+        document.getElementById('supportSecondaryBody').textContent = settings.supportSecondaryBody || '';
+        const embed = document.getElementById('supportEmbed');
+        embed.title = settings.supportEmbedTitle || 'Support embed';
+        if (settings.supportEmbedUrl) embed.src = settings.supportEmbedUrl; else embed.style.display = 'none';
+      });
+    </script>
   </body>
 </html>
