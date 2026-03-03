@@ -30,19 +30,19 @@
 [[headers]]
   for = "/player.html"
   [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
   for = "/service-worker.js"
   [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate"
+    Cache-Control = "no-store"
 
 [[headers]]
-  for = "/site-settings.js"
+  for = "/welcome-config.json"
   [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
-  for = "/.netlify/functions/*"
+  for = "/.netlify/functions/siteSettings"
   [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate"
+    Cache-Control = "private, max-age=0, must-revalidate"

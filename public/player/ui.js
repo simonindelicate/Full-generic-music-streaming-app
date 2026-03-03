@@ -224,7 +224,7 @@ function refreshThemeForCurrentTrack() {
 
 async function applySiteSettings() {
   try {
-    const response = await fetch(`/.netlify/functions/siteSettings?_=${Date.now()}`, { cache: 'no-store' });
+    const response = await fetch('/.netlify/functions/siteSettings', { cache: 'no-cache' });
     if (!response.ok) return;
     const settings = await response.json();
     SITE_TITLE = settings.siteTitle || SITE_TITLE;
@@ -437,8 +437,8 @@ function chooseCanonicalFeaturedRelease(...candidates) {
 async function loadWelcomeHero() {
   try {
     const [siteSettingsResponse, welcomeResponse] = await Promise.all([
-      fetch(`/.netlify/functions/siteSettings?_=${Date.now()}`, { cache: 'no-store' }).catch(() => null),
-      fetch(`/welcome-config.json?_=${Date.now()}`, { cache: 'no-store' }).catch(() => null)
+      fetch('/.netlify/functions/siteSettings', { cache: 'no-cache' }).catch(() => null),
+      fetch('/welcome-config.json', { cache: 'no-cache' }).catch(() => null)
     ]);
 
     let settingsFeatured = null;
