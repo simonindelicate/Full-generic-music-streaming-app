@@ -57,13 +57,6 @@
       const uploadArtworkButton = document.getElementById('uploadArtworkButton');
       const artworkUploadStatus = document.getElementById('artworkUploadStatus');
 
-      const readAsBase64 = (file) => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
       function buildUploadErrorMessage(result, fallback = 'Upload failed') {
         const parts = [result?.message || fallback];
         if (result?.detail) parts.push(`detail: ${result.detail}`);
@@ -71,18 +64,63 @@
         return parts.join(' | ');
       }
 
-      async function uploadFileToMediaHost(file, folder, pinCode) {
-        const contentBase64 = await readAsBase64(file);
-        const response = await fetch('/.netlify/functions/uploadMedia', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pinCode, fileName: file.name, contentBase64, folder })
-        });
+      async function parseUploadResponse(response) {
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        const rawText = await response.text();
+        const isLikelyJson = contentType.includes('application/json') || rawText.trim().startsWith('{') || rawText.trim().startsWith('[');
+        if (!isLikelyJson) {
+          const preview = rawText.replace(/\s+/g, ' ').trim().slice(0, 140);
+          throw new Error(`Upload endpoint returned non-JSON response (status ${response.status}${preview ? `, body starts with: ${preview}` : ''}).`);
+        }
 
-        let result = null;
-        try { result = await response.json(); } catch (_error) { throw new Error('Upload endpoint returned non-JSON response.'); }
-        if (!response.ok) throw new Error(buildUploadErrorMessage(result));
-        if (!result?.url) throw new Error(buildUploadErrorMessage(result, 'Upload finished but no media URL was returned.'));
+        try {
+          return JSON.parse(rawText || '{}');
+        } catch (_error) {
+          throw new Error(`Upload endpoint returned invalid JSON (status ${response.status}).`);
+        }
+      }
+
+      function shouldUseApiFallback() {
+        return ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+      }
+      async function sendUploadRequest(endpoint, file, folder, pinCode) {
+        const formData = new FormData();
+        formData.append('pinCode', pinCode);
+        formData.append('folder', folder);
+        formData.append('file', file, file.name);
+
+        return fetch(endpoint, {
+          method: 'POST',
+          body: formData
+        });
+      }
+
+      async function uploadFileToMediaHost(file, folder, pinCode) {
+        const primaryEndpoint = '/.netlify/functions/uploadMedia';
+
+        let response;
+        try {
+          response = await sendUploadRequest(primaryEndpoint, file, folder, pinCode);
+        } catch (error) {
+          if (!shouldUseApiFallback()) throw error;
+          const fallbackResponse = await sendUploadRequest('/api/uploadMedia', file, folder, pinCode);
+          const fallbackResult = await parseUploadResponse(fallbackResponse);
+          if (!fallbackResponse.ok) throw new Error(buildUploadErrorMessage(fallbackResult, 'Upload failed via /api/uploadMedia'));
+          if (!fallbackResult?.url) throw new Error(buildUploadErrorMessage(fallbackResult, 'Upload via /api/uploadMedia finished but no media URL was returned.'));
+          return fallbackResult.url;
+        }
+
+        let result;
+        try {
+          result = await parseUploadResponse(response);
+        } catch (error) {
+          throw error;
+        }
+
+        if (!response.ok) {
+          throw new Error(buildUploadErrorMessage(result, `Upload failed via ${primaryEndpoint}`));
+        }
+        if (!result?.url) throw new Error(buildUploadErrorMessage(result, `Upload via ${primaryEndpoint} finished but no media URL was returned.`));
         return result.url;
       }
 
