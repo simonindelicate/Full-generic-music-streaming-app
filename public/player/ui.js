@@ -85,6 +85,7 @@ const paletteCache = new Map();
 const artworkPreloadCache = new Map();
 const audioPreloadCache = new Map();
 const INITIAL_BACKGROUND = playerConfig?.initialBackgroundColor || '#f7f5f0';
+let SITE_BACKGROUND_COLOR = INITIAL_BACKGROUND;
 const INITIAL_OVERLAY_TONE = playerConfig?.initialOverlayTone || 'rgba(12, 12, 18, 0.92)';
 let dynamicThemingEnabled = playerConfig?.dynamicTheming !== false;
 const DEFAULT_ART_PLACEHOLDER = '/img/icons8-music-album-64.png';
@@ -238,7 +239,10 @@ async function applySiteSettings() {
     const themeColorMeta = document.querySelector('meta[name="theme-color"]') || (() => { const el = document.createElement('meta'); el.name = 'theme-color'; document.head.appendChild(el); return el; })();
     themeColorMeta.content = settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
     const rootStyle = document.documentElement.style;
-    if (settings.themeBackground) rootStyle.setProperty('--paper', settings.themeBackground);
+    if (settings.themeBackground) {
+      SITE_BACKGROUND_COLOR = settings.themeBackground;
+      rootStyle.setProperty('--paper', settings.themeBackground);
+    }
     if (settings.themePanelSurface) rootStyle.setProperty('--panel-surface', settings.themePanelSurface);
     if (settings.themeTopbarSurface) rootStyle.setProperty('--nav-surface', settings.themeTopbarSurface);
     if (settings.themeControlSurface) rootStyle.setProperty('--control-surface', settings.themeControlSurface);
@@ -674,7 +678,9 @@ function updateThemeBackground(layers) {
 }
 
 function applyNeutralTheme(track) {
-  const fallbackBg = track?.bgcolor || INITIAL_BACKGROUND;
+  const fallbackBg = (!dynamicThemingEnabled && !isDarkMode())
+    ? SITE_BACKGROUND_COLOR
+    : (track?.bgcolor || SITE_BACKGROUND_COLOR || INITIAL_BACKGROUND);
   setBaseBackgroundColor(fallbackBg);
   const overlayTone = isDarkMode() ? DARK_OVERLAY_TONE : INITIAL_OVERLAY_TONE;
   document.documentElement.style.setProperty('--overlay-tone', overlayTone);
