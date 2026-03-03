@@ -36,6 +36,96 @@ const addStep = (diagnostics, stage, data = {}) => {
   });
 };
 
+const toRawBodyBuffer = (event) => {
+  const body = event.body || '';
+  if (event.isBase64Encoded) return Buffer.from(body, 'base64');
+  return Buffer.from(body, 'utf8');
+};
+
+const parseMultipartBody = async (event, diagnostics) => {
+  const headers = event.headers || {};
+  const contentType = headers['content-type'] || headers['Content-Type'] || '';
+  const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
+  if (!boundaryMatch) throw new Error('Missing multipart boundary');
+
+  const boundary = `--${boundaryMatch[1].trim().replace(/^"|"$/g, '')}`;
+  const rawBuffer = toRawBodyBuffer(event);
+  const rawText = rawBuffer.toString('latin1');
+
+  const sections = rawText.split(boundary).slice(1, -1);
+  const fields = {};
+  let fileName = '';
+  let fileBuffer = Buffer.alloc(0);
+
+  for (const section of sections) {
+    let part = section;
+    if (part.startsWith('\r\n')) part = part.slice(2);
+    if (part.endsWith('\r\n')) part = part.slice(0, -2);
+
+    const headerEnd = part.indexOf('\r\n\r\n');
+    if (headerEnd === -1) continue;
+
+    const headerText = part.slice(0, headerEnd);
+    const bodyText = part.slice(headerEnd + 4);
+    const disposition = headerText.split('\r\n').find((line) => /^content-disposition:/i.test(line)) || '';
+
+    const nameMatch = disposition.match(/name="([^"]+)"/i);
+    if (!nameMatch) continue;
+
+    const fieldName = nameMatch[1];
+    const filenameMatch = disposition.match(/filename="([^"]*)"/i);
+
+    if (filenameMatch) {
+      fileName = safeFilename(filenameMatch[1]);
+      fileBuffer = Buffer.from(bodyText, 'latin1');
+    } else {
+      fields[fieldName] = bodyText;
+    }
+  }
+
+  addStep(diagnostics, 'request.multipart_parsed', {
+    fileName,
+    folder: normalizeSegment(fields.folder || 'misc') || 'misc',
+    bytes: fileBuffer.length,
+  });
+
+  return {
+    pinCode: fields.pinCode || '',
+    fileName,
+    folder: normalizeSegment(fields.folder || 'misc') || 'misc',
+    buffer: fileBuffer,
+  };
+};
+
+const parseJsonBody = (event, diagnostics) => {
+  let body;
+  try {
+    body = JSON.parse(event.body || '{}');
+  } catch (error) {
+    addStep(diagnostics, 'rejected.json_parse', { error: error.message });
+    return { error: 'Invalid JSON body' };
+  }
+
+  const fileName = safeFilename(body.fileName);
+  const contentBase64 = body.contentBase64 || '';
+  const buffer = Buffer.from(contentBase64, 'base64');
+  const folder = normalizeSegment(body.folder || 'misc') || 'misc';
+
+  addStep(diagnostics, 'request.json_parsed', {
+    fileName,
+    folder,
+    contentLengthBase64: String(contentBase64 || '').length,
+    bytes: buffer.length,
+  });
+
+  return {
+    pinCode: body.pinCode || '',
+    fileName,
+    folder,
+    buffer,
+  };
+};
+
 exports.handler = async (event) => {
   const requestId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   const diagnostics = buildDiagnostics(requestId);
@@ -45,37 +135,45 @@ exports.handler = async (event) => {
     return json(405, { message: 'Method not allowed', requestId, diagnostics });
   }
 
-  let body;
-  try {
-    body = JSON.parse(event.body || '{}');
-  } catch (error) {
-    addStep(diagnostics, 'rejected.json_parse', { error: error.message });
-    return json(400, { message: 'Invalid JSON body', requestId, diagnostics });
+  const headers = event.headers || {};
+  const contentType = (headers['content-type'] || headers['Content-Type'] || '').toLowerCase();
+
+  let payload;
+  if (contentType.includes('multipart/form-data')) {
+    try {
+      payload = await parseMultipartBody(event, diagnostics);
+    } catch (error) {
+      addStep(diagnostics, 'rejected.multipart_parse', { error: error.message });
+      return json(400, { message: 'Invalid multipart upload payload', detail: error.message, requestId, diagnostics });
+    }
+  } else {
+    const parsed = parseJsonBody(event, diagnostics);
+    if (parsed?.error) {
+      return json(400, { message: parsed.error, requestId, diagnostics });
+    }
+    payload = parsed;
   }
 
   addStep(diagnostics, 'request.received', {
-    hasPinCode: Boolean(body.pinCode),
-    fileName: safeFilename(body.fileName),
-    folder: normalizeSegment(body.folder || 'misc') || 'misc',
-    contentLengthBase64: String(body.contentBase64 || '').length,
+    hasPinCode: Boolean(payload.pinCode),
+    fileName: payload.fileName,
+    folder: payload.folder,
+    bytes: payload.buffer.length,
+    contentType,
   });
 
   const requiredPin = process.env.ADMIN_PIN || '1310';
-  if ((body.pinCode || '') !== requiredPin) {
+  if ((payload.pinCode || '') !== requiredPin) {
     addStep(diagnostics, 'rejected.pin_mismatch');
     return json(401, { message: 'Invalid PIN code', requestId, diagnostics });
   }
 
-  const fileName = safeFilename(body.fileName);
-  const contentBase64 = body.contentBase64 || '';
-  const folder = normalizeSegment(body.folder || 'misc') || 'misc';
-
-  if (!fileName || !contentBase64) {
+  if (!payload.fileName || !payload.buffer.length) {
     addStep(diagnostics, 'rejected.missing_payload', {
-      hasFileName: Boolean(fileName),
-      hasContentBase64: Boolean(contentBase64),
+      hasFileName: Boolean(payload.fileName),
+      hasBuffer: Boolean(payload.buffer.length),
     });
-    return json(400, { message: 'fileName and contentBase64 are required', requestId, diagnostics });
+    return json(400, { message: 'file and pinCode are required', requestId, diagnostics });
   }
 
   const ftpHost = process.env.FTP_HOST;
@@ -99,9 +197,8 @@ exports.handler = async (event) => {
   }
 
   const stamp = Date.now();
-  const remotePath = [ftpBasePath, folder, `${stamp}-${fileName}`].filter(Boolean).join('/');
+  const remotePath = [ftpBasePath, payload.folder, `${stamp}-${payload.fileName}`].filter(Boolean).join('/');
   const remoteDirectory = path.posix.dirname(remotePath);
-  const buffer = Buffer.from(contentBase64, 'base64');
 
   addStep(diagnostics, 'upload.prepared', {
     remotePath,
@@ -109,13 +206,8 @@ exports.handler = async (event) => {
     ftpHost: redactHost(ftpHost),
     ftpUser,
     secure: process.env.FTP_SECURE === 'true',
-    bytes: buffer.length,
+    bytes: payload.buffer.length,
   });
-
-  if (!buffer.length) {
-    addStep(diagnostics, 'rejected.empty_buffer');
-    return json(400, { message: 'Decoded upload file is empty.', requestId, diagnostics });
-  }
 
   const client = new ftp.Client();
   client.ftp.verbose = false;
@@ -137,13 +229,13 @@ exports.handler = async (event) => {
     addStep(diagnostics, 'ftp.pwd.after_ensureDir', { pwd: ftpUploadDir });
 
     const remoteFileName = path.posix.basename(remotePath);
-    await client.uploadFrom(Readable.from(buffer), remoteFileName);
+    await client.uploadFrom(Readable.from(payload.buffer), remoteFileName);
     addStep(diagnostics, 'ftp.upload.complete', { remoteFileName });
 
     const uploadedFileSize = await client.size(remoteFileName);
     addStep(diagnostics, 'ftp.verify.size', { uploadedFileSize });
-    if (uploadedFileSize !== buffer.length) {
-      const mismatchMessage = `Uploaded file size mismatch (expected ${buffer.length}, got ${uploadedFileSize})`;
+    if (uploadedFileSize !== payload.buffer.length) {
+      const mismatchMessage = `Uploaded file size mismatch (expected ${payload.buffer.length}, got ${uploadedFileSize})`;
       addStep(diagnostics, 'ftp.verify.failed', { mismatchMessage });
       throw new Error(mismatchMessage);
     }
@@ -151,18 +243,10 @@ exports.handler = async (event) => {
     const publicUrl = `${ftpPublicBaseUrl}/${remotePath}`;
     addStep(diagnostics, 'upload.success', { publicUrl });
 
-    console.log('Media upload succeeded', {
-      requestId,
-      remotePath,
-      bytes: buffer.length,
-      ftpHost: redactHost(ftpHost),
-      secure: process.env.FTP_SECURE === 'true',
-    });
-
     return json(200, {
       message: 'Upload complete',
       url: publicUrl,
-      bytes: buffer.length,
+      bytes: payload.buffer.length,
       path: remotePath,
       requestId,
       diagnostics,
@@ -173,14 +257,6 @@ exports.handler = async (event) => {
       errorCode: error.code,
       errorName: error.name,
       stack: error.stack,
-    });
-
-    console.error('Upload failed', {
-      requestId,
-      errorMessage: error.message,
-      errorCode: error.code,
-      errorStack: error.stack,
-      diagnostics,
     });
 
     return json(500, { message: 'Upload failed', detail: error.message, requestId, diagnostics });
