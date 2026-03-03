@@ -2,7 +2,7 @@ const { loadSiteSettings, saveSiteSettings } = require('./lib/siteSettingsStore'
 
 const jsonResponse = (statusCode, payload) => ({
   statusCode,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=0, must-revalidate' },
   body: JSON.stringify(payload),
 });
 

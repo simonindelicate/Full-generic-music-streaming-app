@@ -31,7 +31,10 @@
         <form id="albumForm">
           <div class="form-grid">
             <div><label for="albumName">Album name</label><input type="text" id="albumName" required /></div>
-            <div><label for="albumId">Album ID</label><input type="text" id="albumId" /></div>
+            <div>
+              <label for="albumId">Release ID (optional)</label>
+              <input type="text" id="albumId" placeholder="slug-for-share-links" />
+            </div>
             <div><label for="artistName">Artist name</label><input type="text" id="artistName" /></div>
             <div><label for="artworkUrl">Artwork URL</label><input type="url" id="artworkUrl" /></div>
             <div><label for="albumArtworkUrl">Album artwork URL</label><input type="url" id="albumArtworkUrl" /></div>
@@ -77,6 +80,13 @@
       function showStatus(message, isError = false) { status.textContent = message; status.style.display = 'block'; status.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
       function showTrackStatus(message, isError = false) { trackStatus.textContent = message; trackStatus.style.display = 'block'; trackStatus.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
       function showFeaturedStatus(message, isError = false) { featuredStatus.textContent = message; featuredStatus.style.display = 'block'; featuredStatus.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
+      function slugify(value = '') {
+        return String(value || '')
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      }
 
       function renderAlbumOptions() {
         albumSelect.innerHTML = '<option value="">Select release</option>';
@@ -174,8 +184,7 @@
       setFeaturedButton.addEventListener('click', async () => {
         if (!activeAlbum) return showFeaturedStatus('Select an album first.', true);
 
-        const albumId = (fields.albumId.value || activeAlbum.albumId || '').trim();
-        if (!albumId) return showFeaturedStatus('This release needs an Album ID before it can be featured.', true);
+        const albumId = (fields.albumId.value || activeAlbum.albumId || slugify(fields.albumName.value || activeAlbum.albumName || '')).trim();
 
         const featuredRelease = {
           title: (fields.albumName.value || activeAlbum.albumName || '').trim(),
