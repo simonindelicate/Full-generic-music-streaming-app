@@ -376,18 +376,71 @@
         const url = urlInput.value.trim();
         if (!url) return;
         if (!nameInput.value.trim()) nameInput.value = AdminDataStore.inferTrackNameFromUrl(url);
+        const artworkEmpty = !fields.artworkUrl.value.trim();
         hint.textContent = 'Fetching metadata…';
         try {
-          const meta = await AdminDataStore.requestJson('/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(url));
+          const metaUrl = '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(url)
+            + (artworkEmpty ? '&includeArtwork=true' : '');
+          const meta = await AdminDataStore.requestJson(metaUrl);
           if (meta.durationSeconds && !durationInput.value) durationInput.value = meta.durationSeconds;
           if (meta.year && !yearInput.value) yearInput.value = meta.year;
           if (meta.genre && !genreInput.value) genreInput.value = meta.genre;
+          if (meta.artworkDataUrl && !fields.artworkUrl.value.trim()) {
+            offerEmbeddedArtwork(meta.artworkDataUrl, meta.albumName || meta.trackName);
+          }
           hint.textContent = meta.durationSeconds ? fmtDur(meta.durationSeconds) : 'Metadata read.';
         } catch (_e) {
           const seconds = await AdminDataStore.deriveDurationFromUrl(url);
           if (seconds && !durationInput.value) durationInput.value = seconds;
           hint.textContent = seconds ? fmtDur(seconds) : 'Could not read metadata.';
         }
+      }
+
+      // Show an "upload embedded art" option near the album artwork field.
+      let _embeddedArtOffered = false;
+      function offerEmbeddedArtwork(artworkDataUrl, label) {
+        if (_embeddedArtOffered) return;
+        _embeddedArtOffered = true;
+        const existing = document.getElementById('embeddedArtBanner');
+        if (existing) existing.remove();
+        const banner = document.createElement('div');
+        banner.id = 'embeddedArtBanner';
+        banner.style.cssText = 'margin-top:8px;padding:10px 12px;background:#f1f7ff;border:1px solid #d5e5ff;border-radius:6px;';
+        const img = document.createElement('img');
+        img.src = artworkDataUrl;
+        img.style.cssText = 'width:100%;aspect-ratio:1;border-radius:6px;object-fit:cover;margin-bottom:8px;display:block;';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'button-link button-secondary';
+        btn.style.width = '100%';
+        btn.textContent = 'Upload embedded art as album artwork';
+        const statusEl = document.createElement('small');
+        statusEl.className = 'meta';
+        statusEl.style.display = 'block';
+        statusEl.style.marginTop = '4px';
+        btn.onclick = async () => {
+          btn.disabled = true; btn.textContent = 'Uploading…';
+          try {
+            const mimeType = artworkDataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
+            const ext = mimeType.split('/')[1] || 'jpg';
+            const safeName = (label || 'artwork').replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 40);
+            const token = AdminDataStore.getToken();
+            const res = await fetch('/.netlify/functions/uploadMedia', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) },
+              body: JSON.stringify({ fileName: `${safeName}.${ext}`, contentBase64: artworkDataUrl.split(',')[1], folder: 'artwork' }),
+            }).then(r => r.json());
+            if (!res?.url) throw new Error(res?.message || 'Upload failed');
+            fields.artworkUrl.value = res.url;
+            if (!fields.albumArtworkUrl.value) fields.albumArtworkUrl.value = res.url;
+            updateArtworkPreview(res.url);
+            banner.remove();
+          } catch (err) { statusEl.textContent = err.message; btn.disabled = false; btn.textContent = 'Upload embedded art as album artwork'; }
+        };
+        banner.appendChild(img);
+        banner.appendChild(btn);
+        banner.appendChild(statusEl);
+        fields.artworkUrl.insertAdjacentElement('afterend', banner);
       }
 
       function createTrackRow() {

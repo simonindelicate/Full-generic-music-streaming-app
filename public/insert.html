@@ -241,14 +241,24 @@
         // Immediately infer name from URL filename
         if (!nameInput.value.trim()) nameInput.value = AdminDataStore.inferTrackNameFromUrl(url);
 
+        // Request embedded artwork only when the album artwork field is currently empty,
+        // to avoid a large image payload on every keystroke.
+        const artworkEmpty = !document.getElementById('artworkUrl').value.trim();
+
         hint.textContent = 'Fetching metadata…';
         try {
-          const meta = await fetchMetadataFromServer(url);
+          const metaUrl = '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(url)
+            + (artworkEmpty ? '&includeArtwork=true' : '');
+          const meta = await AdminDataStore.requestJson(metaUrl);
           if (meta.trackName && !nameInput.value.trim()) nameInput.value = meta.trackName;
-          else if (meta.trackName) nameInput.placeholder = meta.trackName; // show as hint
+          else if (meta.trackName) nameInput.placeholder = meta.trackName;
           if (meta.durationSeconds && !durationInput.value) durationInput.value = meta.durationSeconds;
           if (meta.year && !yearInput.value) yearInput.value = meta.year;
           if (meta.genre && !genreInput.value) genreInput.value = meta.genre;
+          // Offer embedded artwork if album artwork field is still empty
+          if (meta.artworkDataUrl && !document.getElementById('artworkUrl').value.trim()) {
+            offerEmbeddedArtwork(meta.artworkDataUrl, meta.albumName || meta.trackName);
+          }
           hint.textContent = meta.durationSeconds
             ? `Metadata ready — ${Math.floor(meta.durationSeconds / 60)}:${String(meta.durationSeconds % 60).padStart(2,'0')}`
             : 'Metadata read (no duration found).';
@@ -260,6 +270,53 @@
             ? `Duration ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2,'0')} (ID3 tags unavailable)`
             : 'Could not read metadata.';
         }
+      }
+
+      // Show an "upload embedded art" option near the album artwork field.
+      // Only shown once — the first track that has embedded art wins.
+      let _embeddedArtOffered = false;
+      function offerEmbeddedArtwork(artworkDataUrl, label) {
+        if (_embeddedArtOffered) return;
+        _embeddedArtOffered = true;
+        const artworkInput = document.getElementById('artworkUrl');
+        if (!artworkInput) return;
+        const banner = document.createElement('div');
+        banner.id = 'embeddedArtBanner';
+        banner.style.cssText = 'margin-top:8px;padding:10px 12px;background:#f1f7ff;border:1px solid #d5e5ff;border-radius:6px;';
+        const img = document.createElement('img');
+        img.src = artworkDataUrl;
+        img.style.cssText = 'width:100%;aspect-ratio:1;border-radius:6px;object-fit:cover;margin-bottom:8px;display:block;';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'button-link button-secondary';
+        btn.style.width = '100%';
+        btn.textContent = 'Upload embedded art as album artwork';
+        const statusEl = document.createElement('small');
+        statusEl.className = 'meta';
+        statusEl.style.display = 'block';
+        statusEl.style.marginTop = '4px';
+        btn.onclick = async () => {
+          btn.disabled = true; btn.textContent = 'Uploading…';
+          try {
+            const mimeType = artworkDataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
+            const ext = mimeType.split('/')[1] || 'jpg';
+            const safeName = (label || 'artwork').replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 40);
+            const token = AdminDataStore.getToken();
+            const res = await fetch('/.netlify/functions/uploadMedia', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) },
+              body: JSON.stringify({ fileName: `${safeName}.${ext}`, contentBase64: artworkDataUrl.split(',')[1], folder: 'artwork' }),
+            }).then(r => r.json());
+            if (!res?.url) throw new Error(res?.message || 'Upload failed');
+            artworkInput.value = res.url;
+            artworkInput.dispatchEvent(new Event('input'));
+            banner.remove();
+          } catch (err) { statusEl.textContent = err.message; btn.disabled = false; btn.textContent = 'Upload embedded art as album artwork'; }
+        };
+        banner.appendChild(img);
+        banner.appendChild(btn);
+        banner.appendChild(statusEl);
+        artworkInput.insertAdjacentElement('afterend', banner);
       }
 
       /* ── Track rows ───────────────────────────────────────────── */

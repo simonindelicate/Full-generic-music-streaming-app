@@ -40,6 +40,11 @@
               </div>
               <small id="artworkUploadStatus" class="meta"></small>
               <img id="artworkPreview" style="width:100%;aspect-ratio:1;border-radius:10px;background:#f0ede8;border:1px solid rgba(0,0,0,0.08);object-fit:cover;display:none;margin-top:8px;" alt="Artwork preview" />
+              <div id="embeddedArtSuggestion" style="display:none;margin-top:8px;padding:10px 12px;background:#f1f7ff;border:1px solid #d5e5ff;border-radius:6px;">
+                <img id="embeddedArtPreview" style="width:100%;aspect-ratio:1;border-radius:6px;object-fit:cover;margin-bottom:8px;" alt="Embedded artwork" />
+                <button type="button" id="useEmbeddedArtBtn" class="button-link button-secondary" style="width:100%;">Upload embedded art as artwork</button>
+                <small id="useEmbeddedArtStatus" class="meta" style="display:block;margin-top:4px;"></small>
+              </div>
             </div>
             <div>
               <label>Album Artwork URL</label>
@@ -219,15 +224,61 @@
         }
       }
 
+      // Upload a base64 data URL directly to the media host (no File object needed).
+      async function uploadDataUrl(dataUrl, fileName) {
+        const b64 = dataUrl.split(',')[1];
+        const token = AdminDataStore.getToken();
+        const response = await fetch('/.netlify/functions/uploadMedia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) },
+          body: JSON.stringify({ fileName, contentBase64: b64, folder: 'artwork' }),
+        });
+        const result = await response.json();
+        if (!result?.url) throw new Error(result?.message || 'Upload failed');
+        return result.url;
+      }
+
+      function showEmbeddedArtSuggestion(artworkDataUrl, trackTitle) {
+        const suggestion = document.getElementById('embeddedArtSuggestion');
+        const preview = document.getElementById('embeddedArtPreview');
+        const btn = document.getElementById('useEmbeddedArtBtn');
+        const statusEl = document.getElementById('useEmbeddedArtStatus');
+        preview.src = artworkDataUrl;
+        suggestion.style.display = 'block';
+        btn.onclick = async () => {
+          btn.disabled = true;
+          btn.textContent = 'Uploading…';
+          statusEl.textContent = '';
+          try {
+            const mimeType = artworkDataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
+            const ext = mimeType.split('/')[1] || 'jpg';
+            const safeName = (trackTitle || 'artwork').replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 40);
+            const url = await uploadDataUrl(artworkDataUrl, `${safeName}.${ext}`);
+            document.getElementById('artworkUrl').value = url;
+            if (!document.getElementById('albumArtworkUrl').value.trim()) {
+              document.getElementById('albumArtworkUrl').value = url;
+            }
+            updateArtworkPreview(url);
+            suggestion.style.display = 'none';
+          } catch (err) {
+            statusEl.textContent = err.message;
+          } finally {
+            btn.disabled = false;
+            btn.textContent = 'Upload embedded art as artwork';
+          }
+        };
+      }
+
       async function fetchAudioMetadata(url) {
         status.style.display = 'block';
         status.textContent = 'Fetching metadata…';
         status.className = 'status';
 
         try {
-          // Server-side proxy — no CORS issues regardless of hosting
+          // Server-side proxy — no CORS issues regardless of hosting.
+          // Always request embedded artwork on this page (single track, explicit button press).
           const meta = await AdminDataStore.requestJson(
-            '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(url)
+            '/.netlify/functions/getTrackMetadata?includeArtwork=true&url=' + encodeURIComponent(url)
           );
           return meta;
         } catch (error) {
@@ -351,6 +402,14 @@
             try {
               const metadata = await fetchAudioMetadata(url);
               populateFieldsFromMetadata(metadata);
+              // Show embedded artwork suggestion if the artwork URL field is empty
+              document.getElementById('embeddedArtSuggestion').style.display = 'none';
+              if (metadata.artworkDataUrl && !document.getElementById('artworkUrl').value.trim()) {
+                showEmbeddedArtSuggestion(
+                  metadata.artworkDataUrl,
+                  document.getElementById('trackName').value || 'artwork'
+                );
+              }
               status.textContent = 'Metadata populated from audio file.';
               status.style.background = '#f1f7ff';
               status.style.borderColor = '#d5e5ff';
