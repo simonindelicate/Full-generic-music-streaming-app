@@ -8,6 +8,11 @@
   status = 200
 
 [[redirects]]
+  from = "/catalogue"
+  to = "/.netlify/functions/catalogue"
+  status = 200
+
+[[redirects]]
   from = "/album/:albumId"
   to = "/.netlify/functions/makeSharePage?album=:albumId"
   status = 200
