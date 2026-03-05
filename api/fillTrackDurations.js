@@ -1,7 +1,12 @@
 const { MongoClient, ObjectId } = require('mongodb');
 const config = require('./dbConfig');
-const { fetchPartialAudio, parseBitrateFromFrame } = require('./audioUtils');
+const { fetchBitrate, fetchPartialAudio } = require('./audioUtils');
 const { isAdmin } = require('./lib/auth');
+
+// Leave ~6 s headroom against the 30 s Netlify function timeout.
+const TIME_BUDGET_MS = 24000;
+const CONCURRENCY = 3;
+const FETCH_TIMEOUT_MS = 9000;
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -11,6 +16,8 @@ exports.handler = async (event) => {
   if (!isAdmin(event)) {
     return { statusCode: 401, body: JSON.stringify({ message: 'Unauthorized' }) };
   }
+
+  const startTime = Date.now();
 
   const client = new MongoClient(config.mongodbUri, {
     useNewUrlParser: true,
@@ -32,23 +39,23 @@ exports.handler = async (event) => {
 
     const tracks = await tracksCollection.find(missingDurationQuery).toArray();
 
+    let processed = 0;
     let updated = 0;
     const failures = [];
-    const CONCURRENCY = 3;
-    const FETCH_TIMEOUT_MS = 9000;
 
     async function processTrack(track) {
       if (!track.mp3Url) {
         failures.push({ id: track._id, trackName: track.trackName, albumName: track.albumName, mp3Url: null, reason: 'No MP3 URL is set for this track' });
+        processed += 1;
         return;
       }
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-      let buffer, totalSize;
+      let bitrate, totalSize;
       try {
-        ({ buffer, totalSize } = await fetchPartialAudio(track.mp3Url, 262144, controller.signal));
+        ({ bitrate, totalSize } = await fetchBitrate(track.mp3Url, controller.signal));
       } catch (err) {
         let reason;
         if (err.name === 'AbortError' || err.name === 'TimeoutError') {
@@ -66,41 +73,53 @@ exports.handler = async (event) => {
           }
         }
         failures.push({ id: track._id, trackName: track.trackName, albumName: track.albumName, mp3Url: track.mp3Url, reason });
+        processed += 1;
         return;
       } finally {
         clearTimeout(timer);
       }
 
-      const bitrate = parseBitrateFromFrame(buffer);
       if (!bitrate) {
-        failures.push({ id: track._id, trackName: track.trackName, albumName: track.albumName, mp3Url: track.mp3Url, reason: 'No valid MP3 frame header found in first 256 KB – may not be a standard MP3, or file is corrupt' });
+        failures.push({ id: track._id, trackName: track.trackName, albumName: track.albumName, mp3Url: track.mp3Url, reason: 'No valid MP3 frame header found – file may not be a standard MP3, or is corrupt' });
+        processed += 1;
         return;
       }
 
       if (!totalSize) {
         failures.push({ id: track._id, trackName: track.trackName, albumName: track.albumName, mp3Url: track.mp3Url, reason: 'File total size unknown – server did not return Content-Range or Content-Length' });
+        processed += 1;
         return;
       }
 
       const durationSeconds = Math.round((totalSize * 8) / (bitrate * 1000));
       if (!durationSeconds) {
         failures.push({ id: track._id, trackName: track.trackName, albumName: track.albumName, mp3Url: track.mp3Url, reason: 'Calculated duration is zero – bitrate or file size may be unreliable' });
+        processed += 1;
         return;
       }
 
       const trackId = typeof track._id === 'string' ? new ObjectId(track._id) : track._id;
       await tracksCollection.updateOne({ _id: trackId }, { $set: { durationSeconds, duration: durationSeconds } });
       updated += 1;
+      processed += 1;
     }
 
-    // Process in concurrent batches
+    // Process in concurrent batches, stopping before the function timeout.
     for (let i = 0; i < tracks.length; i += CONCURRENCY) {
+      if (Date.now() - startTime > TIME_BUDGET_MS) {
+        // Return partial results; UI will call again for the remainder.
+        const remaining = tracks.length - i;
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ processed, updated, failures, remaining }),
+        };
+      }
       await Promise.all(tracks.slice(i, i + CONCURRENCY).map(processTrack));
     }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ processed: tracks.length, updated, failures }),
+      body: JSON.stringify({ processed, updated, failures, remaining: 0 }),
     };
   } catch (err) {
     console.error('Failed to update track durations', err);

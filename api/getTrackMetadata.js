@@ -1,4 +1,4 @@
-const { fetchPartialAudio, parseBitrateFromFrame } = require('./audioUtils');
+const { fetchPartialAudio, fetchBitrate } = require('./audioUtils');
 const { parseId3v2 } = require('./lib/id3');
 const { isAdmin } = require('./lib/auth');
 
@@ -27,9 +27,11 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { buffer, totalSize } = await fetchPartialAudio(url, 262144);
+    // Fetch the first 256 KB for ID3 tag parsing; also resolve bitrate (which
+    // handles files with oversized tags by fetching past them if needed).
+    const { buffer } = await fetchPartialAudio(url, 262144);
+    const { bitrate, totalSize } = await fetchBitrate(url);
     const id3 = parseId3v2(buffer);
-    const bitrate = parseBitrateFromFrame(buffer);
     const durationSeconds = bitrate && totalSize ? Math.round((totalSize * 8) / (bitrate * 1000)) : null;
 
     return json(200, {
