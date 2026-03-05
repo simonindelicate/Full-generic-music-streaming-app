@@ -18,6 +18,11 @@ function parseTotalSize(headers, bufferLength) {
   return bufferLength;
 }
 
+// ID3v2 sync-safe integer (4 bytes, 7 bits each)
+function syncSafeToInt(buf) {
+  return ((buf[0] & 0x7f) << 21) | ((buf[1] & 0x7f) << 14) | ((buf[2] & 0x7f) << 7) | (buf[3] & 0x7f);
+}
+
 function parseBitrateFromFrame(buffer) {
   for (let i = 0; i < buffer.length - 4; i += 1) {
     if (buffer[i] !== 0xff || (buffer[i + 1] & 0xe0) !== 0xe0) continue;
@@ -40,11 +45,15 @@ function parseBitrateFromFrame(buffer) {
   return 0;
 }
 
-async function fetchPartialAudio(url, byteCount = 262144) {
+// Fetches a byte range from a URL.
+// startByte defaults to 0; used when skipping past a large ID3 tag.
+async function fetchPartialAudio(url, byteCount = 262144, signal, startByte = 0) {
+  const end = startByte + byteCount - 1;
   const response = await fetch(url, {
     headers: {
-      Range: `bytes=0-${byteCount - 1}`,
+      Range: `bytes=${startByte}-${end}`,
     },
+    ...(signal ? { signal } : {}),
   });
 
   if (!response.ok && response.status !== 206) {
@@ -53,24 +62,47 @@ async function fetchPartialAudio(url, byteCount = 262144) {
 
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const totalSize = parseTotalSize(response.headers, buffer.length);
+  const totalSize = parseTotalSize(response.headers, buffer.length + startByte);
 
   return { buffer, totalSize };
 }
 
-async function fetchTrackDurationSeconds(url) {
+// Returns the bitrate for a URL, fetching past an oversized ID3 tag if needed.
+// signal is optional AbortSignal.
+async function fetchBitrate(url, signal) {
+  const { buffer, totalSize } = await fetchPartialAudio(url, 262144, signal);
+
+  let bitrate = parseBitrateFromFrame(buffer);
+
+  // If no frame found and the file opens with an ID3v2 tag that extends
+  // beyond our 256 KB window (e.g. embedded album art), fetch a small chunk
+  // from just after the tag where the actual audio frames start.
+  if (!bitrate && buffer.length >= 10 && buffer.subarray(0, 3).toString('utf8') === 'ID3') {
+    const tagSize = syncSafeToInt(buffer.subarray(6, 10));
+    const tagEnd = 10 + tagSize;
+    if (tagEnd > buffer.length) {
+      try {
+        const { buffer: frameChunk } = await fetchPartialAudio(url, 8192, signal, tagEnd);
+        bitrate = parseBitrateFromFrame(frameChunk);
+      } catch (_) {
+        // best-effort; fall through with bitrate=0
+      }
+    }
+  }
+
+  return { bitrate, totalSize };
+}
+
+async function fetchTrackDurationSeconds(url, signal) {
   if (!url) return 0;
-
-  const { buffer, totalSize } = await fetchPartialAudio(url);
-  const bitrate = parseBitrateFromFrame(buffer);
-
+  const { bitrate, totalSize } = await fetchBitrate(url, signal);
   if (!bitrate || !totalSize) return 0;
-
   return Math.round((totalSize * 8) / (bitrate * 1000));
 }
 
 module.exports = {
   fetchTrackDurationSeconds,
   fetchPartialAudio,
+  fetchBitrate,
   parseBitrateFromFrame,
 };

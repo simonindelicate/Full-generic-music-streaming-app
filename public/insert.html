@@ -13,6 +13,16 @@
       .track-row-remove:hover { color: #b42318; }
       .upload-btn-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
       .upload-btn-row input[type="file"] { flex: 1; min-width: 0; }
+      .import-section { background: #f5f3ef; border: 1.5px dashed rgba(0,0,0,0.15); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+      .import-section h2 { margin: 0 0 4px; font-size: 1rem; }
+      .import-progress { margin-top: 10px; }
+      .import-progress-bar-track { height: 5px; background: rgba(0,0,0,0.08); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+      .import-progress-bar { height: 100%; background: #5a4e3a; border-radius: 3px; width: 0; transition: width 0.2s; }
+      .import-result-summary { margin-top: 10px; font-size: 0.88rem; color: #5a4e3a; font-weight: 500; }
+      .import-tabs { display: flex; gap: 0; border-bottom: 1px solid rgba(0,0,0,0.12); margin-bottom: 14px; }
+      .import-tab { background: none; border: none; box-shadow: none; border-bottom: 2px solid transparent; padding: 6px 14px; font-size: 0.88rem; font-weight: 500; color: #999; cursor: pointer; margin-bottom: -1px; border-radius: 0; }
+      .import-tab.active { color: #3d3424; border-bottom-color: #3d3424; }
+      .import-panel { display: none; } .import-panel.active { display: block; }
     </style>
   </head>
   <body>
@@ -26,6 +36,38 @@
             <p class="meta">Create a release and add its tracks in one flow.</p>
           </div>
           <a class="button-link button-secondary" href="edit.html">Track directory</a>
+        </div>
+
+        <!-- ── Import from folder ───────────────────────────────── -->
+        <div class="import-section">
+          <h2 style="margin-bottom:12px;">Quick import</h2>
+          <div class="import-tabs">
+            <button type="button" class="import-tab active" data-panel="scan">Scan folder URL</button>
+            <button type="button" class="import-tab" data-panel="paste">Paste file URLs</button>
+          </div>
+
+          <div class="import-panel active" id="importPanelScan">
+            <p class="meta" style="margin-bottom:10px;">Paste the URL of a web-accessible folder with directory listing enabled. The server will discover audio files and read their metadata.</p>
+            <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+              <input type="url" id="folderUrl" placeholder="https://example.com/music/my-album/" style="flex:1;min-width:200px;" />
+              <button type="button" id="scanFolderBtn" class="button-secondary">Scan folder</button>
+            </div>
+            <p class="meta" style="margin-top:8px;">If the server returns a 403 or the folder has no directory listing, use the <strong>Paste file URLs</strong> tab instead.</p>
+          </div>
+
+          <div class="import-panel" id="importPanelPaste">
+            <p class="meta" style="margin-bottom:10px;">Paste the direct URLs of your audio files, one per line. Copy them from your FTP client, file manager, or CDN dashboard.</p>
+            <textarea id="pasteUrls" style="min-height:100px;font-family:monospace;font-size:0.82rem;" placeholder="https://example.com/music/01-track-name.mp3&#10;https://example.com/music/02-another-track.mp3&#10;…"></textarea>
+            <div style="margin-top:8px;">
+              <button type="button" id="importPastedBtn" class="button-secondary">Import these files</button>
+            </div>
+          </div>
+
+          <div class="import-progress" id="importProgress" style="display:none;margin-top:12px;">
+            <span class="meta" id="importProgressText">Scanning…</span>
+            <div class="import-progress-bar-track"><div class="import-progress-bar" id="importProgressBar"></div></div>
+          </div>
+          <div class="import-result-summary" id="importSummary" style="display:none;"></div>
         </div>
 
         <form id="addTrackForm">
@@ -199,14 +241,24 @@
         // Immediately infer name from URL filename
         if (!nameInput.value.trim()) nameInput.value = AdminDataStore.inferTrackNameFromUrl(url);
 
+        // Request embedded artwork only when the album artwork field is currently empty,
+        // to avoid a large image payload on every keystroke.
+        const artworkEmpty = !document.getElementById('artworkUrl').value.trim();
+
         hint.textContent = 'Fetching metadata…';
         try {
-          const meta = await fetchMetadataFromServer(url);
+          const metaUrl = '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(url)
+            + (artworkEmpty ? '&includeArtwork=true' : '');
+          const meta = await AdminDataStore.requestJson(metaUrl);
           if (meta.trackName && !nameInput.value.trim()) nameInput.value = meta.trackName;
-          else if (meta.trackName) nameInput.placeholder = meta.trackName; // show as hint
+          else if (meta.trackName) nameInput.placeholder = meta.trackName;
           if (meta.durationSeconds && !durationInput.value) durationInput.value = meta.durationSeconds;
           if (meta.year && !yearInput.value) yearInput.value = meta.year;
           if (meta.genre && !genreInput.value) genreInput.value = meta.genre;
+          // Offer embedded artwork if album artwork field is still empty
+          if (meta.artworkDataUrl && !document.getElementById('artworkUrl').value.trim()) {
+            offerEmbeddedArtwork(meta.artworkDataUrl, meta.albumName || meta.trackName);
+          }
           hint.textContent = meta.durationSeconds
             ? `Metadata ready — ${Math.floor(meta.durationSeconds / 60)}:${String(meta.durationSeconds % 60).padStart(2,'0')}`
             : 'Metadata read (no duration found).';
@@ -218,6 +270,53 @@
             ? `Duration ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2,'0')} (ID3 tags unavailable)`
             : 'Could not read metadata.';
         }
+      }
+
+      // Show an "upload embedded art" option near the album artwork field.
+      // Only shown once — the first track that has embedded art wins.
+      let _embeddedArtOffered = false;
+      function offerEmbeddedArtwork(artworkDataUrl, label) {
+        if (_embeddedArtOffered) return;
+        _embeddedArtOffered = true;
+        const artworkInput = document.getElementById('artworkUrl');
+        if (!artworkInput) return;
+        const banner = document.createElement('div');
+        banner.id = 'embeddedArtBanner';
+        banner.style.cssText = 'margin-top:8px;padding:10px 12px;background:#f1f7ff;border:1px solid #d5e5ff;border-radius:6px;';
+        const img = document.createElement('img');
+        img.src = artworkDataUrl;
+        img.style.cssText = 'width:100%;aspect-ratio:1;border-radius:6px;object-fit:cover;margin-bottom:8px;display:block;';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'button-link button-secondary';
+        btn.style.width = '100%';
+        btn.textContent = 'Upload embedded art as album artwork';
+        const statusEl = document.createElement('small');
+        statusEl.className = 'meta';
+        statusEl.style.display = 'block';
+        statusEl.style.marginTop = '4px';
+        btn.onclick = async () => {
+          btn.disabled = true; btn.textContent = 'Uploading…';
+          try {
+            const mimeType = artworkDataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
+            const ext = mimeType.split('/')[1] || 'jpg';
+            const safeName = (label || 'artwork').replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 40);
+            const token = AdminDataStore.getToken();
+            const res = await fetch('/.netlify/functions/uploadMedia', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) },
+              body: JSON.stringify({ fileName: `${safeName}.${ext}`, contentBase64: artworkDataUrl.split(',')[1], folder: 'artwork' }),
+            }).then(r => r.json());
+            if (!res?.url) throw new Error(res?.message || 'Upload failed');
+            artworkInput.value = res.url;
+            artworkInput.dispatchEvent(new Event('input'));
+            banner.remove();
+          } catch (err) { statusEl.textContent = err.message; btn.disabled = false; btn.textContent = 'Upload embedded art as album artwork'; }
+        };
+        banner.appendChild(img);
+        banner.appendChild(btn);
+        banner.appendChild(statusEl);
+        artworkInput.insertAdjacentElement('afterend', banner);
       }
 
       /* ── Track rows ───────────────────────────────────────────── */
@@ -249,7 +348,11 @@
           if (tracksContainer.querySelectorAll('.track-row').length > 1) wrapper.remove();
         });
 
-        wrapper.querySelector('.mp3Url').addEventListener('change', () => autoFillTrackMetadata(wrapper));
+        wrapper.querySelector('.mp3Url').addEventListener('change', () => {
+          autoFillTrackMetadata(wrapper);
+          const url = wrapper.querySelector('.mp3Url').value.trim();
+          if (url) warnIfDuplicate(url, wrapper.querySelector('.trackUploadStatus'));
+        });
 
         wrapper.querySelector('.uploadTrackBtn').addEventListener('click', async () => {
           const fileInput = wrapper.querySelector('.trackFile');
@@ -258,16 +361,30 @@
           const file = fileInput.files[0];
           if (!file) { uploadState.textContent = 'Choose an audio file first.'; return; }
 
+          // Warn on filename match before uploading
+          const filenameLower = file.name.toLowerCase();
+          const filenameMatch = existingTracks.find(t => {
+            const existing = (t.mp3Url || '').split('/').pop().replace(/^\d+-/, '').toLowerCase();
+            return existing && existing === filenameLower;
+          });
+          if (filenameMatch) {
+            uploadState.style.color = '#856404';
+            uploadState.textContent = `⚠ A file named "${file.name}" may already exist as "${filenameMatch.trackName || file.name}" in "${filenameMatch.albumName || 'catalog'}". Uploading anyway…`;
+          }
+
           const btn = wrapper.querySelector('.uploadTrackBtn');
-          btn.disabled = true; btn.textContent = 'Uploading…'; uploadState.textContent = 'Uploading…';
+          btn.disabled = true; btn.textContent = 'Uploading…';
+          if (!filenameMatch) uploadState.textContent = 'Uploading…';
           try {
             const url = await uploadFileToMediaHost(file, 'audio', (done, total) => {
               uploadState.textContent = `Uploading… ${done}/${total} chunks`;
             });
             urlInput.value = url;
+            uploadState.style.color = '';
             uploadState.textContent = 'Uploaded.';
+            warnIfDuplicate(url, uploadState);
             autoFillTrackMetadata(wrapper);
-          } catch (e) { uploadState.textContent = e.message; }
+          } catch (e) { uploadState.style.color = ''; uploadState.textContent = e.message; }
           finally { btn.disabled = false; btn.textContent = 'Upload'; }
         });
 
@@ -332,6 +449,35 @@
         }
       });
 
+      /* ── Duplicate detection ──────────────────────────────────── */
+      let existingTracks = [];
+
+      async function loadExistingTracks() {
+        try {
+          existingTracks = await AdminDataStore.fetchJsonCached('/.netlify/functions/catalog?resource=tracks', 'tracks');
+        } catch (_e) { /* non-fatal */ }
+      }
+
+      function findDuplicateTrack(url) {
+        if (!url || !existingTracks.length) return null;
+        const exact = existingTracks.find(t => t.mp3Url === url);
+        if (exact) return exact;
+        const filename = url.split('/').pop().replace(/^\d+-/, '').toLowerCase();
+        if (!filename) return null;
+        return existingTracks.find(t => {
+          const existing = (t.mp3Url || '').split('/').pop().replace(/^\d+-/, '').toLowerCase();
+          return existing && existing === filename;
+        }) || null;
+      }
+
+      function warnIfDuplicate(url, statusEl) {
+        const dup = findDuplicateTrack(url);
+        if (dup) {
+          statusEl.style.color = '#856404';
+          statusEl.textContent = `⚠ Possible duplicate: "${dup.trackName || url}" already in "${dup.albumName || 'catalog'}".`;
+        }
+      }
+
       /* ── Default artist from site settings ───────────────────── */
       async function loadArtistDefault() {
         try {
@@ -346,12 +492,236 @@
         } catch (_e) { /* silently ignore */ }
       }
 
+      /* ── Import tabs ──────────────────────────────────────────── */
+      document.querySelectorAll('.import-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.import-panel').forEach(p => p.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('importPanel' + tab.dataset.panel.charAt(0).toUpperCase() + tab.dataset.panel.slice(1)).classList.add('active');
+          document.getElementById('importProgress').style.display = 'none';
+          document.getElementById('importSummary').style.display = 'none';
+        });
+      });
+
+      /* ── Shared import helpers ────────────────────────────────── */
+      const METADATA_CONCURRENCY = 3;
+
+      function mostCommon(values) {
+        if (!values.length) return null;
+        const freq = {};
+        values.forEach(v => { if (v) freq[v] = (freq[v] || 0) + 1; });
+        return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      }
+
+      function inferTrackOrder(filename, meta) {
+        // Prefer ID3 track number
+        const fromId3 = meta.trackNumber ? parseInt(meta.trackNumber, 10) : NaN;
+        if (!Number.isNaN(fromId3) && fromId3 > 0) return fromId3;
+        // Try leading digits in filename: "03 - Song.mp3" or "03_Song.mp3"
+        const m = filename.match(/^(\d+)/);
+        return m ? parseInt(m[1], 10) : null;
+      }
+
+      function populateFormFromResults(results, suggestedArtwork, folderUrl) {
+        const albumNames  = results.map(r => r.meta.albumName).filter(Boolean);
+        const artistNames = results.map(r => r.meta.artistName).filter(Boolean);
+        const years       = results.map(r => r.meta.year ? String(r.meta.year) : null).filter(Boolean);
+        const genres      = results.map(r => r.meta.genre).filter(Boolean);
+
+        const albumNameField  = document.getElementById('albumName');
+        const artistNameField = document.getElementById('artistName');
+        const yearField       = document.getElementById('year');
+        const genreField      = document.getElementById('genre');
+        const artworkField    = document.getElementById('artworkUrl');
+
+        if (!albumNameField.value) {
+          const folderFallback = folderUrl ? folderUrl.replace(/\/$/, '').split('/').pop() : '';
+          albumNameField.value = mostCommon(albumNames) || folderFallback || '';
+        }
+        if (!artistNameField.value) { const v = mostCommon(artistNames); if (v) artistNameField.value = v; }
+        if (!yearField.value) { const v = mostCommon(years); if (v) yearField.value = v; }
+        if (!genreField.value) { const v = mostCommon(genres); if (v) genreField.value = v; }
+
+        if (!artworkField.value && suggestedArtwork) {
+          artworkField.value = suggestedArtwork.url;
+          updateArtworkPreview(suggestedArtwork.url);
+        }
+
+        results.sort((a, b) => {
+          const oa = inferTrackOrder(a.file.filename, a.meta) ?? 9999;
+          const ob = inferTrackOrder(b.file.filename, b.meta) ?? 9999;
+          if (oa !== ob) return oa - ob;
+          return a.file.filename.localeCompare(b.file.filename, undefined, { numeric: true });
+        });
+
+        tracksContainer.innerHTML = '';
+        nextTrackNumber = 1;
+        results.forEach(({ file, meta }, idx) => {
+          const row = createTrackRow();
+          tracksContainer.appendChild(row);
+          row.querySelector('.mp3Url').value = file.url;
+          row.querySelector('.trackName').value = meta.trackName || AdminDataStore.inferTrackNameFromUrl(file.url) || file.filename;
+          row.querySelector('.trackNumber').value = inferTrackOrder(file.filename, meta) ?? (idx + 1);
+          if (meta.durationSeconds) row.querySelector('.durationSeconds').value = meta.durationSeconds;
+          if (meta.year) row.querySelector('.trackYear').value = meta.year;
+          if (meta.genre) row.querySelector('.trackGenre').value = meta.genre;
+          const hint = row.querySelector('.metadataHint');
+          if (hint) hint.textContent = meta.durationSeconds ? `${Math.floor(meta.durationSeconds / 60)}:${String(meta.durationSeconds % 60).padStart(2, '0')}` : 'No duration found.';
+        });
+      }
+
+      async function runFolderImport() {
+        const folderUrl = document.getElementById('folderUrl').value.trim();
+        if (!folderUrl) return;
+
+        const progressEl = document.getElementById('importProgress');
+        const progressText = document.getElementById('importProgressText');
+        const progressBar = document.getElementById('importProgressBar');
+        const summaryEl = document.getElementById('importSummary');
+        const scanBtn = document.getElementById('scanFolderBtn');
+
+        scanBtn.disabled = true;
+        progressEl.style.display = 'block';
+        summaryEl.style.display = 'none';
+        progressBar.style.width = '0';
+        progressText.textContent = 'Fetching folder listing…';
+
+        let listing;
+        try {
+          listing = await AdminDataStore.requestJson(
+            '/.netlify/functions/scanFolder?url=' + encodeURIComponent(folderUrl)
+          );
+        } catch (err) {
+          const hint = err.message.includes('403') || err.message.includes('Folder fetch failed')
+            ? ' The server may have directory listing disabled — try the Paste file URLs tab instead.'
+            : '';
+          progressText.textContent = `Error: ${err.message}.${hint}`;
+          scanBtn.disabled = false;
+          return;
+        }
+
+        if (!listing.audioFiles?.length) {
+          progressText.textContent = 'No audio files found in that folder. The server may not expose a directory listing — try the Paste file URLs tab instead.';
+          scanBtn.disabled = false;
+          return;
+        }
+
+        const total = listing.audioFiles.length;
+        progressText.textContent = `Found ${total} audio file${total !== 1 ? 's' : ''}. Reading metadata…`;
+
+        // Batch-fetch metadata with limited concurrency
+        const results = new Array(total);
+        let done = 0;
+
+        async function fetchOne(i) {
+          const file = listing.audioFiles[i];
+          try {
+            const meta = await AdminDataStore.requestJson(
+              '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(file.url)
+            );
+            results[i] = { file, meta };
+          } catch (_) {
+            results[i] = { file, meta: {} };
+          }
+          done++;
+          progressBar.style.width = `${Math.round((done / total) * 100)}%`;
+          progressText.textContent = `Reading metadata… ${done}/${total}`;
+        }
+
+        // Run in batches of METADATA_CONCURRENCY
+        for (let i = 0; i < total; i += METADATA_CONCURRENCY) {
+          await Promise.all(
+            listing.audioFiles.slice(i, i + METADATA_CONCURRENCY).map((_, j) => fetchOne(i + j))
+          );
+        }
+
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Done. Populating form…';
+
+        const artworkNote = listing.suggestedArtwork ? ` Suggested artwork: ${listing.suggestedArtwork.filename}.` : (listing.imageFiles?.length ? ` ${listing.imageFiles.length} image file(s) found — set artwork URL manually.` : ' No artwork found in folder.');
+        populateFormFromResults(results, listing.suggestedArtwork, folderUrl);
+        summaryEl.textContent = `Imported ${results.length} track${results.length !== 1 ? 's' : ''}.${artworkNote} Review the fields below and save when ready.`;
+        summaryEl.style.display = 'block';
+        progressEl.style.display = 'none';
+        scanBtn.disabled = false;
+
+        document.getElementById('albumName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      async function runPasteImport() {
+        const raw = document.getElementById('pasteUrls').value.trim();
+        if (!raw) return;
+
+        const AUDIO_EXTS = /\.(mp3|flac|m4a|ogg|wav|aac|opus)(\?.*)?$/i;
+        const audioFiles = raw.split(/[\n\r]+/)
+          .map(l => l.trim()).filter(l => l && AUDIO_EXTS.test(l))
+          .map(url => ({ url, filename: decodeURIComponent(url.split('/').pop().split('?')[0]) }));
+
+        const progressEl = document.getElementById('importProgress');
+        const progressText = document.getElementById('importProgressText');
+        const progressBar = document.getElementById('importProgressBar');
+        const summaryEl = document.getElementById('importSummary');
+        const importBtn = document.getElementById('importPastedBtn');
+
+        if (!audioFiles.length) {
+          progressEl.style.display = 'block';
+          progressText.textContent = 'No audio file URLs found. Make sure each line is a direct link ending in .mp3, .flac, etc.';
+          return;
+        }
+
+        importBtn.disabled = true;
+        progressEl.style.display = 'block';
+        summaryEl.style.display = 'none';
+        progressBar.style.width = '0';
+        progressText.textContent = `Found ${audioFiles.length} URL${audioFiles.length !== 1 ? 's' : ''}. Reading metadata…`;
+
+        // Reuse same metadata fetch + populate logic
+        const total = audioFiles.length;
+        const results = new Array(total);
+        let done = 0;
+
+        async function fetchOne(i) {
+          const file = audioFiles[i];
+          try {
+            const meta = await AdminDataStore.requestJson(
+              '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(file.url)
+            );
+            results[i] = { file, meta };
+          } catch (_) {
+            results[i] = { file, meta: {} };
+          }
+          done++;
+          progressBar.style.width = `${Math.round((done / total) * 100)}%`;
+          progressText.textContent = `Reading metadata… ${done}/${total}`;
+        }
+
+        for (let i = 0; i < total; i += METADATA_CONCURRENCY) {
+          await Promise.all(audioFiles.slice(i, i + METADATA_CONCURRENCY).map((_, j) => fetchOne(i + j)));
+        }
+
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Done. Populating form…';
+        populateFormFromResults(results, null);
+        summaryEl.textContent = `Imported ${results.length} track${results.length !== 1 ? 's' : ''}. Review the fields below and save when ready.`;
+        summaryEl.style.display = 'block';
+        progressEl.style.display = 'none';
+        importBtn.disabled = false;
+        document.getElementById('albumName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
       /* ── Init ─────────────────────────────────────────────────── */
       window.addEventListener('DOMContentLoaded', () => {
         AdminDataStore.mountHeader();
         AdminDataStore.mountTabs();
         tracksContainer.appendChild(createTrackRow());
         loadArtistDefault();
+        loadExistingTracks();
+        document.getElementById('scanFolderBtn').addEventListener('click', runFolderImport);
+        document.getElementById('folderUrl').addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); runFolderImport(); }
+        });
+        document.getElementById('importPastedBtn').addEventListener('click', runPasteImport);
       });
     </script>
   </body>
