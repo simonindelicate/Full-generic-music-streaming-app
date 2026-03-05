@@ -19,6 +19,10 @@
       .import-progress-bar-track { height: 5px; background: rgba(0,0,0,0.08); border-radius: 3px; overflow: hidden; margin-top: 6px; }
       .import-progress-bar { height: 100%; background: #5a4e3a; border-radius: 3px; width: 0; transition: width 0.2s; }
       .import-result-summary { margin-top: 10px; font-size: 0.88rem; color: #5a4e3a; font-weight: 500; }
+      .import-tabs { display: flex; gap: 0; border-bottom: 1px solid rgba(0,0,0,0.12); margin-bottom: 14px; }
+      .import-tab { background: none; border: none; box-shadow: none; border-bottom: 2px solid transparent; padding: 6px 14px; font-size: 0.88rem; font-weight: 500; color: #999; cursor: pointer; margin-bottom: -1px; border-radius: 0; }
+      .import-tab.active { color: #3d3424; border-bottom-color: #3d3424; }
+      .import-panel { display: none; } .import-panel.active { display: block; }
     </style>
   </head>
   <body>
@@ -36,13 +40,30 @@
 
         <!-- ── Import from folder ───────────────────────────────── -->
         <div class="import-section">
-          <h2>Import from folder URL</h2>
-          <p class="meta" style="margin-bottom:12px;">Paste the URL of a web-accessible folder containing audio files. The server will scan for tracks and read their metadata automatically.</p>
-          <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
-            <input type="url" id="folderUrl" placeholder="https://example.com/music/my-album/" style="flex:1;min-width:200px;" />
-            <button type="button" id="scanFolderBtn" class="button-secondary">Scan folder</button>
+          <h2 style="margin-bottom:12px;">Quick import</h2>
+          <div class="import-tabs">
+            <button type="button" class="import-tab active" data-panel="scan">Scan folder URL</button>
+            <button type="button" class="import-tab" data-panel="paste">Paste file URLs</button>
           </div>
-          <div class="import-progress" id="importProgress" style="display:none;">
+
+          <div class="import-panel active" id="importPanelScan">
+            <p class="meta" style="margin-bottom:10px;">Paste the URL of a web-accessible folder with directory listing enabled. The server will discover audio files and read their metadata.</p>
+            <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+              <input type="url" id="folderUrl" placeholder="https://example.com/music/my-album/" style="flex:1;min-width:200px;" />
+              <button type="button" id="scanFolderBtn" class="button-secondary">Scan folder</button>
+            </div>
+            <p class="meta" style="margin-top:8px;">If the server returns a 403 or the folder has no directory listing, use the <strong>Paste file URLs</strong> tab instead.</p>
+          </div>
+
+          <div class="import-panel" id="importPanelPaste">
+            <p class="meta" style="margin-bottom:10px;">Paste the direct URLs of your audio files, one per line. Copy them from your FTP client, file manager, or CDN dashboard.</p>
+            <textarea id="pasteUrls" style="min-height:100px;font-family:monospace;font-size:0.82rem;" placeholder="https://example.com/music/01-track-name.mp3&#10;https://example.com/music/02-another-track.mp3&#10;…"></textarea>
+            <div style="margin-top:8px;">
+              <button type="button" id="importPastedBtn" class="button-secondary">Import these files</button>
+            </div>
+          </div>
+
+          <div class="import-progress" id="importProgress" style="display:none;margin-top:12px;">
             <span class="meta" id="importProgressText">Scanning…</span>
             <div class="import-progress-bar-track"><div class="import-progress-bar" id="importProgressBar"></div></div>
           </div>
@@ -414,7 +435,19 @@
         } catch (_e) { /* silently ignore */ }
       }
 
-      /* ── Folder import ────────────────────────────────────────── */
+      /* ── Import tabs ──────────────────────────────────────────── */
+      document.querySelectorAll('.import-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.import-panel').forEach(p => p.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('importPanel' + tab.dataset.panel.charAt(0).toUpperCase() + tab.dataset.panel.slice(1)).classList.add('active');
+          document.getElementById('importProgress').style.display = 'none';
+          document.getElementById('importSummary').style.display = 'none';
+        });
+      });
+
+      /* ── Shared import helpers ────────────────────────────────── */
       const METADATA_CONCURRENCY = 3;
 
       function mostCommon(values) {
@@ -431,6 +464,54 @@
         // Try leading digits in filename: "03 - Song.mp3" or "03_Song.mp3"
         const m = filename.match(/^(\d+)/);
         return m ? parseInt(m[1], 10) : null;
+      }
+
+      function populateFormFromResults(results, suggestedArtwork, folderUrl) {
+        const albumNames  = results.map(r => r.meta.albumName).filter(Boolean);
+        const artistNames = results.map(r => r.meta.artistName).filter(Boolean);
+        const years       = results.map(r => r.meta.year ? String(r.meta.year) : null).filter(Boolean);
+        const genres      = results.map(r => r.meta.genre).filter(Boolean);
+
+        const albumNameField  = document.getElementById('albumName');
+        const artistNameField = document.getElementById('artistName');
+        const yearField       = document.getElementById('year');
+        const genreField      = document.getElementById('genre');
+        const artworkField    = document.getElementById('artworkUrl');
+
+        if (!albumNameField.value) {
+          const folderFallback = folderUrl ? folderUrl.replace(/\/$/, '').split('/').pop() : '';
+          albumNameField.value = mostCommon(albumNames) || folderFallback || '';
+        }
+        if (!artistNameField.value) { const v = mostCommon(artistNames); if (v) artistNameField.value = v; }
+        if (!yearField.value) { const v = mostCommon(years); if (v) yearField.value = v; }
+        if (!genreField.value) { const v = mostCommon(genres); if (v) genreField.value = v; }
+
+        if (!artworkField.value && suggestedArtwork) {
+          artworkField.value = suggestedArtwork.url;
+          updateArtworkPreview(suggestedArtwork.url);
+        }
+
+        results.sort((a, b) => {
+          const oa = inferTrackOrder(a.file.filename, a.meta) ?? 9999;
+          const ob = inferTrackOrder(b.file.filename, b.meta) ?? 9999;
+          if (oa !== ob) return oa - ob;
+          return a.file.filename.localeCompare(b.file.filename, undefined, { numeric: true });
+        });
+
+        tracksContainer.innerHTML = '';
+        nextTrackNumber = 1;
+        results.forEach(({ file, meta }, idx) => {
+          const row = createTrackRow();
+          tracksContainer.appendChild(row);
+          row.querySelector('.mp3Url').value = file.url;
+          row.querySelector('.trackName').value = meta.trackName || AdminDataStore.inferTrackNameFromUrl(file.url) || file.filename;
+          row.querySelector('.trackNumber').value = inferTrackOrder(file.filename, meta) ?? (idx + 1);
+          if (meta.durationSeconds) row.querySelector('.durationSeconds').value = meta.durationSeconds;
+          if (meta.year) row.querySelector('.trackYear').value = meta.year;
+          if (meta.genre) row.querySelector('.trackGenre').value = meta.genre;
+          const hint = row.querySelector('.metadataHint');
+          if (hint) hint.textContent = meta.durationSeconds ? `${Math.floor(meta.durationSeconds / 60)}:${String(meta.durationSeconds % 60).padStart(2, '0')}` : 'No duration found.';
+        });
       }
 
       async function runFolderImport() {
@@ -455,13 +536,16 @@
             '/.netlify/functions/scanFolder?url=' + encodeURIComponent(folderUrl)
           );
         } catch (err) {
-          progressText.textContent = `Error: ${err.message}`;
+          const hint = err.message.includes('403') || err.message.includes('Folder fetch failed')
+            ? ' The server may have directory listing disabled — try the Paste file URLs tab instead.'
+            : '';
+          progressText.textContent = `Error: ${err.message}.${hint}`;
           scanBtn.disabled = false;
           return;
         }
 
         if (!listing.audioFiles?.length) {
-          progressText.textContent = 'No audio files found in that folder.';
+          progressText.textContent = 'No audio files found in that folder. The server may not expose a directory listing — try the Paste file URLs tab instead.';
           scanBtn.disabled = false;
           return;
         }
@@ -498,77 +582,74 @@
         progressBar.style.width = '100%';
         progressText.textContent = 'Done. Populating form…';
 
-        // ── Infer release-level fields ────────────────────────────
-        const albumNames   = results.map(r => r.meta.albumName).filter(Boolean);
-        const artistNames  = results.map(r => r.meta.artistName).filter(Boolean);
-        const years        = results.map(r => r.meta.year ? String(r.meta.year) : null).filter(Boolean);
-        const genres       = results.map(r => r.meta.genre).filter(Boolean);
-
-        const inferredAlbum  = mostCommon(albumNames);
-        const inferredArtist = mostCommon(artistNames);
-        const inferredYear   = mostCommon(years);
-        const inferredGenre  = mostCommon(genres);
-
-        // Try to get folder name as fallback album title
-        const folderName = folderUrl.replace(/\/$/, '').split('/').pop();
-        const albumNameField  = document.getElementById('albumName');
-        const artistNameField = document.getElementById('artistName');
-        const yearField       = document.getElementById('year');
-        const genreField      = document.getElementById('genre');
-
-        if (!albumNameField.value) albumNameField.value = inferredAlbum || AdminDataStore.inferTrackNameFromUrl(folderUrl.replace(/\/$/, '') + '/x') || folderName || '';
-        if (!artistNameField.value && inferredArtist) artistNameField.value = inferredArtist;
-        if (!yearField.value && inferredYear) yearField.value = inferredYear;
-        if (!genreField.value && inferredGenre) genreField.value = inferredGenre;
-
-        // ── Artwork ───────────────────────────────────────────────
-        const artworkField = document.getElementById('artworkUrl');
-        if (!artworkField.value && listing.suggestedArtwork) {
-          artworkField.value = listing.suggestedArtwork.url;
-          updateArtworkPreview(listing.suggestedArtwork.url);
-        }
-
-        // ── Sort tracks by inferred order ─────────────────────────
-        results.sort((a, b) => {
-          const oa = inferTrackOrder(a.file.filename, a.meta) ?? 9999;
-          const ob = inferTrackOrder(b.file.filename, b.meta) ?? 9999;
-          if (oa !== ob) return oa - ob;
-          return a.file.filename.localeCompare(b.file.filename, undefined, { numeric: true });
-        });
-
-        // ── Populate track rows ───────────────────────────────────
-        tracksContainer.innerHTML = '';
-        nextTrackNumber = 1;
-        results.forEach(({ file, meta }, idx) => {
-          const row = createTrackRow(); // increments nextTrackNumber
-          tracksContainer.appendChild(row);
-
-          row.querySelector('.mp3Url').value = file.url;
-          row.querySelector('.trackName').value =
-            meta.trackName || AdminDataStore.inferTrackNameFromUrl(file.url) || file.filename;
-
-          const order = inferTrackOrder(file.filename, meta) ?? (idx + 1);
-          row.querySelector('.trackNumber').value = order;
-
-          if (meta.durationSeconds) row.querySelector('.durationSeconds').value = meta.durationSeconds;
-          if (meta.year) row.querySelector('.trackYear').value = meta.year;
-          if (meta.genre) row.querySelector('.trackGenre').value = meta.genre;
-
-          const hint = row.querySelector('.metadataHint');
-          if (hint) {
-            hint.textContent = meta.durationSeconds
-              ? `${Math.floor(meta.durationSeconds / 60)}:${String(meta.durationSeconds % 60).padStart(2, '0')}`
-              : 'No duration found.';
-          }
-        });
-
         const artworkNote = listing.suggestedArtwork ? ` Suggested artwork: ${listing.suggestedArtwork.filename}.` : (listing.imageFiles?.length ? ` ${listing.imageFiles.length} image file(s) found — set artwork URL manually.` : ' No artwork found in folder.');
+        populateFormFromResults(results, listing.suggestedArtwork, folderUrl);
         summaryEl.textContent = `Imported ${results.length} track${results.length !== 1 ? 's' : ''}.${artworkNote} Review the fields below and save when ready.`;
         summaryEl.style.display = 'block';
         progressEl.style.display = 'none';
         scanBtn.disabled = false;
 
-        // Scroll to release section
+        document.getElementById('albumName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      async function runPasteImport() {
+        const raw = document.getElementById('pasteUrls').value.trim();
+        if (!raw) return;
+
+        const AUDIO_EXTS = /\.(mp3|flac|m4a|ogg|wav|aac|opus)(\?.*)?$/i;
+        const audioFiles = raw.split(/[\n\r]+/)
+          .map(l => l.trim()).filter(l => l && AUDIO_EXTS.test(l))
+          .map(url => ({ url, filename: decodeURIComponent(url.split('/').pop().split('?')[0]) }));
+
+        const progressEl = document.getElementById('importProgress');
+        const progressText = document.getElementById('importProgressText');
+        const progressBar = document.getElementById('importProgressBar');
+        const summaryEl = document.getElementById('importSummary');
+        const importBtn = document.getElementById('importPastedBtn');
+
+        if (!audioFiles.length) {
+          progressEl.style.display = 'block';
+          progressText.textContent = 'No audio file URLs found. Make sure each line is a direct link ending in .mp3, .flac, etc.';
+          return;
+        }
+
+        importBtn.disabled = true;
+        progressEl.style.display = 'block';
+        summaryEl.style.display = 'none';
+        progressBar.style.width = '0';
+        progressText.textContent = `Found ${audioFiles.length} URL${audioFiles.length !== 1 ? 's' : ''}. Reading metadata…`;
+
+        // Reuse same metadata fetch + populate logic
+        const total = audioFiles.length;
+        const results = new Array(total);
+        let done = 0;
+
+        async function fetchOne(i) {
+          const file = audioFiles[i];
+          try {
+            const meta = await AdminDataStore.requestJson(
+              '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(file.url)
+            );
+            results[i] = { file, meta };
+          } catch (_) {
+            results[i] = { file, meta: {} };
+          }
+          done++;
+          progressBar.style.width = `${Math.round((done / total) * 100)}%`;
+          progressText.textContent = `Reading metadata… ${done}/${total}`;
+        }
+
+        for (let i = 0; i < total; i += METADATA_CONCURRENCY) {
+          await Promise.all(audioFiles.slice(i, i + METADATA_CONCURRENCY).map((_, j) => fetchOne(i + j)));
+        }
+
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Done. Populating form…';
+        populateFormFromResults(results, null);
+        summaryEl.textContent = `Imported ${results.length} track${results.length !== 1 ? 's' : ''}. Review the fields below and save when ready.`;
+        summaryEl.style.display = 'block';
+        progressEl.style.display = 'none';
+        importBtn.disabled = false;
         document.getElementById('albumName').scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
 
@@ -583,6 +664,7 @@
         document.getElementById('folderUrl').addEventListener('keydown', (e) => {
           if (e.key === 'Enter') { e.preventDefault(); runFolderImport(); }
         });
+        document.getElementById('importPastedBtn').addEventListener('click', runPasteImport);
       });
     </script>
   </body>
