@@ -404,10 +404,26 @@
         nameDiv.appendChild(nameInput);
         fields.appendChild(nameDiv);
 
+        // Placement
+        const placementDiv = document.createElement('div');
+        const placementLbl = document.createElement('label');
+        placementLbl.textContent = 'Placement';
+        const placementSelect = document.createElement('select');
+        [['before', 'Before all releases'], ['after', 'After all releases']].forEach(([val, lbl]) => {
+          const opt = document.createElement('option');
+          opt.value = val; opt.textContent = lbl;
+          placementSelect.appendChild(opt);
+        });
+        placementSelect.value = entry.placement || 'before';
+        placementSelect.addEventListener('change', () => { pseudoAlbums[index].placement = placementSelect.value; });
+        placementDiv.appendChild(placementLbl);
+        placementDiv.appendChild(placementSelect);
+        fields.appendChild(placementDiv);
+
         // Sort order
         const orderDiv = document.createElement('div');
         const orderLbl = document.createElement('label');
-        orderLbl.textContent = 'Display order';
+        orderLbl.textContent = 'Order within group';
         const orderInput = document.createElement('input');
         orderInput.type = 'number';
         orderInput.value = entry.sortOrder ?? index;
@@ -674,6 +690,7 @@
               albumName: bt.label,
               enabled: bt.pseudoType !== 'favorites',
               sortOrder: i,
+              placement: 'before',
               albumArtworkUrl: '',
               ...(bt.pseudoType === 'whats-new' ? { limit: 30 } : {}),
               ...(bt.pseudoType === 'all-tracks' ? { enableShuffle: true } : {}),
@@ -697,6 +714,7 @@
           albumName: name.trim(),
           enabled: true,
           sortOrder: pseudoAlbums.length,
+          placement: 'before',
           albumArtworkUrl: '',
           trackIds: [],
         });

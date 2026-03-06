@@ -47,6 +47,7 @@ function pseudoAlbumFromConfig(entry) {
     limit: entry.limit ? Number(entry.limit) : undefined,
     trackIds: entry.trackIds || undefined,
     pseudoSortOrder: typeof entry.sortOrder === 'number' ? entry.sortOrder : 999,
+    placement: entry.placement || 'before',
   };
 }
 

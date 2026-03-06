@@ -1302,9 +1302,11 @@ function sortPseudoAlbums(albums) {
 
 function sortedAlbumsForDisplay() {
   const albums = [...state.albums];
-  // Pseudo-albums (allTracks, pseudoType) stay pinned at the top, sorted by pseudoSortOrder
-  const pinned = sortPseudoAlbums(albums.filter(a => a.allTracks || a.pseudoType));
-  const real = albums.filter(a => !a.allTracks && !a.pseudoType);
+  const pseudos = sortPseudoAlbums(albums.filter(a => a.allTracks || a.pseudoType));
+  const real    = albums.filter(a => !a.allTracks && !a.pseudoType);
+
+  const before = pseudos.filter(a => (a.placement || 'before') === 'before');
+  const after  = pseudos.filter(a => a.placement === 'after');
 
   if (RELEASE_ORDER === 'date-desc' || RELEASE_ORDER === 'date-asc') {
     real.sort((a, b) => {
@@ -1315,7 +1317,7 @@ function sortedAlbumsForDisplay() {
       return (a.artistName || a.albumName || '').localeCompare(b.artistName || b.albumName || '') ||
         (a.albumName || '').localeCompare(b.albumName || '');
     });
-    return [...pinned, ...real];
+    return [...before, ...real, ...after];
   }
   if (RELEASE_ORDER === 'custom') {
     real.sort((a, b) => {
@@ -1324,10 +1326,10 @@ function sortedAlbumsForDisplay() {
       if (aOrder !== bOrder) return aOrder - bOrder;
       return (a.albumName || '').localeCompare(b.albumName || '');
     });
-    return [...pinned, ...real];
+    return [...before, ...real, ...after];
   }
-  // Default: alphabetical (state.albums is already alphabetically sorted by api.js)
-  return [...pinned, ...real];
+  // Default: alphabetical
+  return [...before, ...real, ...after];
 }
 
 function buildAlbumCard(album) {
@@ -1337,9 +1339,9 @@ function buildAlbumCard(album) {
   cover.className = 'album-card-cover';
   const artwork = albumCoverFor(album);
   if (artwork) {
-    cover.style.backgroundImage = `url(${artwork})`;
+    cover.style.backgroundImage = `url("${artwork}")`;
     cover.setAttribute('aria-label', `${album.albumName} cover`);
-    preloadArtwork(artwork);
+    if (!artwork.startsWith('data:')) preloadArtwork(artwork);
   }
   if (album.year && !album.allTracks && !album.pseudoType) {
     const yearChip = document.createElement('span');
@@ -1438,7 +1440,7 @@ function setAlbum(albumIdentifier) {
   dom.albumHeading.textContent = albumName;
   const artwork = albumCoverFor(album);
   if (artwork) {
-    dom.albumDetailCover.style.backgroundImage = `url(${artwork})`;
+    dom.albumDetailCover.style.backgroundImage = `url("${artwork}")`;
   }
   const metaInfo = buildAlbumMeta(album);
   if (dom.albumLength) {
