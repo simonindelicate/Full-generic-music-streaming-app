@@ -78,7 +78,7 @@
             </div>
             <div>
               <label for="bgcolor">Card background colour</label>
-              <input type="text" id="bgcolor" />
+              <input type="color" id="bgcolor" />
             </div>
             <div class="artwork-col">
               <label for="artworkUrl">Artwork URL</label>
@@ -249,7 +249,7 @@
         fields.artistName.value      = album.artistName || '';
         fields.artworkUrl.value      = album.artworkUrl || '';
         fields.albumArtworkUrl.value = album.albumArtworkUrl || '';
-        fields.bgcolor.value         = album.bgcolor || '';
+        fields.bgcolor.value         = album.bgcolor || '#ffffff';
         fields.genre.value           = album.genre || '';
         fields.year.value            = album.year || '';
         fields.albumSortOrder.value  = album.albumSortOrder != null ? album.albumSortOrder : '';
@@ -288,9 +288,11 @@
         event.preventDefault();
         if (!activeAlbum) return;
         const updates = {};
-        ['albumName','albumId','artistName','artworkUrl','albumArtworkUrl','bgcolor','genre','year','albumSortOrder'].forEach((key) => {
+        ['albumName','albumId','artistName','artworkUrl','albumArtworkUrl','genre','year','albumSortOrder'].forEach((key) => {
           if (String(activeAlbum[key] ?? '') !== String(fields[key].value ?? '')) updates[key] = fields[key].value === '' ? undefined : fields[key].value;
         });
+        const bgcolorOriginal = activeAlbum.bgcolor || '#ffffff';
+        if (fields.bgcolor.value !== bgcolorOriginal) updates.bgcolor = fields.bgcolor.value;
         if ((activeAlbum.published !== false) !== fields.published.checked) updates.published = fields.published.checked;
         if (!Object.keys(updates).length) return showStatus('No changes to save.');
         try {
