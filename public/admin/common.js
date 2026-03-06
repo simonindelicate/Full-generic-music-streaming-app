@@ -33,8 +33,16 @@
     window.location.href = `${LOGIN_PAGE}?return=${returnTo}`;
   }
 
+  /* ── Auth guard ───────────────────────────────────────────── */
+  function requireAuth() {
+    if (!getToken()) {
+      redirectToLogin();
+    }
+  }
+
   /* ── Admin header ─────────────────────────────────────────── */
   function mountHeader() {
+    requireAuth();
     const host = document.querySelector('[data-admin-header]');
     if (!host) return;
     const header = document.createElement('header');
@@ -52,14 +60,11 @@
     back.href = '/player.html';
     back.innerHTML = '&#8592; Back to site';
 
-    const token = getToken();
-    if (token) {
-      const logoutBtn = document.createElement('button');
-      logoutBtn.textContent = 'Sign out';
-      logoutBtn.style.cssText = 'background:none;border:1px solid rgba(0,0,0,0.15);color:#555;padding:5px 12px;font-size:0.82rem;font-weight:600;border-radius:6px;cursor:pointer;box-shadow:none;';
-      logoutBtn.addEventListener('click', () => { clearToken(); redirectToLogin(); });
-      right.appendChild(logoutBtn);
-    }
+    const logoutBtn = document.createElement('button');
+    logoutBtn.textContent = 'Sign out';
+    logoutBtn.style.cssText = 'background:none;border:1px solid rgba(0,0,0,0.15);color:#555;padding:5px 12px;font-size:0.82rem;font-weight:600;border-radius:6px;cursor:pointer;box-shadow:none;';
+    logoutBtn.addEventListener('click', () => { clearToken(); redirectToLogin(); });
+    right.appendChild(logoutBtn);
 
     right.appendChild(back);
     header.appendChild(brand);
@@ -198,6 +203,7 @@
   window.AdminDataStore = {
     mountHeader,
     mountTabs,
+    requireAuth,
     fetchJsonCached,
     invalidateCache,
     requestJson,

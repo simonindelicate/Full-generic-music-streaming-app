@@ -15,6 +15,8 @@ const READ_CACHE_HEADERS = {
   'Cache-Control': 'public, max-age=30, stale-while-revalidate=300',
 };
 
+const toPublicTrack = ({ mp3Url, ...rest }) => rest;
+
 const numericTrackFields = new Set(['trackNumber', 'playCount', 'durationSeconds', 'duration', 'year']);
 const numericAlbumFields = new Set(['year']);
 
@@ -178,11 +180,12 @@ exports.handler = async (event) => {
         const requestedId = String(params.id || '').trim();
         const found = tracks.find((track) => normalizeTrackId(track) === requestedId);
         if (!found) return json(404, { message: 'Track not found' });
-        return json(200, found, READ_CACHE_HEADERS);
+        return json(200, toPublicTrack(found), READ_CACHE_HEADERS);
       }
-      if (resource === 'tracks') return json(200, tracks, READ_CACHE_HEADERS);
+      if (resource === 'tracks') return json(200, tracks.map(toPublicTrack), READ_CACHE_HEADERS);
       if (resource === 'albums') return json(200, getAlbumsFromTracks(tracks), READ_CACHE_HEADERS);
-      return json(200, { tracks, albums: getAlbumsFromTracks(tracks) }, READ_CACHE_HEADERS);
+      const publicTracks = tracks.map(toPublicTrack);
+      return json(200, { tracks: publicTracks, albums: getAlbumsFromTracks(tracks) }, READ_CACHE_HEADERS);
     }
 
     if (event.httpMethod !== 'POST') return json(405, { message: 'Method not allowed' });
