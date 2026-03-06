@@ -307,7 +307,7 @@
         });
         const bgcolorOriginal = activeAlbum.bgcolor || null;
         if (fields.bgcolor.dataset.cleared === 'true') {
-          if (bgcolorOriginal) updates.bgcolor = undefined;
+          if (bgcolorOriginal) updates.bgcolor = null;
         } else if (fields.bgcolor.value !== (bgcolorOriginal || '#ffffff')) {
           updates.bgcolor = fields.bgcolor.value;
         }
