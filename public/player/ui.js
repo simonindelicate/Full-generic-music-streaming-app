@@ -99,6 +99,44 @@ let WELCOME_ALBUM_TITLE = playerConfig?.welcomeAlbums?.title || DEFAULT_ALBUM_HE
 let WELCOME_ALBUM_SUBTITLE = playerConfig?.welcomeAlbums?.subtitle || '';
 let ABOUT_LINK_LABEL = 'about this website';
 let RELEASE_ORDER = 'alphabetical';
+
+const ALBUMS_PAGE_SIZE = 20;
+let pendingAlbums = [];
+let albumSentinelObserver = null;
+
+// ── Toast ─────────────────────────────────────────────────────────
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = type === 'error' ? 'toast toast--error' : 'toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  // Remove after animation (2.4s delay + 0.28s fade = ~2.7s)
+  setTimeout(() => toast.remove(), 2750);
+}
+
+// ── Skeleton placeholder cards ────────────────────────────────────
+function showSkeletonCards(count = 8) {
+  dom.albumGalleryGrid.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const card = document.createElement('article');
+    card.className = 'album-card skeleton';
+    const cover = document.createElement('div');
+    cover.className = 'album-card-cover';
+    const meta = document.createElement('div');
+    meta.className = 'album-card-meta';
+    const line1 = document.createElement('div');
+    line1.className = 'skeleton-line';
+    const line2 = document.createElement('div');
+    line2.className = 'skeleton-line skeleton-line--short';
+    const line3 = document.createElement('div');
+    line3.className = 'skeleton-line skeleton-line--btn';
+    meta.append(line1, line2, line3);
+    card.append(cover, meta);
+    dom.albumGalleryGrid.appendChild(card);
+  }
+}
 const TRACKS_FIRST_DESKTOP = playerConfig?.layout?.tracksFirstOnDesktop === true;
 const TIP_JAR_CONFIG = playerConfig?.tipJar || {};
 const THEME_STORAGE_KEY = 'tmc-player-theme';
@@ -1236,43 +1274,70 @@ function sortedAlbumsForDisplay() {
   return albums;
 }
 
+function buildAlbumCard(album) {
+  const card = document.createElement('article');
+  card.className = 'album-card';
+  const cover = document.createElement('div');
+  cover.className = 'album-card-cover';
+  const artwork = albumCoverFor(album);
+  if (artwork) {
+    cover.style.backgroundImage = `url(${artwork})`;
+    cover.setAttribute('aria-label', `${album.albumName} cover`);
+    preloadArtwork(artwork);
+  }
+  if (album.year && !album.allTracks && !album.pseudoType) {
+    const yearChip = document.createElement('span');
+    yearChip.className = 'album-card-year';
+    yearChip.textContent = album.year;
+    cover.appendChild(yearChip);
+  }
+  card.appendChild(cover);
+  const meta = document.createElement('div');
+  meta.className = 'album-card-meta';
+  const title = document.createElement('h3');
+  title.textContent = album.albumName;
+  meta.appendChild(title);
+  const metaInfo = buildAlbumMeta(album);
+  const note = document.createElement('p');
+  note.textContent = metaInfo.summary;
+  meta.appendChild(note);
+  const view = document.createElement('button');
+  view.className = 'pill';
+  view.textContent = 'View album';
+  view.addEventListener('click', event => {
+    event.stopPropagation();
+    setAlbum(album);
+  });
+  meta.appendChild(view);
+  card.appendChild(meta);
+  card.addEventListener('click', () => setAlbum(album));
+  return card;
+}
+
+function attachAlbumSentinel() {
+  const sentinel = document.createElement('div');
+  sentinel.className = 'album-grid-sentinel';
+  dom.albumGalleryGrid.appendChild(sentinel);
+  albumSentinelObserver = new IntersectionObserver((entries) => {
+    if (!entries[0].isIntersecting) return;
+    albumSentinelObserver.disconnect();
+    albumSentinelObserver = null;
+    sentinel.remove();
+    const batch = pendingAlbums.splice(0, ALBUMS_PAGE_SIZE);
+    batch.forEach(album => dom.albumGalleryGrid.appendChild(buildAlbumCard(album)));
+    if (pendingAlbums.length > 0) attachAlbumSentinel();
+  }, { rootMargin: '300px' });
+  albumSentinelObserver.observe(sentinel);
+}
+
 function renderAlbums() {
+  if (albumSentinelObserver) { albumSentinelObserver.disconnect(); albumSentinelObserver = null; }
   dom.albumGalleryGrid.innerHTML = '';
-  sortedAlbumsForDisplay()
-    .filter(matchesFilters)
-    .forEach(album => {
-      const card = document.createElement('article');
-      card.className = 'album-card';
-      const cover = document.createElement('div');
-      cover.className = 'album-card-cover';
-      const artwork = albumCoverFor(album);
-      if (artwork) {
-        cover.style.backgroundImage = `url(${artwork})`;
-        cover.setAttribute('aria-label', `${album.albumName} cover`);
-        preloadArtwork(artwork);
-      }
-      card.appendChild(cover);
-      const meta = document.createElement('div');
-      meta.className = 'album-card-meta';
-      const title = document.createElement('h3');
-      title.textContent = album.albumName;
-      meta.appendChild(title);
-      const metaInfo = buildAlbumMeta(album);
-      const note = document.createElement('p');
-      note.textContent = metaInfo.summary;
-      meta.appendChild(note);
-      const view = document.createElement('button');
-      view.className = 'pill';
-      view.textContent = 'View album';
-      view.addEventListener('click', event => {
-        event.stopPropagation();
-        setAlbum(album);
-      });
-      meta.appendChild(view);
-      card.appendChild(meta);
-      card.addEventListener('click', () => setAlbum(album));
-      dom.albumGalleryGrid.appendChild(card);
-    });
+  const filtered = sortedAlbumsForDisplay().filter(matchesFilters);
+  const firstBatch = filtered.slice(0, ALBUMS_PAGE_SIZE);
+  pendingAlbums = filtered.slice(ALBUMS_PAGE_SIZE);
+  firstBatch.forEach(album => dom.albumGalleryGrid.appendChild(buildAlbumCard(album)));
+  if (pendingAlbums.length > 0) attachAlbumSentinel();
 }
 
 function renderTracks(album) {
@@ -1479,18 +1544,13 @@ async function copyShareLink() {
   if (!shareUrl || !shareUrl.pathname) return;
   try {
     await navigator.clipboard.writeText(shareUrl.toString());
+    showToast('Link copied');
     if (dom.copyLinkButton) {
-      const original = dom.copyLinkButton.getAttribute('aria-label') || 'Share track';
-      dom.copyLinkButton.setAttribute('aria-label', 'Link copied');
-      dom.copyLinkButton.title = 'Link copied';
       dom.copyLinkButton.classList.add('copied');
-      setTimeout(() => {
-        dom.copyLinkButton?.setAttribute('aria-label', original);
-        if (dom.copyLinkButton) dom.copyLinkButton.title = original;
-        dom.copyLinkButton?.classList.remove('copied');
-      }, 2000);
+      setTimeout(() => dom.copyLinkButton?.classList.remove('copied'), 2000);
     }
   } catch (err) {
+    showToast('Could not copy link', 'error');
     console.warn('Clipboard unavailable', err);
   }
 }
@@ -1899,6 +1959,7 @@ export async function init() {
     artworkEventsBound = true;
   }
   try {
+    showSkeletonCards();
     const heroPromise = loadWelcomeHero();
     await loadLibrary();
     await heroPromise;
@@ -1933,6 +1994,8 @@ export async function init() {
     refreshDocumentMetadata();
   } catch (err) {
     console.error('Failed to load library', err);
+    showToast('Could not load library — please refresh', 'error');
+    dom.albumGalleryGrid.innerHTML = '';
   }
 }
 
