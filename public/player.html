@@ -15,6 +15,11 @@
       <meta name="twitter:image" content="/img/og_image.jpg" />
       <link rel="manifest" href="/manifest.webmanifest" />
       <link rel="apple-touch-icon" href="/sigil.png" />
+      <!-- Preload critical scripts so the browser fetches them in parallel with HTML parsing -->
+      <link rel="preload" href="/player/ui.js" as="script" />
+      <link rel="preload" href="/player/api.js" as="script" />
+      <link rel="preload" href="/player/state.js" as="script" />
+      <link rel="preload" href="/styles/style.css" as="style" />
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
       <link rel="stylesheet" href="/styles/style.css" />
     </head>

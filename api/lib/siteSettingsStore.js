@@ -53,7 +53,8 @@ const defaults = {
   themeMutedText: '#bfb6d3',
   themeAccent: '#9a6bff',
   themeBorder: '#2a2235',
-  dynamicColorTheming: true
+  dynamicColorTheming: true,
+  releaseOrder: 'alphabetical',
 };
 
 async function readFtp() {

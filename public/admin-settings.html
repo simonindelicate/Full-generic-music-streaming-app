@@ -171,6 +171,15 @@
                   <option value="false">Disabled</option>
                 </select>
               </div>
+              <div>
+                <label for="releaseOrder">Release ordering</label>
+                <select id="releaseOrder">
+                  <option value="alphabetical">Alphabetical (A–Z)</option>
+                  <option value="date-desc">By date (newest first)</option>
+                  <option value="custom">Custom (uses Sort order field per release)</option>
+                </select>
+                <p class="meta" style="margin-top:6px;">For "Custom", set a numeric Sort order value on each release in Edit Releases.</p>
+              </div>
               <div style="grid-column: 1 / -1;">
                 <label for="welcomeMessage">Welcome message <span class="meta" style="font-weight:400;">(HTML allowed)</span></label>
                 <textarea id="welcomeMessage" placeholder="Displayed above the album grid"></textarea>
@@ -297,7 +306,7 @@
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
         'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','dynamicColorTheming',
-        'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled',
+        'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'
       ];

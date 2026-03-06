@@ -98,6 +98,7 @@ const DEFAULT_ALBUM_HEADING = 'Albums';
 let WELCOME_ALBUM_TITLE = playerConfig?.welcomeAlbums?.title || DEFAULT_ALBUM_HEADING;
 let WELCOME_ALBUM_SUBTITLE = playerConfig?.welcomeAlbums?.subtitle || '';
 let ABOUT_LINK_LABEL = 'about this website';
+let RELEASE_ORDER = 'alphabetical';
 const TRACKS_FIRST_DESKTOP = playerConfig?.layout?.tracksFirstOnDesktop === true;
 const TIP_JAR_CONFIG = playerConfig?.tipJar || {};
 const THEME_STORAGE_KEY = 'tmc-player-theme';
@@ -253,6 +254,7 @@ async function applySiteSettings() {
     if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
     if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
     if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
+    if (settings.releaseOrder) RELEASE_ORDER = settings.releaseOrder;
     if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
     WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
     WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
@@ -1205,9 +1207,38 @@ function buildAlbumMeta(albumOrName) {
   };
 }
 
+function sortedAlbumsForDisplay() {
+  const albums = [...state.albums];
+  if (RELEASE_ORDER === 'date-desc') {
+    // Pseudo-albums (allTracks, pseudoType) stay pinned at the top
+    const pinned = albums.filter(a => a.allTracks || a.pseudoType);
+    const real = albums.filter(a => !a.allTracks && !a.pseudoType);
+    real.sort((a, b) => {
+      const yearDiff = (b.year || 0) - (a.year || 0);
+      if (yearDiff !== 0) return yearDiff;
+      return (a.artistName || a.albumName || '').localeCompare(b.artistName || b.albumName || '') ||
+        (a.albumName || '').localeCompare(b.albumName || '');
+    });
+    return [...pinned, ...real];
+  }
+  if (RELEASE_ORDER === 'custom') {
+    const pinned = albums.filter(a => a.allTracks || a.pseudoType);
+    const real = albums.filter(a => !a.allTracks && !a.pseudoType);
+    real.sort((a, b) => {
+      const aOrder = a.albumSortOrder != null ? Number(a.albumSortOrder) : Infinity;
+      const bOrder = b.albumSortOrder != null ? Number(b.albumSortOrder) : Infinity;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return (a.albumName || '').localeCompare(b.albumName || '');
+    });
+    return [...pinned, ...real];
+  }
+  // Default: alphabetical (state.albums is already alphabetically sorted by api.js)
+  return albums;
+}
+
 function renderAlbums() {
   dom.albumGalleryGrid.innerHTML = '';
-  state.albums
+  sortedAlbumsForDisplay()
     .filter(matchesFilters)
     .forEach(album => {
       const card = document.createElement('article');
