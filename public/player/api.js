@@ -26,6 +26,7 @@ function buildAlbums(tracks) {
         artistName: track.artistName,
         year: track.year,
         albumSortOrder: track.albumSortOrder,
+        bgcolor: track.bgcolor,
       };
     }
     return acc;

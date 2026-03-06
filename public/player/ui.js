@@ -1335,6 +1335,9 @@ function sortedAlbumsForDisplay() {
 function buildAlbumCard(album) {
   const card = document.createElement('article');
   card.className = 'album-card';
+  if (album.bgcolor && /^#([0-9a-f]{3}){1,2}$/i.test(album.bgcolor)) {
+    card.style.background = `linear-gradient(180deg, ${album.bgcolor}ee, ${album.bgcolor}cc)`;
+  }
   const cover = document.createElement('div');
   cover.className = 'album-card-cover';
   const artwork = albumCoverFor(album);

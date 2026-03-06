@@ -126,6 +126,7 @@ function applyAlbumUpdates(track = {}, updates = {}) {
   const updated = { ...track };
   Object.entries(updates).forEach(([key, value]) => {
     if (value === undefined) return;
+    if (value === null) { delete updated[key]; return; }
     if (numericAlbumFields.has(key) && value !== '') {
       const numericValue = Number(value);
       updated[key] = Number.isNaN(numericValue) ? value : numericValue;
