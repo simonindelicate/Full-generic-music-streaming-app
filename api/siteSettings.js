@@ -18,6 +18,9 @@ exports.handler = async (event) => {
       if (!isAdmin(event)) return jsonResponse(401, { message: 'Unauthorized' });
 
       const body = JSON.parse(event.body || '{}');
+      // _loginCheck is used only to verify credentials — don't write anything.
+      if (body._loginCheck) return jsonResponse(200, { message: 'OK' });
+
       const result = await saveSiteSettings(body || {});
       return jsonResponse(200, { message: 'Settings saved', ...result });
     }

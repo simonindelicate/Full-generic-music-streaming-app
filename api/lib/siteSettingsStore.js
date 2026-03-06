@@ -136,7 +136,8 @@ async function loadSiteSettings({ bypassCache = false } = {}) {
 }
 
 async function saveSiteSettings(payload) {
-  const settings = { ...defaults, ...payload };
+  const existing = await loadSiteSettings({ bypassCache: true });
+  const settings = { ...existing, ...payload };
   const result = hasFtpConfig() ? await writeFtp(settings) : await writeFileStore(settings);
   memoryCache = settings;
   return { settings, ...result };
