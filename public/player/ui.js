@@ -1583,16 +1583,8 @@ function extractTrackId(trackParam) {
 }
 
 function resolveTrackUrl(track) {
-  return (
-    track?.mp3Url ||
-    track?.url ||
-    track?.audioUrl ||
-    track?.fileUrl ||
-    track?.streamUrl ||
-    track?.downloadUrl ||
-    track?.downloadURL ||
-    track?.src
-  );
+  if (track?._id) return `/.netlify/functions/stream?trackId=${encodeURIComponent(String(track._id))}`;
+  return track?.streamUrl || track?.src || null;
 }
 
 function ensureQueueForTrack(track) {
