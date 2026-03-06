@@ -82,7 +82,14 @@ async function fetchBitrate(url, signal) {
     id3Offset = 10 + syncSafeToInt(buffer.subarray(6, 10));
   }
 
-  let bitrate = parseBitrateFromFrame(buffer);
+  // Scan only the audio portion of the buffer. JPEG/PNG data inside an ID3
+  // tag frequently contains 0xFF 0xEx byte sequences that look like MP3 sync
+  // words, causing parseBitrateFromFrame to latch onto image data and return
+  // a spuriously low bitrate (which inflates the calculated duration).
+  const audioSlice = id3Offset > 0 && id3Offset < buffer.length
+    ? buffer.subarray(id3Offset)
+    : buffer;
+  let bitrate = parseBitrateFromFrame(audioSlice);
 
   // If no frame found and the ID3 tag extends beyond our 256 KB window
   // (e.g. a large embedded album art), fetch a small chunk from just after
