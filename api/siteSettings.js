@@ -10,18 +10,18 @@ const jsonResponse = (statusCode, payload) => ({
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === 'GET') {
-      const settings = await loadSiteSettings();
+      const { _loginCheck: _omit, ...settings } = await loadSiteSettings();
       return jsonResponse(200, settings);
     }
 
     if (event.httpMethod === 'POST') {
       if (!isAdmin(event)) return jsonResponse(401, { message: 'Unauthorized' });
 
-      const body = JSON.parse(event.body || '{}');
-      // _loginCheck is used only to verify credentials — don't write anything.
-      if (body._loginCheck) return jsonResponse(200, { message: 'OK' });
+      const { _loginCheck, ...body } = JSON.parse(event.body || '{}');
+      // Pure login check — no other keys means the caller only wanted auth verification.
+      if (_loginCheck && Object.keys(body).length === 0) return jsonResponse(200, { message: 'OK' });
 
-      const result = await saveSiteSettings(body || {});
+      const result = await saveSiteSettings(body);
       return jsonResponse(200, { message: 'Settings saved', ...result });
     }
 
