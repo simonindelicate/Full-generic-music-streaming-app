@@ -952,6 +952,10 @@ function updateFilters() {
 }
 
 function sortTracksForAlbum(album, tracks = []) {
+  // Custom playlists preserve the admin-defined order
+  if (album?.pseudoType === 'custom-playlist') {
+    return album?.limit ? tracks.slice(0, album.limit) : tracks;
+  }
   const sorted = [...tracks];
   if (album?.pseudoType === 'whats-new') {
     sorted.sort((a, b) => getTrackTimestamp(b) - getTrackTimestamp(a) || (a.trackName || '').localeCompare(b.trackName || ''));
@@ -983,7 +987,11 @@ function tracksForAlbum(albumOrName) {
     tracks = state.tracks.filter(isFavoriteTrack);
   } else if (album.pseudoType === 'whats-new') {
     tracks = state.tracks;
-  } else if (album.allTracks) {
+  } else if (album.pseudoType === 'custom-playlist') {
+    const idList = album.trackIds || [];
+    const byId = Object.fromEntries(state.tracks.map(t => [t._id, t]));
+    tracks = idList.map(id => byId[id]).filter(Boolean);
+  } else if (album.allTracks || album.pseudoType === 'all-tracks') {
     tracks = state.tracks;
   } else {
     tracks = state.tracks.filter(track => track.albumName === album.albumName);
@@ -1004,9 +1012,41 @@ function matchesFilters(album) {
   });
 }
 
+function generatePseudoAlbumArt(albumName, pseudoType) {
+  const palettes = {
+    'all-tracks':       ['#4f3bff', '#8b5cf6'],
+    'whats-new':        ['#0ea5e9', '#06b6d4'],
+    'favorites':        ['#ec4899', '#ef4444'],
+    'custom-playlist':  ['#f97316', '#eab308'],
+  };
+  const [c1, c2] = palettes[pseudoType] || ['#6b7280', '#374151'];
+  const label = albumName || 'Collection';
+  // Split into up to two lines of ~14 chars each
+  const words = label.split(' ');
+  const lines = [];
+  let current = '';
+  words.forEach(w => {
+    if (!current) { current = w; }
+    else if ((current + ' ' + w).length <= 14) { current += ' ' + w; }
+    else { lines.push(current); current = w; }
+  });
+  if (current) lines.push(current);
+  const lineHeight = 42;
+  const totalHeight = lines.length * lineHeight;
+  const startY = 150 - (totalHeight / 2) + 30;
+  const textEls = lines.map((line, i) =>
+    `<text x="150" y="${startY + i * lineHeight}" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="34" fill="rgba(255,255,255,0.92)">${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>`
+  ).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="300" height="300" fill="url(#g)"/>${textEls}</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 function albumCoverFor(album) {
   if (album.albumArtworkUrl) return album.albumArtworkUrl;
   if (album.artworkUrl) return album.artworkUrl;
+  if (album.pseudoType || album.allTracks) {
+    return generatePseudoAlbumArt(album.albumName, album.pseudoType || 'all-tracks');
+  }
   return DEFAULT_ART_PLACEHOLDER;
 }
 
@@ -1251,12 +1291,22 @@ function buildAlbumMeta(albumOrName) {
   };
 }
 
+function sortPseudoAlbums(albums) {
+  return [...albums].sort((a, b) => {
+    const aOrder = a.pseudoSortOrder != null ? Number(a.pseudoSortOrder) : 999;
+    const bOrder = b.pseudoSortOrder != null ? Number(b.pseudoSortOrder) : 999;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return (a.albumName || '').localeCompare(b.albumName || '');
+  });
+}
+
 function sortedAlbumsForDisplay() {
   const albums = [...state.albums];
+  // Pseudo-albums (allTracks, pseudoType) stay pinned at the top, sorted by pseudoSortOrder
+  const pinned = sortPseudoAlbums(albums.filter(a => a.allTracks || a.pseudoType));
+  const real = albums.filter(a => !a.allTracks && !a.pseudoType);
+
   if (RELEASE_ORDER === 'date-desc' || RELEASE_ORDER === 'date-asc') {
-    // Pseudo-albums (allTracks, pseudoType) stay pinned at the top
-    const pinned = albums.filter(a => a.allTracks || a.pseudoType);
-    const real = albums.filter(a => !a.allTracks && !a.pseudoType);
     real.sort((a, b) => {
       const aYear = a.year || 0;
       const bYear = b.year || 0;
@@ -1268,8 +1318,6 @@ function sortedAlbumsForDisplay() {
     return [...pinned, ...real];
   }
   if (RELEASE_ORDER === 'custom') {
-    const pinned = albums.filter(a => a.allTracks || a.pseudoType);
-    const real = albums.filter(a => !a.allTracks && !a.pseudoType);
     real.sort((a, b) => {
       const aOrder = a.albumSortOrder != null ? Number(a.albumSortOrder) : Infinity;
       const bOrder = b.albumSortOrder != null ? Number(b.albumSortOrder) : Infinity;
@@ -1279,7 +1327,7 @@ function sortedAlbumsForDisplay() {
     return [...pinned, ...real];
   }
   // Default: alphabetical (state.albums is already alphabetically sorted by api.js)
-  return albums;
+  return [...pinned, ...real];
 }
 
 function buildAlbumCard(album) {
