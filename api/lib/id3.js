@@ -35,6 +35,7 @@ const V22_MAP = {
   TRK: 'TRCK',
   TYE: 'TYER',
   TCO: 'TCON',
+  TLE: 'TLEN',
 };
 
 const parseId3v2 = (buffer) => {
@@ -68,6 +69,7 @@ const parseId3v2 = (buffer) => {
         if (canonical === 'TRCK') tags.trackNumber = decodeText(frameData);
         if (canonical === 'TYER') tags.year = decodeText(frameData);
         if (canonical === 'TCON') tags.genre = decodeText(frameData);
+        if (canonical === 'TLEN') tags.durationMs = Number(decodeText(frameData)) || null;
       }
 
       // PIC = ID3v2.2 picture frame
@@ -127,6 +129,7 @@ const parseId3v2 = (buffer) => {
       if (frameId === 'TRCK') tags.trackNumber = decodeText(frameData);
       if (frameId === 'TDRC' || frameId === 'TYER') tags.year = decodeText(frameData);
       if (frameId === 'TCON') tags.genre = decodeText(frameData);
+      if (frameId === 'TLEN') tags.durationMs = Number(decodeText(frameData)) || null;
 
       // APIC = attached picture
       if (frameId === 'APIC') {
