@@ -104,7 +104,9 @@ function getAlbumsFromTracks(tracks = [], { includeUnpublished = false } = {}) {
         albumId: track.albumId,
         artistName: track.artistName,
         artworkUrl: track.artworkUrl,
-        albumArtworkUrl: track.albumArtworkUrl || track.artworkUrl,
+        // Prefer artworkUrl so a replaced image is always reflected immediately,
+        // even if albumArtworkUrl is still pointing at an older version.
+        albumArtworkUrl: track.artworkUrl || track.albumArtworkUrl,
         bgcolor: track.bgcolor,
         genre: track.genre,
         year: track.year,
@@ -119,8 +121,10 @@ function getAlbumsFromTracks(tracks = [], { includeUnpublished = false } = {}) {
     // Any published track makes the album count as published in admin views.
     if (!existing.published && track.published !== false) existing.published = true;
     if (!existing.albumId && track.albumId) existing.albumId = track.albumId;
-    if (!existing.artworkUrl && track.artworkUrl) existing.artworkUrl = track.artworkUrl;
-    if (!existing.albumArtworkUrl && track.albumArtworkUrl) existing.albumArtworkUrl = track.albumArtworkUrl;
+    if (!existing.artworkUrl && track.artworkUrl) {
+      existing.artworkUrl = track.artworkUrl;
+      existing.albumArtworkUrl = track.artworkUrl || track.albumArtworkUrl;
+    }
   });
 
   return Array.from(byAlbum.values()).sort((a, b) => (a.albumName || '').localeCompare(b.albumName || ''));
@@ -277,14 +281,14 @@ exports.handler = async (event) => {
             effectiveUpdates = { ...effectiveUpdates, albumId: slugify(newAlbumName) };
           }
         }
-        // When artworkUrl is being updated without an explicit albumArtworkUrl,
-        // keep albumArtworkUrl in sync if it was tracking artworkUrl (same value
-        // or absent). This fixes cases where a previous save only updated one of
-        // the two fields, leaving the player showing the original artwork.
-        if (updates.artworkUrl && !updates.albumArtworkUrl) {
-          const cur = track.albumArtworkUrl || '';
-          if (!cur || cur === (track.artworkUrl || '')) {
-            effectiveUpdates = { ...effectiveUpdates, albumArtworkUrl: updates.artworkUrl };
+        // Keep albumArtworkUrl in sync with artworkUrl whenever they have
+        // diverged and albumArtworkUrl is not explicitly being set. This heals
+        // data where a previous save only wrote artworkUrl, leaving
+        // albumArtworkUrl frozen at the original value.
+        if (!updates.albumArtworkUrl) {
+          const target = updates.artworkUrl || track.artworkUrl || '';
+          if (target && (track.albumArtworkUrl || '') !== target) {
+            effectiveUpdates = { ...effectiveUpdates, albumArtworkUrl: target };
           }
         }
         tracks[idx] = applyAlbumUpdates(track, effectiveUpdates);
