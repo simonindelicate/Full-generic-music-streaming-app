@@ -96,7 +96,7 @@ function getAlbumsFromTracks(tracks = [], { includeUnpublished = false } = {}) {
   const byAlbum = new Map();
   const source = includeUnpublished ? tracks.filter(Boolean) : tracks.filter((t) => t?.published !== false);
   source.forEach((track) => {
-    const albumKey = `${track.albumName || ''}::${track.artistName || ''}`;
+    const albumKey = track.albumName || '';
     const existing = byAlbum.get(albumKey);
     if (!existing) {
       byAlbum.set(albumKey, {
