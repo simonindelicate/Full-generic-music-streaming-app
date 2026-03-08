@@ -91,9 +91,10 @@ function applyTrackUpdates(track = {}, updates = {}) {
   return updated;
 }
 
-function getAlbumsFromTracks(tracks = []) {
+function getAlbumsFromTracks(tracks = [], { includeUnpublished = false } = {}) {
   const byAlbum = new Map();
-  tracks.filter((track) => track?.published !== false).forEach((track) => {
+  const source = includeUnpublished ? tracks.filter(Boolean) : tracks.filter((t) => t?.published !== false);
+  source.forEach((track) => {
     const albumKey = `${track.albumName || ''}::${track.artistName || ''}`;
     const existing = byAlbum.get(albumKey);
     if (!existing) {
@@ -114,6 +115,8 @@ function getAlbumsFromTracks(tracks = []) {
     }
 
     existing.trackCount += 1;
+    // Any published track makes the album count as published in admin views.
+    if (!existing.published && track.published !== false) existing.published = true;
     if (!existing.albumId && track.albumId) existing.albumId = track.albumId;
     if (!existing.artworkUrl && track.artworkUrl) existing.artworkUrl = track.artworkUrl;
     if (!existing.albumArtworkUrl && track.albumArtworkUrl) existing.albumArtworkUrl = track.albumArtworkUrl;
@@ -187,7 +190,13 @@ exports.handler = async (event) => {
         return json(200, toPublicTrack(found), READ_CACHE_HEADERS);
       }
       if (resource === 'tracks') return json(200, tracks.map(toPublicTrack), READ_CACHE_HEADERS);
-      if (resource === 'albums') return json(200, getAlbumsFromTracks(tracks), READ_CACHE_HEADERS);
+      if (resource === 'albums') {
+        // Admins see all albums (including fully-unpublished ones) so the
+        // edit-albums dropdown doesn't hide releases after a bulk-unpublish.
+        const adminView = isAdmin(event);
+        const albums = getAlbumsFromTracks(tracks, { includeUnpublished: adminView });
+        return json(200, albums, adminView ? {} : READ_CACHE_HEADERS);
+      }
       const publicTracks = tracks.map(toPublicTrack);
       return json(200, { tracks: publicTracks, albums: getAlbumsFromTracks(tracks) }, READ_CACHE_HEADERS);
     }
@@ -250,16 +259,32 @@ exports.handler = async (event) => {
     if (action === 'updateAlbum') {
       const albumName = String(body.albumName || '').trim();
       if (!albumName) return json(400, { message: 'albumName is required' });
+      const updates = body.updates || {};
+      const newAlbumName = updates.albumName ? String(updates.albumName).trim() : null;
+      const derivedOldSlug = slugify(albumName);
       let matched = 0;
       tracks.forEach((track, idx) => {
         if (track.albumName !== albumName) return;
         matched += 1;
-        tracks[idx] = applyAlbumUpdates(track, body.updates || {});
+        let effectiveUpdates = updates;
+        // When the album is being renamed and albumId wasn't explicitly changed,
+        // auto-derive a new albumId from the new name — but only if the existing
+        // albumId looks auto-derived (matches the slug of the old name) or is
+        // absent. Custom albumIds set by the user are left untouched.
+        if (newAlbumName && !updates.albumId) {
+          const trackAlbumId = track.albumId || '';
+          if (!trackAlbumId || trackAlbumId === derivedOldSlug) {
+            effectiveUpdates = { ...updates, albumId: slugify(newAlbumName) };
+          }
+        }
+        tracks[idx] = applyAlbumUpdates(track, effectiveUpdates);
       });
       if (!matched) return json(404, { message: 'Album not found' });
 
-      const response = { albumName, updatedFields: Object.keys(body.updates || {}) };
-      if (body.populateDurations) response.durationUpdate = await populateAlbumDurations(tracks, albumName);
+      // Use the post-rename album name so populateAlbumDurations can find the tracks.
+      const effectiveAlbumName = newAlbumName || albumName;
+      const response = { albumName: effectiveAlbumName, updatedFields: Object.keys(updates) };
+      if (body.populateDurations) response.durationUpdate = await populateAlbumDurations(tracks, effectiveAlbumName);
       const result = await saveTracks(tracks);
       return json(200, { ...response, store: result.store, path: result.path });
     }
