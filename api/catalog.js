@@ -181,6 +181,9 @@ exports.handler = async (event) => {
         const requestedId = String(params.id || '').trim();
         const found = tracks.find((track) => normalizeTrackId(track) === requestedId);
         if (!found) return json(404, { message: 'Track not found' });
+        // Return the full track (including mp3Url) to authenticated admins so
+        // the edit page can display and compare the current audio URL.
+        if (isAdmin(event)) return json(200, found);
         return json(200, toPublicTrack(found), READ_CACHE_HEADERS);
       }
       if (resource === 'tracks') return json(200, tracks.map(toPublicTrack), READ_CACHE_HEADERS);
@@ -226,6 +229,22 @@ exports.handler = async (event) => {
       tracks.splice(index, 1);
       const result = await saveTracks(tracks);
       return json(200, { message: 'Track deleted', store: result.store, path: result.path });
+    }
+
+    if (action === 'deleteAlbum') {
+      // albumName may be null/undefined to target phantom tracks with no album.
+      const albumName = Object.prototype.hasOwnProperty.call(body, 'albumName') ? body.albumName : undefined;
+      if (albumName === undefined) return json(400, { message: 'albumName is required (pass null to delete tracks with no album name)' });
+      const isPhantom = albumName === null || String(albumName).trim() === '';
+      let removed = 0;
+      const remaining = tracks.filter((track) => {
+        const matches = isPhantom ? !track.albumName : track.albumName === albumName;
+        if (matches) { removed += 1; return false; }
+        return true;
+      });
+      if (!removed) return json(404, { message: 'Album not found or has no tracks' });
+      const result = await saveTracks(remaining);
+      return json(200, { message: 'Album deleted', removed, store: result.store, path: result.path });
     }
 
     if (action === 'updateAlbum') {

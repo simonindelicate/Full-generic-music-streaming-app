@@ -288,7 +288,11 @@
         }
       }
 
-      fetch('/.netlify/functions/catalog?resource=track&id=' + id)
+      // Include the admin token so the backend returns the full track (with mp3Url).
+      const _adminToken = sessionStorage.getItem('admin-token') || '';
+      fetch('/.netlify/functions/catalog?resource=track&id=' + id, {
+        headers: _adminToken ? { 'X-Admin-Token': _adminToken } : {},
+      })
         .then(response => response.json())
         .then(track => {
           document.getElementById('_id').value = track._id;
