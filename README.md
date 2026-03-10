@@ -1,269 +1,412 @@
 # Full Generic Music Streaming App
 
-A self-hosted music streaming site built for Netlify. Upload your music, configure your branding, optionally gate tracks behind a PayPal payment — no database required.
+Your own music streaming website, hosted by you, controlled by you. Listeners get a proper player with album artwork, shuffle, and shareable links. You get a web-based admin panel to upload tracks, manage metadata, and — if you want — charge a monthly subscription to unlock your catalogue.
+
+**No monthly platform fees. No algorithm. No one can take it down but you.**
 
 ---
 
-## What it does
+## Before you start — accounts you will need
 
-- **Music player** — album gallery, track list, seek bar, shuffle/repeat, media keys, dynamic artwork-based theming, shareable track/album URLs
-- **Admin UI** — web-based track upload, metadata editing, artwork management, site settings
-- **Payment gating** — mark individual tracks as paid; buyers verify via PayPal and get a signed access token stored in their browser
-- **No mandatory database** — tracks and settings live in a JSON file on FTP (or local disk). MongoDB is not required for any part of this
+You need to sign up for a few services before doing anything else. All of the free ones are genuinely free. Read this whole section before you start clicking.
 
----
+### 1. GitHub (free)
+**What it is:** A website that stores code. You're going to make your own copy of this project and store it there.
+**Where to sign up:** [github.com](https://github.com) → Sign up
 
-## Prerequisites
+### 2. Netlify (free)
+**What it is:** Netlify runs your website for free. It takes the code from your GitHub account, builds it into a live site, and handles all the technical server stuff. You get a free `your-chosen-name.netlify.app` web address, or you can connect your own domain later.
+**Where to sign up:** [netlify.com](https://netlify.com) → Sign up with your GitHub account (this is the easiest option — it links the two together automatically).
 
-- A [Netlify](https://netlify.com) account (free tier is fine)
-- An FTP server with a publicly accessible URL for media files
-  - Any standard web host with FTP access works
-  - The public URL is where your MP3s and images will be served from
-- For payments: a [PayPal Developer](https://developer.paypal.com) account
+### 3. Web hosting with FTP (paid — roughly £3–8/month)
+**What it is:** Netlify runs the code, but it can't store large files like MP3s. You need a separate place to store your music files and a few small settings files. A basic web hosting package from any provider works — you just need FTP access and a public URL for the files.
 
----
+**Recommended providers** (any of these work):
+- [IONOS](https://www.ionos.co.uk) — Basic Web Hosting, around £3/month
+- [Namecheap](https://www.namecheap.com) — Stellar Shared Hosting, around $2–4/month
+- [Fasthosts](https://www.fasthosts.co.uk) — Starter Hosting, around £3/month
+- Any web host where you get FTP credentials and your files are accessible via a web URL
 
-## Setup: no payments
+> **What is FTP?** FTP (File Transfer Protocol) is a way to send files to a web server. When you sign up for web hosting, you get a username, password, and server address for FTP. You will also get a web URL where those files can be accessed publicly — usually something like `https://yourdomain.com/uploads/` or a subdomain like `https://media.yourdomain.com`.
 
-This gets you a fully working player with admin upload in about 5 minutes.
+> **Do I need my own domain?** No. Your music will be served from whatever web address your hosting provider gives you. You can add your own domain later, or use the domain your hosting comes with.
 
-### 1. Deploy to Netlify
+### 4. PayPal Business account (free — only needed for subscriptions)
+**What it is:** If you want to charge listeners a monthly subscription, you need a PayPal Business account to receive the money. This is different from a regular PayPal personal account.
 
-Fork or clone this repo, then connect it to Netlify. The `netlify.toml` handles everything:
+**You do NOT need this if you just want a free public player.**
 
-- Publish directory: `public/`
-- Functions directory: `api/`
-
-### 2. Set environment variables
-
-In your Netlify dashboard → **Site configuration → Environment variables**, add:
-
-| Variable | Required | Description |
-|---|---|---|
-| `APP_BASE_URL` | Yes | Your Netlify site URL, e.g. `https://your-site.netlify.app` |
-| `ADMIN_API_TOKEN` | Yes | A secret password for the admin UI — make it long and random |
-| `FTP_HOST` | Yes | Your FTP server hostname |
-| `FTP_USER` | Yes | FTP username |
-| `FTP_PASSWORD` | Yes | FTP password |
-| `FTP_PUBLIC_BASE_URL` | Yes | The public HTTP URL for files on that FTP server, e.g. `https://media.yourdomain.com` |
-| `FTP_BASE_PATH` | No | Upload folder on FTP (default: `uploads`) |
-| `FTP_SECURE` | No | Set to `true` for SFTP/FTPS |
-
-Trigger a redeploy after saving.
-
-### 3. Upload your first track
-
-Go to `https://your-site.netlify.app/insert.html`, log in with your `ADMIN_API_TOKEN`, and upload a track. Then visit `/player.html` to confirm it plays.
-
-That's it for a basic setup. The setup wizard at `/install.html` walks through the same steps with copy-paste helpers.
+**Where to sign up:** [paypal.com](https://www.paypal.com) → Sign Up → Business account
+- Identity verification is required and can take **1–3 business days**
+- Standard PayPal fees apply when you receive money (~2.9% + a small fixed fee per transaction)
 
 ---
 
-## Setup: with payment gating
+## Part 1: Getting the site running (no payments yet)
 
-### 1. Complete the basic setup above
+Work through these steps in order. Don't skip ahead.
 
-### 2. Generate a payment secret
+---
 
-`PAYMENT_SECRET` is a random string used to sign access tokens. Nothing to register — just generate one:
+### Step 1: Copy the code to your GitHub account
 
-```bash
+1. Go to this project's GitHub page (the page you're probably reading this on)
+2. Click the **Fork** button near the top right of the page
+3. Choose your own GitHub account as the destination
+4. You now have your own copy of the code at `github.com/YOUR-USERNAME/Full-generic-music-streaming-app`
+
+---
+
+### Step 2: Deploy to Netlify
+
+"Deploy" means telling Netlify to take your code and turn it into a live website.
+
+1. Log in to [netlify.com](https://netlify.com)
+2. Click **Add new site → Import an existing project**
+3. Click **GitHub**
+4. Find and select the repository you just forked (`Full-generic-music-streaming-app`)
+5. On the settings page:
+   - **Branch to deploy:** `main`
+   - **Build command:** leave blank
+   - **Publish directory:** `public`
+   - **Functions directory:** `api`
+6. Click **Deploy site**
+
+Netlify will give your site a random name like `jolly-curie-123abc.netlify.app`. You can change this in **Site configuration → General → Site details → Change site name**.
+
+Your site will deploy but won't work yet — it needs the environment variables from the next step.
+
+---
+
+### Step 3: Set your environment variables
+
+"Environment variables" are like settings or passwords that live on Netlify's server rather than in your code. They keep sensitive information (like passwords) out of the code.
+
+In Netlify: go to **Site configuration → Environment variables → Add a variable**
+
+Add each of the following:
+
+---
+
+**`APP_BASE_URL`**
+Your site's full URL.
+Example: `https://jolly-curie-123abc.netlify.app`
+(Use your actual Netlify URL, not this example.)
+
+---
+
+**`ADMIN_API_TOKEN`**
+This is your admin password. Make it long and hard to guess — at least 20 random characters.
+You'll use this to log in to the admin panel.
+Example of the kind of thing to use: `xK9mP2nQr7tL4vWj8cZ6bY3` — but make up your own, don't copy this one.
+
+---
+
+**`FTP_HOST`**
+The FTP server address from your web hosting provider.
+This will be in the welcome email from your hosting company, or in their control panel.
+Example: `ftp.yourdomain.com`
+
+---
+
+**`FTP_USER`**
+Your FTP username. Also in your hosting welcome email or control panel.
+
+---
+
+**`FTP_PASSWORD`**
+Your FTP password.
+
+---
+
+**`FTP_PUBLIC_BASE_URL`**
+The web address where files on your FTP server can be accessed by a browser.
+Your hosting provider will tell you this — it might be your domain, a subdomain, or a path.
+Example: `https://yourdomain.com` or `https://yourdomain.com/music`
+
+> **Not sure what this is?** Log in to your hosting provider's file manager (most have a web-based one). Upload a test file. Then try to access it in your browser. The base of that URL — without the filename — is your `FTP_PUBLIC_BASE_URL`.
+
+---
+
+After adding all five variables, click **Trigger deploy → Deploy site** in Netlify to restart the site with your settings.
+
+---
+
+### Step 4: Log in to the admin panel
+
+Go to: `https://your-site.netlify.app/admin/admin-login.html`
+
+Log in with the `ADMIN_API_TOKEN` you set. You should be asked for a password and then redirected to the admin area.
+
+If you get an "Unauthorized" error, double-check that the token you're typing exactly matches what you set in Netlify.
+
+---
+
+### Step 5: Upload your first track
+
+1. Go to `https://your-site.netlify.app/insert.html`
+2. Drag and drop an MP3 file onto the upload area, or click to browse
+3. Fill in the track name, album name, and artist name
+4. Click **Upload**
+
+Then visit `https://your-site.netlify.app` — you should see your track in the player.
+
+**If you don't see it:** Check that `FTP_PUBLIC_BASE_URL` is correct. The most common problem is this URL having an extra `/` at the end, or pointing to the wrong folder.
+
+---
+
+### Step 6: Personalise your site
+
+Go to `https://your-site.netlify.app/admin-settings.html`
+
+Here you can set:
+- Your site name and artist name
+- Logo and favicon
+- Colours and fonts
+- Welcome message
+- About page content
+- Footer text
+
+Changes are saved immediately — no redeploy needed.
+
+---
+
+## Part 2: Setting up subscriptions
+
+Subscriptions let listeners pay a monthly fee to unlock all the tracks you've marked as "paid". They subscribe through a PayPal button that appears right in your music player when they try to play a gated track.
+
+**Before starting this section, you need:**
+- The basic site working (Part 1 complete)
+- A PayPal Business account with identity verification approved
+
+---
+
+### Step 1: Set up your PayPal Developer credentials
+
+Your PayPal Business account also gives you access to the PayPal developer tools — this is where you get the keys that allow your site to talk to PayPal.
+
+1. Go to [developer.paypal.com](https://developer.paypal.com) — log in with your PayPal Business account credentials
+2. Click **Apps & Credentials** in the top menu
+3. You'll see two tabs: **Sandbox** (for testing) and **Live** (for real money). Start with **Sandbox** to test.
+4. Under Sandbox, click **Create App**
+5. Give it a name (anything, e.g. "My Music Site") and choose **Merchant** as the type
+6. Click **Create App**
+7. You'll see a **Client ID** and a **Secret**. Copy both of these — you'll need them shortly.
+
+> **Sandbox vs Live:** Sandbox is a test environment where no real money changes hands. Use it to make sure everything works before switching to real payments. When you're ready to go live, you'll repeat this step on the **Live** tab.
+
+---
+
+### Step 2: Create a subscription plan in PayPal
+
+A "plan" is what defines how much subscribers pay and how often. You create this once in PayPal.
+
+1. While logged into [developer.paypal.com](https://developer.paypal.com), click **Products & Plans** in the top menu
+2. First, create a **Product** (this represents your music catalogue):
+   - Click **Create product**
+   - Name: something like "Music Subscription"
+   - Type: **Service**
+   - Click **Save**
+3. Then create a **Plan** for that product:
+   - Click **Create plan** on your new product
+   - Set the billing cycle (e.g. Monthly)
+   - Set the price
+   - Click **Create plan**
+4. Copy the **Plan ID** — it starts with `P-` and looks like `P-12A34567BC890123DEFGH456`
+
+---
+
+### Step 3: Generate a Payment Secret
+
+This is a random password that your site uses to create and verify access tokens. You generate it yourself — nothing to register anywhere.
+
+The easiest way: open [this random string generator](https://1password.com/password-generator/) and generate a 64-character random string. Or, if you have Node.js installed:
+
+```
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Add it to Netlify environment variables:
-
-| Variable | Description |
-|---|---|
-| `PAYMENT_SECRET` | The random string you generated |
-
-### 3. Create a PayPal app
-
-1. Go to [developer.paypal.com](https://developer.paypal.com) → **Apps & Credentials**
-2. Click **Create App**
-3. Choose **Merchant** type, give it a name
-4. Copy the **Client ID** and **Secret** (use Sandbox credentials for testing, Live for production)
-
-Add to Netlify:
-
-| Variable | Description |
-|---|---|
-| `PAYPAL_CLIENT_ID` | From your PayPal app |
-| `PAYPAL_CLIENT_SECRET` | From your PayPal app |
-| `PAYPAL_API_BASE` | `https://api-m.sandbox.paypal.com` for testing, `https://api-m.paypal.com` for production |
-
-### 4. Configure your PayPal return URL
-
-Wherever your PayPal button or checkout lives, set the **return URL** (also called the success/redirect URL) to:
-
-```
-https://your-site.netlify.app/support.html
-```
-
-PayPal will append `?token=ORDER_ID&PayerID=PAYER_ID` (for one-time purchases) or `?subscription_id=SUB_ID` (for subscriptions) to that URL. The page detects these parameters automatically, verifies the payment with PayPal, and activates access in the buyer's browser.
-
-**For subscriptions,** also set the **cancel URL** to wherever you want cancelled users to land.
-
-### 5. Configure the support page
-
-In the admin settings (`/admin-settings.html`), fill in the support page fields:
-
-- **Support embed URL** — the PayPal button embed URL, or a link to your PayPal checkout page
-- **Primary store link** — your external store URL (Bandcamp, Shopify, etc.) if applicable
-
-### 6. Mark tracks as paid
-
-In the track editor (`/edit.html`), toggle the **Paid** flag on any tracks that require purchase. Paid tracks will show a lock icon in the player and prompt unpaid listeners to visit the support page.
-
-Redeploy after adding environment variables.
+Copy the result — you'll need it in the next step.
 
 ---
 
-## How payment access works
+### Step 4: Add the payment environment variables to Netlify
 
-When a buyer completes payment, PayPal redirects them to `/support.html` with an order or subscription ID in the URL. The page:
-
-1. Calls `/.netlify/functions/verifyPayment` with that ID
-2. The function verifies the payment directly with PayPal's API (no database involved)
-3. Issues a signed access token (HMAC-SHA256, signed with `PAYMENT_SECRET`)
-4. The token is stored in **both localStorage and a 1-year cookie** — so if localStorage is cleared, the cookie is the fallback
-
-When playing a paid track, the player appends `?accessToken=...` to the stream URL. The stream function verifies the signature server-side before issuing the redirect to the audio file.
-
-**Subscriptions** issue tokens that expire after 1 hour. The page silently refreshes them by re-verifying with PayPal.
-
-**One-time purchases** issue tokens with no expiry.
-
-### If a buyer loses access (both storage and cookie cleared)
-
-The **"Already purchased? Restore access"** section at the bottom of `/support.html` lets them paste their PayPal Order ID or Subscription ID to re-issue a token. The ID is in their PayPal receipt email.
+In Netlify → **Site configuration → Environment variables**, add:
 
 ---
 
-## All environment variables
+**`PAYMENT_SECRET`**
+The random string you just generated.
 
-### Required (always)
+---
+
+**`PAYPAL_CLIENT_ID`**
+The Client ID from your PayPal app (Step 1).
+
+---
+
+**`PAYPAL_CLIENT_SECRET`**
+The Secret from your PayPal app (Step 1).
+
+---
+
+**`PAYPAL_API_BASE`**
+- For testing (Sandbox): `https://api-m.sandbox.paypal.com`
+- For real payments (Live): `https://api-m.paypal.com`
+
+Start with the Sandbox URL.
+
+---
+
+Trigger a redeploy after adding these.
+
+---
+
+### Step 5: Configure subscriptions in your site settings
+
+1. Go to `https://your-site.netlify.app/admin-settings.html`
+2. Scroll to the **Subscriptions & payment gating** section
+3. Fill in:
+   - **Subscriptions enabled:** set to **On**
+   - **PayPal Subscription Plan ID:** paste the `P-...` Plan ID from Step 2
+   - **Price display:** what you want listeners to see, e.g. `£5/month`
+   - **Subscribe button label:** e.g. `Subscribe to unlock everything`
+4. Click **Save settings**
+
+---
+
+### Step 6: Mark tracks as paid (gated)
+
+1. Go to `https://your-site.netlify.app/edit.html`
+2. You'll see a list of all your tracks
+3. Click the **Paid** column on any track to toggle the lock on or off
+4. You can also use the bulk buttons at the top to gate or ungate everything at once
+
+When a listener tries to play a gated track, a subscription modal will appear in the player with a PayPal Subscribe button. After subscribing, they're taken back to your site and access is activated immediately — no redirect, no email.
+
+---
+
+### Step 7: Test it
+
+1. In the player, try clicking a paid track — you should see the subscription modal
+2. The PayPal button should appear with your price and label
+3. In Sandbox mode, use one of PayPal's [test account credentials](https://developer.paypal.com/dashboard/accounts) to complete a test subscription
+4. After approving, the modal should close and the track should play
+
+---
+
+### Step 8: Go live with real payments
+
+When you're satisfied the test flow works:
+
+1. Go back to [developer.paypal.com](https://developer.paypal.com) → **Apps & Credentials** → switch to the **Live** tab
+2. Create a new app (same process as Step 1) — you'll get new Live credentials
+3. Create a new product and plan on the Live tab (same as Step 2)
+4. In Netlify, update:
+   - `PAYPAL_CLIENT_ID` → your new Live Client ID
+   - `PAYPAL_CLIENT_SECRET` → your new Live Secret
+   - `PAYPAL_API_BASE` → `https://api-m.paypal.com`
+5. In admin-settings.html, update the Plan ID to your new Live plan ID
+6. Redeploy
+
+---
+
+### What subscribers experience
+
+- They click a locked track → subscription modal appears in the player
+- They click Subscribe → PayPal button handles the payment flow
+- They approve on PayPal → access is activated immediately, track starts playing
+- Their access is remembered in their browser for up to an hour, then silently refreshed in the background
+- If they clear their browser data, they can recover access by pasting their PayPal Subscription ID into the "Already subscribed? Restore access" section of the modal. Their Subscription ID is in their PayPal account under Payments → Subscriptions.
+
+---
+
+## Managing your music
+
+### Uploading tracks
+`/insert.html` — drag and drop MP3s, or paste a URL. Supports batch upload of whole folders.
+
+### Editing track information
+`/edit.html` — change track names, album names, track numbers, published/paid status. Click any field to edit it inline.
+
+### Album artwork
+`/admin-artwork.html` — upload and assign artwork to albums.
+
+### Site branding and settings
+`/admin-settings.html` — name, logo, colours, fonts, welcome message, support page content.
+
+---
+
+## Admin pages reference
+
+Log in at `/admin/admin-login.html` using your `ADMIN_API_TOKEN`.
+
+| Page | What it's for |
+|---|---|
+| `/insert.html` | Upload new tracks |
+| `/edit.html` | Edit track metadata, toggle paid/published |
+| `/edit-albums.html` | Edit album details, sort order, publish/unpublish albums |
+| `/admin-settings.html` | All site settings including subscriptions |
+| `/admin-artwork.html` | Upload album artwork |
+| `/admin/admin-pseudo-albums.html` | Create virtual albums (e.g. "All tracks shuffle") |
+| `/install.html` | Setup wizard with copy-paste helpers for environment variables |
+
+---
+
+## Common problems
+
+**"The player loads but I don't see any tracks"**
+Check your `FTP_PUBLIC_BASE_URL`. Go to your hosting provider's file manager and try to open an uploaded MP3 in your browser directly. The URL it has — minus the filename — should match `FTP_PUBLIC_BASE_URL` exactly.
+
+**"Unauthorized" when logging in to admin**
+The token you're typing must exactly match `ADMIN_API_TOKEN` in Netlify, including case. There are no spaces, no line breaks.
+
+**"PayPal button doesn't appear in the subscription modal"**
+Check that `PAYPAL_CLIENT_ID` is set correctly in Netlify and that the **Subscriptions enabled** toggle is set to **On** in admin-settings.html. Also confirm the Plan ID starts with `P-`.
+
+**"I subscribed but the track won't play"**
+Check `PAYMENT_SECRET` is set in Netlify. If it's missing, tokens can't be created or verified. Redeploy after adding it.
+
+**"A subscriber says they've lost access"**
+They need to paste their PayPal Subscription ID into the "Already subscribed? Restore access" section of the modal. Their ID is in PayPal under Payments → Subscriptions → the subscription name → the ID field.
+
+---
+
+## Environment variables — complete list
+
+### Required
 
 | Variable | Description |
 |---|---|
-| `APP_BASE_URL` | Full URL of your Netlify site |
-| `ADMIN_API_TOKEN` | Admin password — protects all write operations |
-| `FTP_HOST` | FTP server hostname |
+| `APP_BASE_URL` | Your Netlify site URL, e.g. `https://your-site.netlify.app` |
+| `ADMIN_API_TOKEN` | Your admin password — protects all write operations |
+| `FTP_HOST` | FTP server hostname from your hosting provider |
 | `FTP_USER` | FTP username |
 | `FTP_PASSWORD` | FTP password |
-| `FTP_PUBLIC_BASE_URL` | Public HTTP base URL for FTP-hosted files |
+| `FTP_PUBLIC_BASE_URL` | The public web URL for files on your FTP server |
 
-### FTP (optional)
+### FTP (optional, have sensible defaults)
 
 | Variable | Default | Description |
 |---|---|---|
-| `FTP_BASE_PATH` | `uploads` | Base folder for uploads on FTP |
+| `FTP_BASE_PATH` | `uploads` | Folder on FTP where files are stored |
 | `FTP_SECURE` | `false` | Set `true` for SFTP/FTPS |
-| `TRACKS_JSON_REMOTE_PATH` | `metadata/tracks.json` | Path to tracks file within `FTP_BASE_PATH` |
-| `SITE_SETTINGS_REMOTE_PATH` | `metadata/site-settings.json` | Path to settings file within `FTP_BASE_PATH` |
+| `TRACKS_JSON_REMOTE_PATH` | `metadata/tracks.json` | Path to track data file |
+| `SITE_SETTINGS_REMOTE_PATH` | `metadata/site-settings.json` | Path to settings file |
 
-### Storage backend
-
-| Variable | Default | Description |
-|---|---|---|
-| `LEGACY_TRACK_STORE` | `auto` | `auto` (prefers FTP if configured, else local file), `ftp-json`, or `file-json` |
-| `TRACKS_JSON_PATH` | `storage/metadata/tracks.json` | Local file path when using `file-json` |
-| `SITE_SETTINGS_PATH` | `storage/metadata/site-settings.json` | Local file path for settings when using `file-json` |
-| `STORAGE_ROOT` | `./storage` | Root for local file storage |
-| `LEGACY_TRACK_CACHE_TTL_MS` | `30000` | In-memory track cache TTL in milliseconds |
-
-### Payments (optional)
+### Payments (only needed for subscriptions)
 
 | Variable | Description |
 |---|---|
-| `PAYMENT_SECRET` | Random string for signing access tokens — required if using paid tracks |
-| `PAYPAL_CLIENT_ID` | PayPal app client ID |
-| `PAYPAL_CLIENT_SECRET` | PayPal app secret |
-| `PAYPAL_API_BASE` | `https://api-m.sandbox.paypal.com` (sandbox) or `https://api-m.paypal.com` (live) |
-| `PAYPAL_WEBHOOK_ID` | Optional — only needed if using the PayPal webhook endpoint |
-
-### Miscellaneous
-
-| Variable | Default | Description |
-|---|---|---|
-| `DISCOVERY_OPT_IN` | — | Set `true` to allow your catalogue to appear in public discovery APIs |
-| `INSTANCE_ID` | `local-instance` | Identifier for this instance in discovery feeds |
+| `PAYMENT_SECRET` | Random string for signing access tokens — generate once, never change |
+| `PAYPAL_CLIENT_ID` | From your PayPal Developer app |
+| `PAYPAL_CLIENT_SECRET` | From your PayPal Developer app |
+| `PAYPAL_API_BASE` | `https://api-m.sandbox.paypal.com` (testing) or `https://api-m.paypal.com` (live) |
 
 ---
 
-## Admin pages
-
-All admin pages require your `ADMIN_API_TOKEN`. Log in at `/admin/admin-login.html`.
-
-| Page | Purpose |
-|---|---|
-| `/insert.html` | Upload new tracks — supports drag-and-drop, folder scan, URL paste, chunked upload for large files |
-| `/edit.html` | Edit track metadata, set paid/published/favourite flags, delete tracks |
-| `/edit-albums.html` | Edit album metadata, sort order, publish/unpublish whole albums |
-| `/admin-settings.html` | Branding, colours, fonts, welcome text, support page, footer |
-| `/admin-artwork.html` | Upload and manage album artwork |
-| `/admin/admin-pseudo-albums.html` | Create virtual albums (e.g. "All tracks shuffle", custom collections) |
-| `/install.html` | First-time setup wizard with copy-paste env variable helpers |
-
----
-
-## Track data format
-
-Tracks are stored as a JSON array. Each track:
-
-```json
-{
-  "_id": "1714000000000-abc123",
-  "trackName": "Song Title",
-  "albumName": "Album Name",
-  "albumId": "album-name",
-  "artistName": "Artist Name",
-  "mp3Url": "https://media.yourdomain.com/uploads/song.mp3",
-  "artworkUrl": "https://media.yourdomain.com/uploads/cover.jpg",
-  "trackNumber": 1,
-  "durationSeconds": 240,
-  "genre": "Folk",
-  "year": 2024,
-  "paid": false,
-  "published": true
-}
-```
-
-Set `"paid": true` to gate a track behind payment. Set `"published": false` to hide it entirely.
-
----
-
-## FTP directory structure
-
-```
-FTP_BASE_PATH/                     (default: uploads/)
-├── metadata/
-│   ├── tracks.json                ← all track data
-│   └── site-settings.json        ← branding and settings
-├── artwork/
-│   └── cover-image.jpg
-└── 1714000000000-song.mp3
-```
-
----
-
-## Share URLs
-
-The following URLs are handled automatically:
-
-| URL | Content |
-|---|---|
-| `/` | Player (gallery view) |
-| `/album/:albumId` | Player opened to a specific album |
-| `/album/:albumId/track/:trackId` | Player with specific track selected |
-| `/track/:trackId` | Player with specific track selected |
-| `/track/:trackId/:slug` | Same — slug is decorative for SEO |
-
-All share pages include OpenGraph metadata for link previews.
-
----
-
-## Local development
+## Local development (for developers)
 
 ```bash
 npm install
@@ -271,20 +414,10 @@ npx netlify dev
 ```
 
 - Player: `http://localhost:8888`
-- Installer: `http://localhost:8888/install.html`
 - Admin: `http://localhost:8888/insert.html`
+- Installer: `http://localhost:8888/install.html`
 
-Create a `.env` file at the project root with your environment variables (the installer at `/install.html` can help generate it).
-
----
-
-## Switching to production PayPal
-
-1. In your PayPal app, switch from **Sandbox** to **Live** credentials
-2. Update `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` in Netlify
-3. Change `PAYPAL_API_BASE` to `https://api-m.paypal.com`
-4. Update your PayPal button/checkout return URL to your live site URL
-5. Redeploy
+Create a `.env` file at the project root with your environment variables (the setup wizard at `/install.html` generates a template).
 
 ---
 
