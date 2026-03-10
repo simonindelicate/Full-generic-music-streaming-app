@@ -2,6 +2,11 @@
   publish = "public"
   functions = "api"
 
+[functions]
+  # zisi bundles native modules (like sharp) correctly for the Lambda runtime.
+  # esbuild (the default) strips native .node binaries, breaking sharp.
+  node_bundler = "zisi"
+
 [[redirects]]
   from = "/"
   to = "/player.html"

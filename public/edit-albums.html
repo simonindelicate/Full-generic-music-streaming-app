@@ -748,17 +748,19 @@
         const btn = document.getElementById('saveOrderButton');
         btn.disabled = true;
         try {
-          // Assign albumSortOrder values based on current position
-          await Promise.all(orderAlbums.map((album, index) =>
-            AdminDataStore.requestJson('/.netlify/functions/catalog', {
+          // Sequential requests — the FTP JSON store can't handle parallel writes
+          // (each request reads→modifies→writes the full file; parallel calls race).
+          for (let i = 0; i < orderAlbums.length; i++) {
+            showOrderStatus(`Saving… ${i + 1} / ${orderAlbums.length}`);
+            await AdminDataStore.requestJson('/.netlify/functions/catalog', {
               method: 'POST',
               body: JSON.stringify({
                 action: 'updateAlbum',
-                albumName: album.albumName,
-                updates: { albumSortOrder: index + 1 },
+                albumName: orderAlbums[i].albumName,
+                updates: { albumSortOrder: i + 1 },
               }),
-            })
-          ));
+            });
+          }
           AdminDataStore.invalidateCache(['albums', 'tracks']);
           showOrderStatus('Release order saved. Set "Release ordering" to Custom in Site Settings to use it.');
           // Reload albums to reflect new sort orders

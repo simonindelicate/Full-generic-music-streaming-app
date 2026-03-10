@@ -51,7 +51,16 @@ function fetchBuffer(url, redirectsLeft = 3) {
 }
 
 async function resizeBuffer(buffer, filename, maxDimension) {
-  const sharp = require('sharp');
+  let sharp;
+  try {
+    sharp = require('sharp');
+  } catch (loadErr) {
+    throw new Error(
+      'Image processing module (sharp) is not available in this deployment. ' +
+      'Ensure the Netlify function is deployed with node_bundler = "zisi" in netlify.toml, ' +
+      'or run: npm install --os=linux --cpu=x64 sharp'
+    );
+  }
   const ext = path.extname(String(filename || '')).toLowerCase();
 
   const meta = await sharp(buffer).metadata();
