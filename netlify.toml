@@ -1,14 +1,13 @@
 [build]
   publish = "public"
   functions = "api"
-  # Force-install the linux-x64 sharp binary so it's available in the Lambda
-  # runtime even if npm install was previously run on macOS or Windows.
-  command = "npm install --os=linux --cpu=x64 sharp"
 
 [functions]
-  # zisi bundles native modules (like sharp) correctly for the Lambda runtime.
-  # esbuild (the default) strips native .node binaries, breaking sharp.
+  # zisi copies node_modules wholesale; esbuild (the default) strips .node binaries.
   node_bundler = "zisi"
+  # Tell zisi not to bundle sharp — copy the whole directory so the
+  # platform-specific @img/sharp-linux-x64 native binding is preserved.
+  external_node_modules = ["sharp"]
 
 [[redirects]]
   from = "/"
