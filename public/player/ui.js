@@ -102,6 +102,31 @@ let RELEASE_ORDER = 'alphabetical';
 let SITE_RELEASE_ORDER = 'alphabetical'; // admin default, used to reset user pref
 const USER_ORDER_KEY = 'tmc-user-release-order';
 const SETTINGS_CACHE_KEY = 'tmc-site-settings-cache';
+const ACCESS_TOKEN_LS_KEY = 'tmc-access-token';
+const ACCESS_TOKEN_COOKIE = 'tmc_access_token';
+
+// ── Access token (localStorage + cookie fallback) ──────────────────
+function getAccessToken() {
+  try {
+    const ls = localStorage.getItem(ACCESS_TOKEN_LS_KEY);
+    if (ls) return ls;
+  } catch (_) {}
+  // Fall back to cookie (survives localStorage clears)
+  const match = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith(ACCESS_TOKEN_COOKIE + '='));
+  return match ? decodeURIComponent(match.slice(ACCESS_TOKEN_COOKIE.length + 1)) : null;
+}
+
+function setAccessToken(token) {
+  try { localStorage.setItem(ACCESS_TOKEN_LS_KEY, token); } catch (_) {}
+  // 1-year cookie (permanent purchases last forever; subscriptions refresh before expiry)
+  const maxAge = 60 * 60 * 24 * 365;
+  document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Strict`;
+}
+
+function clearAccessToken() {
+  try { localStorage.removeItem(ACCESS_TOKEN_LS_KEY); } catch (_) {}
+  document.cookie = `${ACCESS_TOKEN_COOKIE}=; path=/; max-age=0; SameSite=Strict`;
+}
 
 const ALBUMS_PAGE_SIZE = 20;
 let pendingAlbums = [];
@@ -1699,7 +1724,14 @@ function extractTrackId(trackParam) {
 }
 
 function resolveTrackUrl(track) {
-  if (track?._id) return `/.netlify/functions/stream?trackId=${encodeURIComponent(String(track._id))}`;
+  if (track?._id) {
+    let url = `/.netlify/functions/stream?trackId=${encodeURIComponent(String(track._id))}`;
+    if (track.paid) {
+      const token = getAccessToken();
+      if (token) url += `&accessToken=${encodeURIComponent(token)}`;
+    }
+    return url;
+  }
   return track?.streamUrl || track?.src || null;
 }
 
@@ -1742,7 +1774,7 @@ function showPaywallModal(track) {
 }
 
 function playTrack(track, { autoplay = true } = {}) {
-  if (track.paid === true) {
+  if (track.paid === true && !getAccessToken()) {
     showPaywallModal(track);
     return;
   }
