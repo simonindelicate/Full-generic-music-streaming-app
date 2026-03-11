@@ -1824,9 +1824,14 @@ function showPaywallModal(track) {
   if (!modal) return;
   pendingTrack = track;
   const body = document.getElementById('paywall-body');
-  if (body) body.textContent = `"${track.trackName}" is only available to subscribers. Subscribe once to unlock the full catalogue.`;
+  if (body) {
+    body.textContent = track
+      ? `"${track.trackName}" is only available to subscribers. Subscribe once to unlock the full catalogue.`
+      : 'Subscribe to unlock the full catalogue.';
+  }
   modal.hidden = false;
-  // Focus the PayPal button if rendered, otherwise the dismiss button
+  // Render the PayPal button now that the container is visible
+  renderPayPalButton();
   (document.querySelector('#paywall-paypal-btn iframe') ?? document.getElementById('paywall-dismiss'))?.focus();
 }
 
@@ -2195,70 +2200,41 @@ function loadPayPalSDK(clientId) {
   });
 }
 
-function initPaywallButtons(config) {
-  const modal = document.getElementById('paywall-modal');
-  if (!modal) return;
+// Renders the PayPal Subscribe button into the (now-visible) modal.
+// Called the first time showPaywallModal() makes the container visible.
+let paypalButtonRendered = false;
 
-  const priceEl = document.getElementById('paywall-price');
-  if (priceEl && config.subscriptionPrice) {
-    priceEl.textContent = config.subscriptionPrice;
-    priceEl.hidden = false;
-  }
-
-  if (config.planId && window.paypal) {
-    window.paypal.Buttons({
-      style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
-      createSubscription: (data, actions) => actions.subscriptions.create({ plan_id: config.planId }),
-      onApprove: async (data) => {
-        const errorEl = document.getElementById('paywall-error');
-        try {
-          const res = await fetch('/.netlify/functions/verifyPayment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'subscription', id: data.subscriptionID }),
-          });
-          if (!res.ok) throw new Error((await res.json()).message || 'Verification failed');
-          const { token } = await res.json();
-          setAccessToken(token);
-          modal.hidden = true;
-          if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
-        } catch (err) {
-          if (errorEl) { errorEl.textContent = `Payment verified but access could not be confirmed: ${err.message}`; errorEl.hidden = false; }
-        }
-      },
-      onError: (err) => {
-        console.error('PayPal button error', err);
-        const errorEl = document.getElementById('paywall-error');
-        if (errorEl) { errorEl.textContent = 'Something went wrong with PayPal. Please try again or use the restore form below.'; errorEl.hidden = false; }
-      },
-    }).render('#paywall-paypal-btn').catch((err) => {
-      console.warn('PayPal button render failed', err);
-    });
-  }
-
-  // Restore access: subscriber pastes their Subscription ID to recover a cleared token
-  document.getElementById('paywall-restore-submit')?.addEventListener('click', async () => {
-    const id = (document.getElementById('paywall-restore-id')?.value || '').trim();
-    const msgEl = document.getElementById('paywall-restore-msg');
-    if (!id || !msgEl) return;
-    msgEl.textContent = 'Verifying…';
-    msgEl.hidden = false;
-    const type = id.startsWith('I-') ? 'subscription' : 'order';
-    try {
-      const res = await fetch('/.netlify/functions/verifyPayment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, id }),
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Not found');
-      const { token } = await res.json();
-      setAccessToken(token);
-      modal.hidden = true;
-      msgEl.hidden = true;
-      if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
-    } catch (err) {
-      msgEl.textContent = `Could not verify: ${err.message}. Find your Subscription ID in your PayPal account under Payments → Subscriptions.`;
-    }
+function renderPayPalButton() {
+  if (paypalButtonRendered || !window.paypal || !paymentConfig?.planId) return;
+  paypalButtonRendered = true;
+  window.paypal.Buttons({
+    style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
+    createSubscription: (data, actions) => actions.subscriptions.create({ plan_id: paymentConfig.planId }),
+    onApprove: async (data) => {
+      const errorEl = document.getElementById('paywall-error');
+      try {
+        const res = await fetch('/.netlify/functions/verifyPayment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'subscription', id: data.subscriptionID }),
+        });
+        if (!res.ok) throw new Error((await res.json()).message || 'Verification failed');
+        const { token } = await res.json();
+        setAccessToken(token);
+        document.getElementById('paywall-modal').hidden = true;
+        if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
+      } catch (err) {
+        if (errorEl) { errorEl.textContent = `Could not confirm access: ${err.message}`; errorEl.hidden = false; }
+      }
+    },
+    onError: (err) => {
+      console.error('PayPal button error', err);
+      const errorEl = document.getElementById('paywall-error');
+      if (errorEl) { errorEl.textContent = 'Something went wrong with PayPal. Please try again or use the restore form below.'; errorEl.hidden = false; }
+    },
+  }).render('#paywall-paypal-btn').catch((err) => {
+    paypalButtonRendered = false; // allow a retry next open
+    console.warn('PayPal button render failed', err);
   });
 }
 
@@ -2268,12 +2244,50 @@ async function initPayments() {
     if (!res.ok) return;
     paymentConfig = await res.json();
     if (!paymentConfig.paymentsEnabled) return;
-    if (!paymentConfig.clientId) return; // env var not set — leave modal empty
-    const loadingEl = document.getElementById('paywall-loading');
-    if (loadingEl) loadingEl.hidden = false;
-    await loadPayPalSDK(paymentConfig.clientId);
-    if (loadingEl) loadingEl.hidden = true;
-    initPaywallButtons(paymentConfig);
+
+    // Show the Subscribe button in the nav
+    const navBtn = document.getElementById('navSubscribe');
+    if (navBtn) {
+      navBtn.classList.remove('hidden');
+      navBtn.addEventListener('click', () => showPaywallModal(null));
+    }
+
+    // Pre-fill the price display so it's ready when the modal first opens
+    const priceEl = document.getElementById('paywall-price');
+    if (priceEl && paymentConfig.subscriptionPrice) {
+      priceEl.textContent = paymentConfig.subscriptionPrice;
+      priceEl.hidden = false;
+    }
+
+    // Wire the restore-access form (once, at startup)
+    document.getElementById('paywall-restore-submit')?.addEventListener('click', async () => {
+      const id = (document.getElementById('paywall-restore-id')?.value || '').trim();
+      const msgEl = document.getElementById('paywall-restore-msg');
+      if (!id || !msgEl) return;
+      msgEl.textContent = 'Verifying…';
+      msgEl.hidden = false;
+      const type = id.startsWith('I-') ? 'subscription' : 'order';
+      try {
+        const res2 = await fetch('/.netlify/functions/verifyPayment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, id }),
+        });
+        if (!res2.ok) throw new Error((await res2.json()).message || 'Not found');
+        const { token } = await res2.json();
+        setAccessToken(token);
+        document.getElementById('paywall-modal').hidden = true;
+        msgEl.hidden = true;
+        if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
+      } catch (err) {
+        msgEl.textContent = `Could not verify: ${err.message}. Find your Subscription ID in your PayPal account under Payments → Subscriptions.`;
+      }
+    });
+
+    // Load the SDK in the background — the button renders lazily on first modal open
+    if (paymentConfig.clientId) {
+      loadPayPalSDK(paymentConfig.clientId).catch(err => console.warn('PayPal SDK load failed', err));
+    }
   } catch (err) {
     console.warn('Payment init failed', err);
   }
