@@ -534,6 +534,32 @@
             </div>
 
             <div style="margin-top:18px;">
+              <p class="form-section__title" style="margin-bottom:6px;font-size:0.8rem;">App icon</p>
+              <p class="meta" style="margin-bottom:12px;">Replaces the default shipped icon on the home screen and splash screen. Use square PNGs with a transparent or solid background. If left blank the bundled <code>icon_192.png</code> / <code>icon_512.png</code> are used.</p>
+              <div class="form-grid">
+                <div>
+                  <label for="pwaIcon192">192 × 192 icon URL</label>
+                  <input type="text" id="pwaIcon192" placeholder="/icon_192.png" />
+                  <div class="inline-actions" style="margin-top:8px;">
+                    <input type="file" id="pwaIcon192File" accept="image/png,image/jpeg,image/webp" style="width:auto;flex:1;" />
+                    <button type="button" id="uploadPwaIcon192Button" class="button-secondary button-sm">Upload 192px icon</button>
+                  </div>
+                </div>
+                <div>
+                  <label for="pwaIcon512">512 × 512 icon URL <span class="meta" style="font-weight:400;">(also used as maskable)</span></label>
+                  <input type="text" id="pwaIcon512" placeholder="/icon_512.png" />
+                  <div class="inline-actions" style="margin-top:8px;">
+                    <input type="file" id="pwaIcon512File" accept="image/png,image/jpeg,image/webp" style="width:auto;flex:1;" />
+                    <button type="button" id="uploadPwaIcon512Button" class="button-secondary button-sm">Upload 512px icon</button>
+                  </div>
+                  <div id="pwaIcon512Preview" style="margin-top:10px;display:none;">
+                    <img id="pwaIconImg" src="" alt="Icon preview" style="width:64px;height:64px;border-radius:12px;object-fit:cover;border:1px solid rgba(128,128,128,0.3);" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:18px;">
               <p class="form-section__title" style="margin-bottom:6px;font-size:0.8rem;">Screenshots <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional — Chrome uses these for its richer install dialog, which avoids the generic install warning)</span></p>
               <div class="form-grid">
                 <div>
@@ -583,7 +609,7 @@
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle',
-        'pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaScreenshot1','pwaScreenshot2',
+        'pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaIcon192','pwaIcon512','pwaScreenshot1','pwaScreenshot2',
         'copyrightNotice','footerSummary','footerContent'
       ];
 
@@ -787,11 +813,34 @@
         fontPairSelect.value = settings.fontPair || fontPairDefault;
         renderFontPairPreview(fontPairSelect.value);
         updateColourPreview();
+        refreshPwaIconPreview();
         _settingsLoaded = true;
       }
 
       document.getElementById('uploadLogoButton').addEventListener('click', () => uploadAsset('logoFile', 'logoUrl').catch(() => showStatus('Logo upload failed.', true)));
       document.getElementById('uploadFaviconButton').addEventListener('click', () => uploadAsset('faviconFile', 'faviconUrl').catch(() => showStatus('Favicon upload failed.', true)));
+
+      // PWA icon uploads — show a live preview of the 512px icon
+      function refreshPwaIconPreview() {
+        const url = document.getElementById('pwaIcon512').value.trim();
+        const preview = document.getElementById('pwaIcon512Preview');
+        const img = document.getElementById('pwaIconImg');
+        if (url && preview && img) {
+          img.src = url;
+          preview.style.display = 'block';
+        } else if (preview) {
+          preview.style.display = 'none';
+        }
+      }
+      document.getElementById('pwaIcon512').addEventListener('input', refreshPwaIconPreview);
+      document.getElementById('uploadPwaIcon192Button').addEventListener('click', () =>
+        uploadAsset('pwaIcon192File', 'pwaIcon192').catch(() => showStatus('Icon upload failed.', true))
+      );
+      document.getElementById('uploadPwaIcon512Button').addEventListener('click', () =>
+        uploadAsset('pwaIcon512File', 'pwaIcon512')
+          .then(refreshPwaIconPreview)
+          .catch(() => showStatus('Icon upload failed.', true))
+      );
 
       document.getElementById('settingsForm').addEventListener('submit', async (event) => {
         event.preventDefault();

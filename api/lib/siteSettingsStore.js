@@ -61,6 +61,8 @@ const defaults = {
   pwaDescription: '',
   pwaThemeColor: '',
   pwaBackgroundColor: '',
+  pwaIcon192: '',
+  pwaIcon512: '',
   pwaScreenshot1: '',
   pwaScreenshot2: '',
 };
