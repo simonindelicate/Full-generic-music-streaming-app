@@ -125,7 +125,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const feedUrl = `${config.appBaseUrl}/.netlify/functions/catalogue`;
+    const feedUrl = `${config.appBaseUrl}/catalogue`;
     const [{ tracks }, settings] = await Promise.all([
       loadTracks(),
       loadSiteSettings().catch(() => ({})),

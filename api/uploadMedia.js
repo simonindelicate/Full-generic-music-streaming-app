@@ -1,7 +1,7 @@
 const path = require('path');
-const { Readable } = require('stream');
-const ftp = require('basic-ftp');
+const fs = require('fs');
 const { isAdmin } = require('./lib/auth');
+const config = require('./dbConfig');
 
 // ---------- image helpers ----------
 
@@ -26,12 +26,10 @@ async function optimizeImage(buffer, filename) {
     } else if (ext === '.webp') {
       pipeline = pipeline.webp({ quality: 85 });
     } else {
-      // Default to JPEG for everything else (incl. .jpg, .jpeg, unknown)
       pipeline = pipeline.jpeg({ quality: 85, progressive: true });
     }
     return await pipeline.toBuffer();
   } catch (_err) {
-    // If sharp fails for any reason (e.g. not an image despite extension), return original
     return buffer;
   }
 }
@@ -52,16 +50,20 @@ const json = (statusCode, payload) => ({
   body: JSON.stringify(payload),
 });
 
-const redactHost = (host) => {
-  if (!host) return '';
-  const [first = '', ...rest] = String(host).split('.');
-  if (!rest.length) return `${first.slice(0, 2)}***`;
-  return `${first.slice(0, 2)}***.${rest.join('.')}`;
-};
+// ---------- local storage ----------
+
+async function saveBufferToLocal(buffer, relativePath) {
+  const storageRoot = config.storageRoot;
+  const localPath = path.join(storageRoot, relativePath);
+  await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
+  await fs.promises.writeFile(localPath, buffer);
+  const appBaseUrl = String(process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+  return `${appBaseUrl}/storage/${relativePath}`;
+}
 
 // ---------- in-process chunk store ----------
-// Netlify Functions can reuse warm instances, so this works for sequential
-// uploads from the same client. Each upload session gets a unique uploadId.
+// On a persistent server process this works reliably for sequential uploads.
+// Each upload session gets a unique uploadId.
 // Chunks are evicted after CHUNK_TTL_MS to avoid leaking memory on failures.
 
 const CHUNK_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -71,48 +73,6 @@ function pruneExpired() {
   const now = Date.now();
   for (const [id, session] of chunkStore) {
     if (now - session.lastSeen > CHUNK_TTL_MS) chunkStore.delete(id);
-  }
-}
-
-// ---------- FTP upload ----------
-
-async function uploadBufferToFtp(buffer, remotePath) {
-  const ftpHost = process.env.FTP_HOST;
-  const ftpUser = process.env.FTP_USER;
-  const ftpPassword = process.env.FTP_PASSWORD;
-  const ftpPublicBaseUrl = String(process.env.FTP_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
-
-  if (!ftpHost || !ftpUser || !ftpPassword || !ftpPublicBaseUrl) {
-    throw new Error(
-      'Upload not configured. Set FTP_HOST, FTP_USER, FTP_PASSWORD, FTP_PUBLIC_BASE_URL.'
-    );
-  }
-
-  const remoteDirectory = path.posix.dirname(remotePath);
-  const remoteFileName = path.posix.basename(remotePath);
-  const client = new ftp.Client();
-  client.ftp.verbose = false;
-
-  try {
-    await client.access({
-      host: ftpHost,
-      user: ftpUser,
-      password: ftpPassword,
-      secure: process.env.FTP_SECURE === 'true',
-    });
-    await client.ensureDir(remoteDirectory);
-    await client.uploadFrom(Readable.from(buffer), remoteFileName);
-
-    const uploadedSize = await client.size(remoteFileName);
-    if (uploadedSize !== buffer.length) {
-      throw new Error(
-        `Size mismatch after upload (expected ${buffer.length}, got ${uploadedSize})`
-      );
-    }
-
-    return `${ftpPublicBaseUrl}/${remotePath}`;
-  } finally {
-    client.close();
   }
 }
 
@@ -153,9 +113,8 @@ exports.handler = async (event) => {
 
   const safeName = safeFilename(fileName);
   const safeFolder = normalizeSegment(folder) || 'misc';
-  const ftpBasePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
 
-  // ---- non-chunked path (file was small enough to send whole) ----
+  // ---- non-chunked path ----
   if (contentBase64 !== undefined) {
     if (!safeName || !contentBase64) {
       return json(400, { message: 'fileName and contentBase64 are required', requestId });
@@ -168,11 +127,10 @@ exports.handler = async (event) => {
     }
 
     const stamp = Date.now();
-    const remotePath = [ftpBasePath, safeFolder, `${stamp}-${safeName}`]
-      .filter(Boolean).join('/');
+    const relativePath = `uploads/${safeFolder}/${stamp}-${safeName}`;
 
     try {
-      const publicUrl = await uploadBufferToFtp(buffer, remotePath);
+      const publicUrl = await saveBufferToLocal(buffer, relativePath);
       return json(200, { message: 'Upload complete', url: publicUrl, bytes: buffer.length, requestId });
     } catch (err) {
       console.error('Upload failed', { requestId, error: err.message });
@@ -193,7 +151,6 @@ exports.handler = async (event) => {
   const chunkBuffer = Buffer.from(chunkBase64, 'base64');
 
   if (!chunkStore.has(uploadId)) {
-    // First chunk — initialise session
     chunkStore.set(uploadId, {
       chunks: new Array(totalChunks).fill(null),
       lastSeen: Date.now(),
@@ -209,7 +166,6 @@ exports.handler = async (event) => {
   const isComplete = received === totalChunks;
 
   if (!isComplete) {
-    // Acknowledge receipt and ask for more
     return json(200, {
       message: 'Chunk received',
       chunkIndex,
@@ -219,7 +175,7 @@ exports.handler = async (event) => {
     });
   }
 
-  // All chunks in — assemble and upload
+  // All chunks in — assemble and save
   chunkStore.delete(uploadId);
   let assembled = Buffer.concat(session.chunks);
 
@@ -228,11 +184,10 @@ exports.handler = async (event) => {
   }
 
   const stamp = Date.now();
-  const remotePath = [ftpBasePath, safeFolder, `${stamp}-${safeName}`]
-    .filter(Boolean).join('/');
+  const relativePath = `uploads/${safeFolder}/${stamp}-${safeName}`;
 
   try {
-    const publicUrl = await uploadBufferToFtp(assembled, remotePath);
+    const publicUrl = await saveBufferToLocal(assembled, relativePath);
     return json(200, {
       message: 'Upload complete',
       url: publicUrl,
@@ -240,7 +195,7 @@ exports.handler = async (event) => {
       requestId,
     });
   } catch (err) {
-    console.error('Chunked upload failed at FTP stage', { requestId, error: err.message });
+    console.error('Chunked upload failed at save stage', { requestId, error: err.message });
     return json(500, { message: 'Upload failed', detail: err.message, requestId });
   }
 };
