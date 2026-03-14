@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>AI Music Generator — Plugin</title>
+    <link rel="stylesheet" href="/styles/admin.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
+    <style>
+      .plugin-banner {
+        background: #f0ede8;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 0.82rem;
+        color: #6b6050;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .plugin-badge {
+        background: #5a4e3a;
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        text-transform: uppercase;
+      }
+      .generate-form { display: flex; flex-direction: column; gap: 16px; }
+      .prompt-area { width: 100%; min-height: 80px; font-family: inherit; font-size: 0.95rem; resize: vertical; }
+      .model-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+      .model-row > div { flex: 1; min-width: 140px; }
+      .generate-btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .status-block {
+        background: #f5f3ef;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+      }
+      .status-block.hidden { display: none; }
+      .status-block.error-state { border-color: #f5c6cb; background: #fff5f5; }
+      .status-block.done-state { border-color: #b7e4c7; background: #f0fff4; }
+      .progress-spinner {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(90,78,58,0.2);
+        border-top-color: #5a4e3a;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        vertical-align: middle;
+        margin-right: 8px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .audio-preview { width: 100%; margin: 12px 0; border-radius: 6px; }
+      .save-form { margin-top: 16px; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 16px; }
+      .save-form .form-grid { margin-top: 10px; }
+      .save-progress { margin-top: 10px; font-size: 0.88rem; color: #5a4e3a; }
+      .plugin-nav {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0 0;
+        margin-bottom: 4px;
+        font-size: 0.85rem;
+      }
+      .plugin-nav a { color: #5a4e3a; text-decoration: none; font-weight: 600; }
+      .plugin-nav a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div data-admin-header></div>
+    <div class="admin-shell">
+
+      <div class="plugin-nav">
+        <a href="insert.html">&#8592; Add Tracks</a>
+        <span style="color:#ccc;">|</span>
+        <a href="edit.html">Track Directory</a>
+      </div>
+
+      <div class="card">
+        <div class="plugin-banner">
+          <span class="plugin-badge">Plugin</span>
+          Generate music from a text prompt using the Replicate MusicGen API, then save it directly to your catalog.
+          Requires <code>REPLICATE_API_TOKEN</code> set as a Netlify environment variable.
+        </div>
+
+        <div class="panel-title">
+          <div>
+            <h1 style="margin-bottom:4px;">AI Music Generator</h1>
+            <p class="meta">Describe the music you want and MusicGen will create an MP3.</p>
+          </div>
+        </div>
+
+        <!-- ── Generate form ─────────────────────────────────────── -->
+        <div class="generate-form">
+          <div>
+            <label for="promptInput">Describe the music</label>
+            <textarea
+              id="promptInput"
+              class="prompt-area"
+              placeholder="e.g. upbeat indie folk, acoustic guitar and light percussion, 120bpm, warm and optimistic"
+            ></textarea>
+          </div>
+
+          <div class="model-row">
+            <div>
+              <label for="durationInput">Duration (seconds)</label>
+              <input type="number" id="durationInput" value="15" min="1" max="30" />
+              <small class="meta">1–30 seconds per generation</small>
+            </div>
+            <div>
+              <label for="modelVersionSelect">Model variant</label>
+              <select id="modelVersionSelect">
+                <option value="stereo-large">Stereo Large (best quality)</option>
+                <option value="stereo-melody">Stereo Melody (follow a melody)</option>
+                <option value="large">Mono Large</option>
+                <option value="melody">Mono Melody</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="generate-btn-row">
+            <button type="button" id="generateBtn">Generate</button>
+            <button type="button" id="cancelBtn" class="button-secondary" style="display:none;">Cancel</button>
+          </div>
+        </div>
+
+        <!-- ── Status / result ──────────────────────────────────── -->
+        <div class="status-block hidden" id="statusBlock">
+          <div id="statusMessage"></div>
+
+          <!-- Audio preview — shown when done -->
+          <div id="audioSection" style="display:none;">
+            <audio id="audioPreview" controls class="audio-preview"></audio>
+            <!-- ── Save to catalog ─────────────────────────────── -->
+            <div class="save-form">
+              <p class="form-section__title" style="margin-bottom:12px;">Save to catalog</p>
+              <div class="form-grid save-form">
+                <div>
+                  <label for="saveTrackName">Track name</label>
+                  <input type="text" id="saveTrackName" placeholder="My Generated Track" required />
+                </div>
+                <div>
+                  <label for="saveReleaseName">Release / album title</label>
+                  <input type="text" id="saveReleaseName" placeholder="AI Sessions" required />
+                </div>
+                <div>
+                  <label for="saveArtistName">Artist name</label>
+                  <input type="text" id="saveArtistName" placeholder="Loading…" />
+                </div>
+                <div>
+                  <label for="saveGenre">Genre <span class="meta" style="font-weight:400;">(optional)</span></label>
+                  <input type="text" id="saveGenre" placeholder="e.g. Ambient" />
+                </div>
+              </div>
+              <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button type="button" id="saveBtn">Upload &amp; save to catalog</button>
+                <button type="button" id="generateAgainBtn" class="button-secondary">Generate another</button>
+              </div>
+              <div class="save-progress" id="saveProgress" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <script>
+      // ── State ───────────────────────────────────────────────────
+      let currentPredictionId = null;
+      let pollTimer = null;
+      let generatedAudioUrl = null;
+      let cancelled = false;
+
+      const generateBtn = document.getElementById('generateBtn');
+      const cancelBtn   = document.getElementById('cancelBtn');
+      const statusBlock = document.getElementById('statusBlock');
+      const statusMsg   = document.getElementById('statusMessage');
+      const audioSection = document.getElementById('audioSection');
+      const audioPreview = document.getElementById('audioPreview');
+      const saveProgress = document.getElementById('saveProgress');
+      const saveBtn     = document.getElementById('saveBtn');
+      const againBtn    = document.getElementById('generateAgainBtn');
+
+      // ── Helpers ─────────────────────────────────────────────────
+      function showStatus(html, state) {
+        statusBlock.className = 'status-block' + (state ? ' ' + state : '');
+        statusMsg.innerHTML = html;
+      }
+
+      function setGenerating(on) {
+        generateBtn.disabled = on;
+        generateBtn.textContent = on ? 'Generating…' : 'Generate';
+        cancelBtn.style.display = on ? '' : 'none';
+      }
+
+      function stopPolling() {
+        if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      }
+
+      function resetToForm() {
+        stopPolling();
+        currentPredictionId = null;
+        generatedAudioUrl = null;
+        cancelled = false;
+        setGenerating(false);
+        statusBlock.className = 'status-block hidden';
+        audioSection.style.display = 'none';
+        audioPreview.src = '';
+        saveProgress.style.display = 'none';
+        saveProgress.textContent = '';
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Upload & save to catalog';
+      }
+
+      // ── Generate ─────────────────────────────────────────────────
+      generateBtn.addEventListener('click', async () => {
+        const prompt = document.getElementById('promptInput').value.trim();
+        if (!prompt) { alert('Please enter a prompt describing the music you want.'); return; }
+
+        const duration     = document.getElementById('durationInput').value;
+        const modelVersion = document.getElementById('modelVersionSelect').value;
+
+        cancelled = false;
+        setGenerating(true);
+        audioSection.style.display = 'none';
+        showStatus('<span class="progress-spinner"></span> Starting generation…');
+
+        try {
+          const res = await AdminDataStore.requestJson('/.netlify/functions/aiGenerate', {
+            method: 'POST',
+            body: JSON.stringify({ prompt, duration: Number(duration), modelVersion }),
+          });
+          currentPredictionId = res.predictionId;
+          schedulePoll();
+        } catch (err) {
+          setGenerating(false);
+          showStatus(`<strong>Error:</strong> ${err.message}`, 'error-state');
+        }
+      });
+
+      cancelBtn.addEventListener('click', () => {
+        cancelled = true;
+        stopPolling();
+        resetToForm();
+      });
+
+      // ── Poll ─────────────────────────────────────────────────────
+      const POLL_INTERVAL_MS = 3000;
+
+      function schedulePoll() {
+        pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
+      }
+
+      async function poll() {
+        if (cancelled || !currentPredictionId) return;
+        try {
+          const res = await AdminDataStore.requestJson(
+            `/.netlify/functions/aiGenerate?id=${encodeURIComponent(currentPredictionId)}`
+          );
+
+          if (res.status === 'succeeded' && res.audioUrl) {
+            onGenerationDone(res.audioUrl);
+          } else if (res.status === 'failed' || res.error) {
+            setGenerating(false);
+            showStatus(`<strong>Generation failed:</strong> ${res.error || 'Unknown error from Replicate.'}`, 'error-state');
+          } else {
+            // Still running (starting / processing)
+            showStatus(`<span class="progress-spinner"></span> ${capitalize(res.status || 'processing')}…`);
+            schedulePoll();
+          }
+        } catch (err) {
+          setGenerating(false);
+          showStatus(`<strong>Poll error:</strong> ${err.message}`, 'error-state');
+        }
+      }
+
+      function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+      function onGenerationDone(audioUrl) {
+        stopPolling();
+        setGenerating(false);
+        generatedAudioUrl = audioUrl;
+
+        showStatus('Generation complete. Preview the audio below, then fill in the details and save.', 'done-state');
+        audioPreview.src = audioUrl;
+        audioSection.style.display = 'block';
+
+        // Suggest a track name from the prompt
+        const prompt = document.getElementById('promptInput').value.trim();
+        const nameField = document.getElementById('saveTrackName');
+        if (!nameField.value) {
+          nameField.value = prompt.length > 60 ? prompt.slice(0, 57) + '…' : prompt;
+        }
+      }
+
+      // ── Save to catalog ──────────────────────────────────────────
+      saveBtn.addEventListener('click', async () => {
+        const trackName   = document.getElementById('saveTrackName').value.trim();
+        const releaseName = document.getElementById('saveReleaseName').value.trim();
+        const artistName  = document.getElementById('saveArtistName').value.trim();
+        const genre       = document.getElementById('saveGenre').value.trim();
+
+        if (!trackName || !releaseName) {
+          alert('Track name and release title are required.');
+          return;
+        }
+        if (!generatedAudioUrl) {
+          alert('No generated audio to save. Please generate first.');
+          return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        saveProgress.style.display = 'block';
+
+        try {
+          // 1. Fetch the generated audio from Replicate into the browser
+          saveProgress.textContent = 'Downloading generated audio…';
+          const audioRes = await fetch(generatedAudioUrl);
+          if (!audioRes.ok) throw new Error(`Could not fetch audio: ${audioRes.status}`);
+          const blob = await audioRes.blob();
+
+          // 2. Convert to base64 for upload
+          saveProgress.textContent = 'Preparing upload…';
+          const contentBase64 = await blobToBase64(blob);
+          const fileName = slugify(trackName) + '.mp3';
+
+          // 3. Upload to the app's media host (FTP / R2) via uploadMedia
+          saveProgress.textContent = 'Uploading to your media storage…';
+          const token = AdminDataStore.getToken();
+          const uploadRes = await fetch('/.netlify/functions/uploadMedia', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) },
+            body: JSON.stringify({ fileName, contentBase64, folder: 'audio' }),
+          }).then(r => r.json());
+          if (!uploadRes?.url) throw new Error(uploadRes?.message || 'Upload failed — no URL returned');
+
+          const permanentMp3Url = uploadRes.url;
+
+          // 4. Save to catalog using the same structure as insert.html
+          saveProgress.textContent = 'Saving to catalog…';
+          await AdminDataStore.requestJson('/.netlify/functions/catalog', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'addReleaseTracks',
+              album: {
+                albumName: releaseName,
+                artistName: artistName || releaseName,
+                artworkUrl: '',
+                albumArtworkUrl: '',
+                genre,
+                year: new Date().getFullYear().toString(),
+                published: true,
+              },
+              tracks: [{
+                trackName,
+                mp3Url: permanentMp3Url,
+                trackNumber: '1',
+                genre,
+                year: new Date().getFullYear().toString(),
+                trackText: `Generated by AI. Prompt: "${document.getElementById('promptInput').value.trim()}"`,
+              }],
+            }),
+          });
+
+          AdminDataStore.invalidateCache(['tracks', 'albums']);
+          saveProgress.textContent = '';
+          showStatus(
+            `Saved "<strong>${escapeHtml(trackName)}</strong>" to the catalog. <a href="edit.html">View in Track Directory →</a>`,
+            'done-state'
+          );
+          saveBtn.textContent = 'Saved';
+
+        } catch (err) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Upload & save to catalog';
+          saveProgress.textContent = `Error: ${err.message}`;
+        }
+      });
+
+      againBtn.addEventListener('click', resetToForm);
+
+      // ── Utilities ────────────────────────────────────────────────
+      function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      function slugify(str) {
+        return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 60) || 'track';
+      }
+
+      function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      // ── Init ─────────────────────────────────────────────────────
+      window.addEventListener('DOMContentLoaded', () => {
+        AdminDataStore.mountHeader();
+        // Load default artist name from site settings
+        AdminDataStore.fetchJsonCached('/.netlify/functions/siteSettings', 'site-settings')
+          .then(settings => {
+            const artistField = document.getElementById('saveArtistName');
+            if (!artistField.value) artistField.value = settings.brandName || settings.siteTitle || '';
+            if (!artistField.placeholder || artistField.placeholder === 'Loading…') {
+              artistField.placeholder = settings.brandName || settings.siteTitle || 'Artist name';
+            }
+          })
+          .catch(() => {});
+      });
+    </script>
+  </body>
+</html>
