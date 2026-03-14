@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { Readable, Writable } = require('stream');
 const config = require('../dbConfig');
+const netlifyBlobs = require('./netlifyBlobsStore');
 
 const normalizePath = (value) => String(value || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
@@ -124,6 +125,20 @@ const clearCachedTracks = () => {
   trackCache = { tracks: null, store: null, loadedAt: 0 };
 };
 
+// ── Netlify Blobs read/write ──────────────────────────────────────────────────
+
+const readFromNetlifyBlobs = async () => {
+  const data = await netlifyBlobs.readJson(netlifyBlobs.TRACKS_KEY, []);
+  return Array.isArray(data) ? data : [];
+};
+
+const writeToNetlifyBlobs = async (tracks) => {
+  await netlifyBlobs.writeJson(netlifyBlobs.TRACKS_KEY, tracks);
+  return { store: 'netlify-blobs', key: netlifyBlobs.TRACKS_KEY };
+};
+
+// ── Load / save ───────────────────────────────────────────────────────────────
+
 const loadTracks = async () => {
   const cached = getCachedTracks();
   if (cached) return cached;
@@ -133,6 +148,8 @@ const loadTracks = async () => {
 
   if (store === 'file-json') result = { tracks: await readFromFile(), store: 'file-json' };
   else if (store === 'ftp-json') result = { tracks: await readFromFtp(), store: 'ftp-json' };
+  else if (store === 'netlify-blobs') result = { tracks: await readFromNetlifyBlobs(), store: 'netlify-blobs' };
+  else if (netlifyBlobs.NETLIFY_AVAILABLE) result = { tracks: await readFromNetlifyBlobs(), store: 'netlify-blobs' };
   else if (hasFtpConfig()) result = { tracks: await readFromFtp(), store: 'ftp-json' };
   else {
     try {
@@ -151,6 +168,12 @@ const saveTracks = async (tracks) => {
   const store = preferredStore();
   clearCachedTracks();
 
+  if (store === 'netlify-blobs' || (store === 'auto' && netlifyBlobs.NETLIFY_AVAILABLE)) {
+    const result = await writeToNetlifyBlobs(tracks);
+    setCachedTracks(tracks, 'netlify-blobs');
+    return result;
+  }
+
   if (store === 'ftp-json' || (store === 'auto' && hasFtpConfig())) {
     const result = await writeToFtp(tracks);
     setCachedTracks(tracks, 'ftp-json');
@@ -163,7 +186,7 @@ const saveTracks = async (tracks) => {
     return result;
   }
 
-  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}. Use ftp-json, file-json, or auto.`);
+  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}. Use netlify-blobs, ftp-json, file-json, or auto.`);
 };
 
 const generateTrackId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;

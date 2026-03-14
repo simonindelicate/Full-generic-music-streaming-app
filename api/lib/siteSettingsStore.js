@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { Readable, Writable } = require('stream');
 const config = require('../dbConfig');
+const netlifyBlobs = require('./netlifyBlobsStore');
 
 const normalizePath = (value) => String(value || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 const hasFtpConfig = () => Boolean(process.env.FTP_HOST && process.env.FTP_USER && process.env.FTP_PASSWORD);
@@ -136,11 +137,28 @@ async function writeFileStore(value) {
   return { store: 'file-json', path: filePath };
 }
 
+// ── Netlify Blobs read/write ──────────────────────────────────────────────────
+
+async function readNetlifyBlobs() {
+  const data = await netlifyBlobs.readJson(netlifyBlobs.SETTINGS_KEY, {});
+  return { ...defaults, ...data };
+}
+
+async function writeNetlifyBlobs(value) {
+  await netlifyBlobs.writeJson(netlifyBlobs.SETTINGS_KEY, value);
+  return { store: 'netlify-blobs', key: netlifyBlobs.SETTINGS_KEY };
+}
+
+// ── Load / save ───────────────────────────────────────────────────────────────
+
 let memoryCache = null;
 
 async function loadSiteSettings({ bypassCache = false } = {}) {
   if (!bypassCache && memoryCache) return memoryCache;
-  const settings = hasFtpConfig() ? await readFtp() : await readFileStore();
+  let settings;
+  if (netlifyBlobs.NETLIFY_AVAILABLE) settings = await readNetlifyBlobs();
+  else if (hasFtpConfig()) settings = await readFtp();
+  else settings = await readFileStore();
   memoryCache = settings;
   return settings;
 }
@@ -148,7 +166,10 @@ async function loadSiteSettings({ bypassCache = false } = {}) {
 async function saveSiteSettings(payload) {
   const existing = await loadSiteSettings({ bypassCache: true });
   const settings = { ...existing, ...payload };
-  const result = hasFtpConfig() ? await writeFtp(settings) : await writeFileStore(settings);
+  let result;
+  if (netlifyBlobs.NETLIFY_AVAILABLE) result = await writeNetlifyBlobs(settings);
+  else if (hasFtpConfig()) result = await writeFtp(settings);
+  else result = await writeFileStore(settings);
   memoryCache = settings;
   return { settings, ...result };
 }

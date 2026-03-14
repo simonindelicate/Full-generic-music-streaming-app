@@ -2,6 +2,7 @@ const path = require('path');
 const { Readable } = require('stream');
 const ftp = require('basic-ftp');
 const { isAdmin } = require('./lib/auth');
+const netlifyBlobs = require('./lib/netlifyBlobsStore');
 
 // ---------- image helpers ----------
 
@@ -74,7 +75,14 @@ function pruneExpired() {
   }
 }
 
-// ---------- FTP upload ----------
+// ---------- storage upload (Netlify Blobs preferred, FTP fallback) ----------
+
+async function uploadBuffer(buffer, remotePath) {
+  if (netlifyBlobs.NETLIFY_AVAILABLE) {
+    return netlifyBlobs.uploadFile(remotePath, buffer);
+  }
+  return uploadBufferToFtp(buffer, remotePath);
+}
 
 async function uploadBufferToFtp(buffer, remotePath) {
   const ftpHost = process.env.FTP_HOST;
@@ -172,7 +180,7 @@ exports.handler = async (event) => {
       .filter(Boolean).join('/');
 
     try {
-      const publicUrl = await uploadBufferToFtp(buffer, remotePath);
+      const publicUrl = await uploadBuffer(buffer, remotePath);
       return json(200, { message: 'Upload complete', url: publicUrl, bytes: buffer.length, requestId });
     } catch (err) {
       console.error('Upload failed', { requestId, error: err.message });
@@ -232,7 +240,7 @@ exports.handler = async (event) => {
     .filter(Boolean).join('/');
 
   try {
-    const publicUrl = await uploadBufferToFtp(assembled, remotePath);
+    const publicUrl = await uploadBuffer(assembled, remotePath);
     return json(200, {
       message: 'Upload complete',
       url: publicUrl,

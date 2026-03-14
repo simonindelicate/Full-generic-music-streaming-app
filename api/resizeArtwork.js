@@ -1,6 +1,6 @@
 /**
  * resizeArtwork — download an image from a public URL, resize it with Sharp,
- * and re-upload it to the FTP server.
+ * and save it to local storage.
  *
  * POST body:
  *   { artworkUrl: string, maxDimension?: number }
@@ -10,11 +10,11 @@
  */
 
 const path = require('path');
-const { Readable } = require('stream');
+const fs = require('fs');
 const https = require('https');
 const http = require('http');
-const ftp = require('basic-ftp');
 const { isAdmin } = require('./lib/auth');
+const config = require('./dbConfig');
 
 const MAX_DIMENSION_DEFAULT = 1000;
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
@@ -24,9 +24,6 @@ const json = (statusCode, payload) => ({
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(payload),
 });
-
-const normalizeSegment = (value) =>
-  String(value || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
 // Download a URL into a Buffer (follows up to 3 redirects)
 function fetchBuffer(url, redirectsLeft = 3) {
@@ -55,11 +52,7 @@ async function resizeBuffer(buffer, filename, maxDimension) {
   try {
     sharp = require('sharp');
   } catch (loadErr) {
-    throw new Error(
-      'Image processing module (sharp) is not available in this deployment. ' +
-      'Ensure the Netlify function is deployed with node_bundler = "zisi" in netlify.toml, ' +
-      'or run: npm install --os=linux --cpu=x64 sharp'
-    );
+    throw new Error('Image processing module (sharp) is not available. Run: npm install sharp');
   }
   const ext = path.extname(String(filename || '')).toLowerCase();
 
@@ -67,7 +60,6 @@ async function resizeBuffer(buffer, filename, maxDimension) {
   const originalWidth = meta.width || 0;
   const originalHeight = meta.height || 0;
 
-  // Don't enlarge — only resize if above maxDimension
   if (originalWidth <= maxDimension && originalHeight <= maxDimension) {
     return { buffer, width: originalWidth, height: originalHeight, skipped: true };
   }
@@ -94,34 +86,13 @@ async function resizeBuffer(buffer, filename, maxDimension) {
   };
 }
 
-async function uploadBufferToFtp(buffer, remotePath) {
-  const ftpHost = process.env.FTP_HOST;
-  const ftpUser = process.env.FTP_USER;
-  const ftpPassword = process.env.FTP_PASSWORD;
-  const ftpPublicBaseUrl = String(process.env.FTP_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
-
-  if (!ftpHost || !ftpUser || !ftpPassword || !ftpPublicBaseUrl) {
-    throw new Error('FTP not configured (FTP_HOST, FTP_USER, FTP_PASSWORD, FTP_PUBLIC_BASE_URL).');
-  }
-
-  const client = new ftp.Client();
-  client.ftp.verbose = false;
-
-  try {
-    await client.access({
-      host: ftpHost,
-      user: ftpUser,
-      password: ftpPassword,
-      secure: process.env.FTP_SECURE === 'true',
-    });
-    const remoteDir = path.posix.dirname(remotePath);
-    const remoteFile = path.posix.basename(remotePath);
-    await client.ensureDir(remoteDir);
-    await client.uploadFrom(Readable.from(buffer), remoteFile);
-    return `${ftpPublicBaseUrl}/${remotePath}`;
-  } finally {
-    client.close();
-  }
+async function saveBufferToLocal(buffer, relativePath) {
+  const storageRoot = config.storageRoot;
+  const localPath = path.join(storageRoot, relativePath);
+  await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
+  await fs.promises.writeFile(localPath, buffer);
+  const appBaseUrl = String(process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+  return `${appBaseUrl}/storage/${relativePath}`;
 }
 
 exports.handler = async (event) => {
@@ -146,7 +117,6 @@ exports.handler = async (event) => {
     return json(400, { message: 'artworkUrl is required' });
   }
 
-  // Validate the URL is plausibly an image
   let parsedUrl;
   try {
     parsedUrl = new URL(artworkUrl);
@@ -159,7 +129,6 @@ exports.handler = async (event) => {
     return json(400, { message: `Unsupported image extension: ${ext}` });
   }
 
-  // Download
   let originalBuffer;
   try {
     originalBuffer = await fetchBuffer(artworkUrl);
@@ -169,7 +138,6 @@ exports.handler = async (event) => {
 
   const originalBytes = originalBuffer.length;
 
-  // Resize
   let resizeResult;
   try {
     resizeResult = await resizeBuffer(originalBuffer, parsedUrl.pathname, Number(maxDimension) || MAX_DIMENSION_DEFAULT);
@@ -189,22 +157,20 @@ exports.handler = async (event) => {
     });
   }
 
-  // Upload to FTP
-  const ftpBasePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
   const safeName = path.basename(parsedUrl.pathname).replace(/[^a-zA-Z0-9._-]/g, '_');
   const stamp = Date.now();
-  const remotePath = [ftpBasePath, 'artwork', `${stamp}-resized-${safeName}`].filter(Boolean).join('/');
+  const relativePath = `uploads/artwork/${stamp}-resized-${safeName}`;
 
   let newUrl;
   try {
-    newUrl = await uploadBufferToFtp(resizeResult.buffer, remotePath);
+    newUrl = await saveBufferToLocal(resizeResult.buffer, relativePath);
   } catch (err) {
-    return json(500, { message: `FTP upload failed: ${err.message}` });
+    return json(500, { message: `Save failed: ${err.message}` });
   }
 
   return json(200, {
     skipped: false,
-    message: 'Artwork resized and uploaded.',
+    message: 'Artwork resized and saved.',
     url: newUrl,
     originalBytes,
     newBytes: resizeResult.buffer.length,
