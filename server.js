@@ -11,8 +11,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Connect to MongoDB
 
-// Replace with your MongoDB connection string
-const uri = 'mongodb+srv://simonindelicate:flopsybunney27@cluster0.teqecpk.mongodb.net/?retryWrites=true&w=majority';
+const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017';
 
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 client.connect();
