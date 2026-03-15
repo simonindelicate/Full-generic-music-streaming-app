@@ -190,6 +190,9 @@
         reader.readAsDataURL(blob);
       });
 
+      // null = not yet checked, true = R2 presign available, false = not available (FTP/other)
+      let _presignAvailable = null;
+
       async function uploadFileToMediaHost(file, folder, onProgress) {
         const endpoint = '/.netlify/functions/uploadMedia';
         const token = AdminDataStore.getToken();
@@ -202,41 +205,36 @@
           return result;
         }
 
-        // For non-image files, request a presigned URL and upload directly to R2.
-        // This bypasses Netlify's body-size limit and function timeout entirely.
+        // For non-image files, attempt a presigned direct-to-R2 upload.
+        // On the first call this probes the server; if unavailable (FTP backend returns 400)
+        // _presignAvailable is set to false and this block is skipped for all subsequent uploads.
         const ext = '.' + file.name.split('.').pop().toLowerCase();
-        if (!IMAGE_EXTS.has(ext)) {
-          try {
-            const presignRes = await fetch(endpoint, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({ action: 'presign', fileName: file.name, folder }),
-            });
-            if (presignRes.ok) {
-              const { presignedUrl, publicUrl } = await presignRes.json();
-              if (presignedUrl && publicUrl) {
-                if (onProgress) onProgress(0, 1);
-                const putRes = await fetch(presignedUrl, {
-                  method: 'PUT',
-                  body: file,
-                  headers: { 'Content-Type': file.type || 'application/octet-stream' },
-                });
-                if (!putRes.ok) throw new Error(`Direct upload failed (${putRes.status})`);
-                if (onProgress) onProgress(1, 1);
-                return publicUrl;
-              }
-            }
-          } catch (err) {
-            // If presign isn't available (e.g. FTP backend), fall through to chunked upload
-            if (err.message && !err.message.startsWith('Direct upload failed')) {
-              // network error on presign request — fall through
-            } else {
-              throw err;
+        if (!IMAGE_EXTS.has(ext) && _presignAvailable !== false) {
+          const presignRes = await fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ action: 'presign', fileName: file.name, folder }),
+          });
+          if (presignRes.ok) {
+            const { presignedUrl, publicUrl } = await presignRes.json();
+            if (presignedUrl && publicUrl) {
+              _presignAvailable = true;
+              if (onProgress) onProgress(0, 1);
+              const putRes = await fetch(presignedUrl, {
+                method: 'PUT',
+                body: file,
+                headers: { 'Content-Type': file.type || 'application/octet-stream' },
+              });
+              if (!putRes.ok) throw new Error(`Direct upload to storage failed (${putRes.status})`);
+              if (onProgress) onProgress(1, 1);
+              return publicUrl;
             }
           }
+          // Server returned non-ok (e.g. FTP backend) — use chunked path from here on
+          _presignAvailable = false;
         }
 
-        // Fallback: chunked upload through Netlify (used for images and FTP backend)
+        // Chunked upload through Netlify (FTP backend, or images)
         if (file.size <= CHUNK_THRESHOLD) {
           const contentBase64 = await readSliceAsBase64(file);
           const result = await postChunk({ fileName: file.name, contentBase64, folder });
