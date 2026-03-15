@@ -7,5 +7,5 @@ node_modules/
 .env.local
 .env*.local
 
-# Generated media
-uploads/mp4/
+# Generated media — never commit uploaded files
+uploads/

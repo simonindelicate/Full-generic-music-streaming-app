@@ -1,51 +1,55 @@
 <!DOCTYPE html>
-<html>
-  <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <link rel="stylesheet" href="/styles/style.css">
-    <title>404 - Content Not Found</title>
-
-
-
-
-  </head>
-  <body>
-
-      <!-- Site Header -->
-    <header><a href="/">
-      <img src="/img/logo2.png" alt="Logo"></a>
-      <heading>
-        <a href="/">
-        <h2 class="page-title">2Cool4School</h2>
-      </a>
-      </heading>
-      <nav>
-        <p><a href="gallery.html">Ideas</a> | <a href="testimonies.html">Your Stories</a></p>
-      </nav>
-    </header>
-    <div class="intro-panel">
-    <h1 class="main-title">404 - Content Not Found</h1>
-
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 — Page Not Found</title>
+  <link rel="preload" href="/styles/style.css" as="style" />
+  <link rel="stylesheet" href="/styles/style.css" />
+  <style>
+    .not-found-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 4rem 1.5rem;
+      gap: 1.25rem;
+    }
+    .not-found-code {
+      font-family: var(--font-heading);
+      font-size: clamp(5rem, 20vw, 9rem);
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+      margin: 0;
+    }
+    .not-found-msg {
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin: 0;
+    }
+    .not-found-home {
+      display: inline-block;
+      margin-top: 0.5rem;
+      padding: 0.65rem 1.75rem;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .not-found-home:hover { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <div class="not-found-wrap">
+    <p class="not-found-code">404</p>
+    <p class="not-found-msg">Page not found.</p>
+    <a class="not-found-home" href="/">Back to home</a>
   </div>
-<div class="main" style="height:300px;">
-  <h1><a href="/">Return Home</a></h1>
-
-</div>
-
-
-
-
-
-    <!-- Footer -->
-    <footer>
-         <img src="/img/logo2.png" alt="Logo">
-      <h2>2cool4school</h2>
-
-      <p><a href="mailto:juliaindelicate@gmail.com">juliaindelicate@gmail.com</a></p>
-    </footer>
-
-
-
-
-  </body>
+</body>
 </html>
