@@ -2,5 +2,10 @@
 .netlify
 node_modules/
 
-# Generated media
-uploads/mp4/
+# Environment variables — never commit real secrets
+.env
+.env.local
+.env*.local
+
+# Generated media — never commit uploaded files
+uploads/
