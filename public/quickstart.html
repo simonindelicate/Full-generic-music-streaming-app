@@ -178,6 +178,19 @@
 
     .note strong { color: #a5b4fc; }
 
+    .warn {
+      background: #1f1500;
+      border: 1px solid #4a3000;
+      border-left: 3px solid #f59e0b;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #a38a50;
+    }
+
+    .warn strong { color: #fbbf24; }
+
     .tip {
       background: #0f1f0f;
       border: 1px solid #1e3a1e;
@@ -292,11 +305,14 @@
 
   <header>
     <h1>Deploy Your Music Streaming App</h1>
-    <p>Three free accounts. No coding. No terminal. About 20 minutes.</p>
+    <p>Three free accounts. No terminal. About 30 minutes plus a short wait for DNS to spread.</p>
     <div class="badge-row">
       <span class="badge badge-nocode">No terminal required</span>
       <span class="badge badge-free">Free tier friendly</span>
-      <span class="badge badge-time">~20 minutes</span>
+      <span class="badge badge-time">~30 minutes</span>
+    </div>
+    <div class="warn" style="margin-top:1.25rem;">
+      <strong>You need a domain name.</strong> To stream audio without rate limits you must connect your own domain to Cloudflare's storage network. If you don't have one yet, you can buy a domain through <a href="https://www.cloudflare.com/products/registrar/" target="_blank" style="color:#fbbf24;">Cloudflare Registrar</a> at cost price (typically $8–12/year, no markup). The domain is the only thing in this guide that isn't free.
     </div>
   </header>
 
@@ -333,32 +349,48 @@
     <div class="phase-header">
       <div class="phase-number">2</div>
       <div>
-        <div class="phase-title">Cloudflare R2 — store your audio files</div>
-        <div class="phase-subtitle">Free to stream — no charge when listeners play your music.</div>
+        <div class="phase-title">Cloudflare R2 — free audio storage and unlimited streaming</div>
+        <div class="phase-subtitle">R2 charges nothing for data transfer. Your listeners stream for free, no matter how many plays.</div>
       </div>
     </div>
 
     <div class="steps">
 
       <div class="step">
-        <div class="step-label">Step 4</div>
+        <div class="step-label">Step 3</div>
         <h3>Create a free Cloudflare account</h3>
-        <p>Go to <a href="https://cloudflare.com" target="_blank">cloudflare.com</a> and click <span class="ui-action">Sign up</span>. You don't need to add a website.</p>
-        <div class="note"><strong>You will need to add a payment card to use R2</strong> — even on the free tier. Cloudflare requires this to activate storage. You won't be charged unless you exceed the generous free limits (10 GB storage, unlimited streaming).</div>
+        <p>Go to <a href="https://cloudflare.com" target="_blank">cloudflare.com</a> and click <span class="ui-action">Sign up</span>.</p>
+        <div class="note"><strong>You will need to add a payment card to use R2</strong> — even on the free tier. Cloudflare requires this to activate storage. You won't be charged unless you exceed the generous free limits (10 GB storage, 10 million reads/month).</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 4</div>
+        <h3>Add your domain to Cloudflare</h3>
+        <p>In the Cloudflare dashboard click <span class="ui-action">Add a domain</span>. Enter your domain name and choose the <strong>Free</strong> plan.</p>
+        <p>Cloudflare will scan your existing DNS records and then show you <strong>two nameserver addresses</strong> — something like <code>anna.ns.cloudflare.com</code> and <code>bob.ns.cloudflare.com</code>. Copy both.</p>
+        <p>Log in to wherever you bought your domain (GoDaddy, Namecheap, Google Domains, etc.) and replace the existing nameservers with these two Cloudflare nameservers. The exact steps depend on your registrar — look for <strong>Nameservers</strong> or <strong>DNS</strong> in their settings. Save the change.</p>
+        <div class="note"><strong>Nameserver changes usually take a few minutes to a couple of hours</strong> to propagate worldwide. Cloudflare will email you when your domain is active. You can continue to Step 5 while you wait, but you'll need this step complete before Step 6.</div>
+        <div class="tip"><strong>Already manage your domain through Cloudflare?</strong> Skip straight to Step 5.</div>
       </div>
 
       <div class="step">
         <div class="step-label">Step 5</div>
         <h3>Create a storage bucket</h3>
-        <p>In the Cloudflare dashboard, look at the left sidebar and scroll down until you see <strong>Storage &amp; Databases</strong>. Click it to expand the section, then click <span class="ui-action">R2 Object Storage</span>.</p>
-        <p>On the R2 overview page, click <span class="ui-action">Create bucket</span>. Name it something like <code>music-uploads</code>, leave everything else as-is, and click <span class="ui-action">Create bucket</span>.</p>
+        <p>In the Cloudflare dashboard, look at the left sidebar and scroll down to <strong>Storage &amp; Databases</strong>. Click it, then click <span class="ui-action">R2 Object Storage</span>.</p>
+        <p>On the R2 overview page, click <span class="ui-action">Create bucket</span>. Name it something like <code>music</code>, leave everything else as-is, and click <span class="ui-action">Create bucket</span>.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 6</div>
-        <h3>Make it publicly accessible</h3>
-        <p>Open your new bucket, click the <span class="ui-action">Settings</span> tab, and find the <strong>Public Development URL</strong> section. Click <span class="ui-action">Enable</span>.</p>
-        <p>Cloudflare will show you a URL looking like <code>https://pub-xxxxxxxx.r2.dev</code> — <strong>copy and save this</strong>. You'll need it in Step 11.</p>
+        <h3>Connect your domain to the bucket</h3>
+        <p>Open your new bucket and click the <span class="ui-action">Settings</span> tab. Scroll down to <strong>Public Access</strong> and find the <strong>Custom Domains</strong> section. Click <span class="ui-action">Connect Domain</span>.</p>
+        <p>Enter a subdomain you want to use for your audio files — for example <code>cdn.yourdomain.com</code> or <code>music.yourdomain.com</code>. Click <span class="ui-action">Continue</span>, review the DNS record Cloudflare will create, then click <span class="ui-action">Connect Domain</span> to confirm.</p>
+        <p>The status will show <em>Initializing</em> for a minute or two, then switch to <em>Active</em>. Refresh the page if it doesn't update.</p>
+        <p><strong>Copy and save your full custom domain URL</strong> — e.g. <code>https://cdn.yourdomain.com</code>. You'll need it in Step 11.</p>
+        <div class="warn">
+          <strong>Do not use the "Public Development URL" (pub-xxx.r2.dev).</strong> Cloudflare explicitly rate-limits that URL and marks it as development-only. Using it for streaming will result in throttled or blocked requests under any real listener load. The custom domain you just set up is the correct path for production.
+        </div>
+        <div class="note"><strong>This step requires your domain's nameservers to already point to Cloudflare</strong> (Step 4). If the domain isn't active in Cloudflare yet, wait for the nameserver change to propagate and then come back.</div>
       </div>
 
       <div class="step">
@@ -421,12 +453,13 @@
             <tr><td>R2_ACCOUNT_ID</td><td>Your Account ID from Step 7</td></tr>
             <tr><td>R2_ACCESS_KEY_ID</td><td>Access Key ID from Step 8</td></tr>
             <tr><td>R2_SECRET_ACCESS_KEY</td><td>Secret Access Key from Step 8</td></tr>
-            <tr><td>R2_BUCKET_NAME</td><td>The bucket name you chose, e.g. <code>music-uploads</code></td></tr>
-            <tr><td>R2_PUBLIC_BASE_URL</td><td>The <code>https://pub-xxx.r2.dev</code> URL from Step 6</td></tr>
+            <tr><td>R2_BUCKET_NAME</td><td>The bucket name you chose, e.g. <code>music</code></td></tr>
+            <tr><td>R2_PUBLIC_BASE_URL</td><td>Your custom domain URL from Step 6, e.g. <code>https://cdn.yourdomain.com</code></td></tr>
             <tr><td>ADMIN_API_TOKEN</td><td>Make up any long string of random characters — this becomes your admin password</td></tr>
           </tbody>
         </table>
         <div class="note"><strong>The variable names must be typed exactly as shown</strong> — they are case-sensitive. A typo here is the most common reason uploads fail.</div>
+        <div class="warn"><strong>R2_PUBLIC_BASE_URL must be your custom domain</strong> (e.g. <code>https://cdn.yourdomain.com</code>), not the <code>pub-xxx.r2.dev</code> development URL. Using the r2.dev URL here will cause streaming to fail under load.</div>
       </div>
 
       <div class="step">
@@ -456,10 +489,14 @@
       <li>Upload a song through the admin upload screen</li>
       <li>Open your R2 bucket in Cloudflare and confirm the file appears</li>
       <li>Press play — the audio streams without errors</li>
+      <li>Check the audio URL in your browser's developer tools — it should start with your custom domain, not <code>pub-</code></li>
     </ul>
 
     <div class="note" style="margin-top:1.25rem;">
       <strong>If uploads fail:</strong> go to Netlify &rarr; <span class="ui-action">Site configuration</span> &rarr; <span class="ui-action">Environment variables</span> and double-check every value — especially <code>R2_SECRET_ACCESS_KEY</code> and <code>R2_PUBLIC_BASE_URL</code>. After fixing, go to <span class="ui-action">Deploys</span> and click <span class="ui-action">Trigger deploy</span>.
+    </div>
+    <div class="note" style="margin-top:0.75rem;">
+      <strong>If audio plays but then cuts out or returns a 429 error:</strong> your <code>R2_PUBLIC_BASE_URL</code> is set to the <code>r2.dev</code> development URL rather than your custom domain. Update it to <code>https://cdn.yourdomain.com</code> (or whatever subdomain you chose in Step 6) and redeploy.
     </div>
   </div>
 
@@ -470,18 +507,23 @@
       <div class="phase-number" style="color:#4ade80; border-color:#2d6e2d;">$</div>
       <div>
         <div class="phase-title">What this costs</div>
-        <div class="phase-subtitle">Almost certainly nothing for an independent artist</div>
+        <div class="phase-subtitle">Running costs for an independent artist are typically zero beyond the domain</div>
       </div>
     </div>
 
     <table class="env-table">
       <thead><tr><th>Service</th><th>Free tier includes</th></tr></thead>
       <tbody>
-        <tr><td>GitHub</td><td>Unlimited repositories, unlimited file uploads</td></tr>
+        <tr><td>GitHub</td><td>Unlimited repositories</td></tr>
         <tr><td>Netlify</td><td>100 GB bandwidth/month, 300 build minutes/month</td></tr>
-        <tr><td>Cloudflare R2</td><td>10 GB storage, 10 million plays/month — <strong>streaming is always free</strong></td></tr>
+        <tr><td>Cloudflare R2</td><td>10 GB storage, 10 million reads/month — <strong>data transfer (egress) is always free</strong></td></tr>
+        <tr><td>Domain name</td><td>~$8–12/year through Cloudflare Registrar (at cost, no markup) — the only recurring expense</td></tr>
       </tbody>
     </table>
+
+    <div class="note" style="margin-top:1rem;">
+      <strong>Why is streaming free?</strong> Cloudflare R2 charges for storage and API operations but not for data transfer out to listeners. Once your audio is stored in R2, every play is free regardless of how many times it's played. With Cloudflare caching enabled on your custom domain, popular tracks are served from Cloudflare's edge network and don't even count against your R2 read quota after the first play.
+    </div>
   </div>
 
   <div class="done-box">
