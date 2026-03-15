@@ -259,8 +259,9 @@ exports.handler = async (event) => {
     assembled = await optimizeImage(assembled, safeName);
   }
 
+  const basePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
   const stamp = Date.now();
-  const remotePath = [ftpBasePath, safeFolder, `${stamp}-${safeName}`]
+  const remotePath = [basePath, safeFolder, `${stamp}-${safeName}`]
     .filter(Boolean).join('/');
 
   try {
