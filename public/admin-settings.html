@@ -641,7 +641,22 @@
             </div>
           </div>
 
-          <!-- ── 9. Footer ───────────────────────────────── -->
+          <!-- ── 9. Catalogue API ───────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Catalogue API</p>
+            <p class="meta" style="margin-bottom:14px;">Controls whether your music catalogue is publicly exposed via the catalogue feed API. When enabled, aggregator services can discover and index your tracks.</p>
+            <div class="form-grid">
+              <div style="grid-column: 1 / -1;">
+                <label for="discoveryOptIn">Expose catalogue API</label>
+                <select id="discoveryOptIn">
+                  <option value="false">Disabled — catalogue feed returns 403 (private)</option>
+                  <option value="true">Enabled — catalogue feed is public and discoverable</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 10. Footer ──────────────────────────────── -->
           <div class="form-section">
             <p class="form-section__title">Footer</p>
             <div class="form-grid">
@@ -677,7 +692,8 @@
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle',
         'pwaInstallPrompt','pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaIcon192','pwaIcon512','pwaScreenshot1','pwaScreenshot2',
         'copyrightNotice','footerSummary','footerContent',
-        'paymentsEnabled','paypalPlanId','paypalSubscriptionLabel','paypalSubscriptionPrice'
+        'paymentsEnabled','paypalPlanId','paypalSubscriptionLabel','paypalSubscriptionPrice',
+        'discoveryOptIn'
       ];
 
       const fontPairs = window.SiteSettings?.FONT_PAIRS || {};
@@ -868,7 +884,7 @@
           if (!input) return;
           if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'pwaInstallPrompt') {
             input.value = settings[key] === false ? 'false' : 'true';
-          } else if (key === 'paymentsEnabled') {
+          } else if (key === 'paymentsEnabled' || key === 'discoveryOptIn') {
             input.value = settings[key] === true ? 'true' : 'false';
           } else {
             input.value = settings[key] ?? '';
@@ -929,7 +945,7 @@
         const patch = fields.reduce((acc, key) => {
           const raw = document.getElementById(key).value;
           if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'pwaInstallPrompt') acc[key] = raw !== 'false';
-          else if (key === 'paymentsEnabled') acc[key] = raw === 'true';
+          else if (key === 'paymentsEnabled' || key === 'discoveryOptIn') acc[key] = raw === 'true';
           else acc[key] = typeof raw === 'string' ? raw.trim() : raw;
           return acc;
         }, {});
