@@ -1645,6 +1645,7 @@ function setAlbum(albumIdentifier) {
   warmTrackAssets(albumTracks, 3);
   if (album.allTracks && album.enableShuffle) {
     state.queue.shuffleEnabled = true;
+    state.queue.buildShuffle(currentId);
   }
   if (album.allTracks && albumTracks.length) {
     const selectedTrack = albumTracks.find(track => track._id === currentId) || albumTracks[0];
@@ -1696,6 +1697,7 @@ function openNowPlayingOverlay() {
       state.queue.shuffleEnabled = true;
       state.queue.repeatEnabled = prevRepeat;
       state.queue.currentId = prevCurrentId;
+      state.queue.buildShuffle(prevCurrentId);
       syncPlayModes();
     }
   }
@@ -1861,8 +1863,9 @@ function ensureQueueForTrack(track) {
 
 function primeAdjacentTracks(track) {
   if (!state.queue || !track) return;
-  const items = state.queue.items || [];
-  const currentIndex = state.queue.currentIndexFor(track._id);
+  const q = state.queue;
+  const items = q.shuffleEnabled && q.shuffledItems.length ? q.shuffledItems : q.items;
+  const currentIndex = items.findIndex(t => t._id === track._id);
   if (currentIndex === -1) {
     warmTrackAssets([track]);
     return;
@@ -2032,6 +2035,7 @@ async function refreshLibrary() {
     if (state.queue) {
       state.queue.shuffleEnabled = previousShuffle;
       state.queue.repeatEnabled = previousRepeat;
+      if (previousShuffle) state.queue.buildShuffle(previousTrackId);
     }
     updateFilters();
     renderAlbums();
@@ -2221,14 +2225,14 @@ function bindEvents() {
     const dur = state.audio.duration;
     const remaining = dur - state.audio.currentTime;
     if (remaining > 0 && remaining < 30 && state.queue) {
-      const nextTrack = state.queue.next(state.currentTrack?._id);
-      // Peek without advancing — re-resolve from items directly.
-      if (nextTrack) {
-        const items = state.queue.items;
-        const idx = state.queue.currentIndexFor(state.currentTrack?._id);
-        const peekNext = !state.queue.shuffleEnabled && idx !== -1 ? items[idx + 1] : null;
-        if (peekNext) primeNextTrackAudio(peekNext);
-      }
+      // Peek at the next track without advancing the queue pointer.
+      const q = state.queue;
+      const orderedItems = q.shuffleEnabled && q.shuffledItems.length ? q.shuffledItems : q.items;
+      const currentPos = orderedItems.findIndex(t => t._id === state.currentTrack?._id);
+      const peekNext = currentPos !== -1 && currentPos + 1 < orderedItems.length
+        ? orderedItems[currentPos + 1]
+        : null;
+      if (peekNext) primeNextTrackAudio(peekNext);
     }
   });
   state.audio.addEventListener('loadedmetadata', updateTime);
