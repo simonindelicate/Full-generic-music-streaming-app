@@ -2501,42 +2501,7 @@ async function initPayments() {
       if (help) { help.hidden = false; help.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     });
 
-    // Cancel subscription flow (inside subscriber-help panel)
-    document.getElementById('subscriber-cancel-btn')?.addEventListener('click', () => {
-      document.getElementById('subscriber-cancel-confirm').hidden = false;
-      document.getElementById('subscriber-cancel-btn').hidden = true;
-    });
-    document.getElementById('subscriber-cancel-confirm-no')?.addEventListener('click', () => {
-      document.getElementById('subscriber-cancel-confirm').hidden = true;
-      document.getElementById('subscriber-cancel-btn').hidden = false;
-    });
-    document.getElementById('subscriber-cancel-confirm-yes')?.addEventListener('click', async () => {
-      const msgEl = document.getElementById('subscriber-cancel-msg');
-      const yesBtn = document.getElementById('subscriber-cancel-confirm-yes');
-      if (yesBtn) yesBtn.disabled = true;
-      if (msgEl) { msgEl.textContent = 'Cancelling\u2026'; msgEl.hidden = false; }
-      try {
-        const raw = getRawToken();
-        const res = await fetch('/.netlify/functions/cancelSubscription', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Access-Token': raw || '' },
-        });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Cancel failed');
-        clearAccessToken();
-        if (msgEl) msgEl.textContent = 'Subscription cancelled. Your access has ended.';
-        document.getElementById('subscriber-help').hidden = true;
-        const navBtn = document.getElementById('navSubscribe');
-        if (navBtn) {
-          navBtn.classList.remove('is-subscribed');
-          navBtn.textContent = 'Subscribe';
-          navBtn.setAttribute('aria-label', 'Subscribe to unlock all tracks');
-        }
-        showToast('Subscription cancelled.', 'success');
-      } catch (err) {
-        if (yesBtn) yesBtn.disabled = false;
-        if (msgEl) msgEl.textContent = err.message || 'Could not cancel \u2014 please try via your PayPal account.';
-      }
-    });
+
 
     // Load the SDK in the background — the button renders lazily on first modal open.
     // Also call renderPayPalButton() after load in case the modal was already open.
