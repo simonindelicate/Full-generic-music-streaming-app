@@ -2332,7 +2332,12 @@ function renderPayPalButton() {
   paypalButtonRendered = true;
   window.paypal.Buttons({
     style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
-    createSubscription: (data, actions) => actions.subscriptions.create({ plan_id: paymentConfig.planId }),
+    createSubscription: async () => {
+      const res = await fetch('/.netlify/functions/createSubscription', { method: 'POST' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to create subscription');
+      const { subscriptionId } = await res.json();
+      return subscriptionId;
+    },
     onApprove: async (data) => {
       const errorEl = document.getElementById('paywall-error');
       try {
