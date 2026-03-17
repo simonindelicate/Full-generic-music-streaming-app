@@ -335,17 +335,17 @@
             <p class="paywall-modal__price" id="paywall-price" hidden></p>
             <!-- PayPal JS SDK renders the Subscribe button here -->
             <div id="paywall-paypal-btn"></div>
-            <p class="paywall-modal__sub-hint">Cancel anytime from your PayPal account.</p>
+            <p class="paywall-modal__sub-hint">Cancel anytime. <button class="paywall-modal__text-link" id="paywall-open-help" type="button">Subscriber help</button></p>
             <p class="paywall-modal__loading" id="paywall-loading" hidden>Loading payment options…</p>
             <p class="paywall-modal__error" id="paywall-error" hidden></p>
           </div>
 
-          <!-- Restore: for returning subscribers whose token has been cleared -->
+          <!-- Restore: email-based for returning subscribers whose token has been cleared -->
           <details class="paywall-modal__restore">
             <summary>Already subscribed? Restore access</summary>
             <div class="paywall-modal__restore-form">
-              <input id="paywall-restore-id" type="text" placeholder="Paste your PayPal Subscription ID (I-…)" autocomplete="off" spellcheck="false" />
-              <button id="paywall-restore-submit" type="button">Verify &amp; restore</button>
+              <input id="paywall-restore-email" type="email" placeholder="Email used to subscribe" autocomplete="email" />
+              <button id="paywall-restore-submit" type="button">Restore access</button>
               <p id="paywall-restore-msg" class="paywall-modal__restore-msg" hidden></p>
             </div>
           </details>
@@ -354,6 +354,41 @@
         <button class="paywall-modal__dismiss" id="paywall-dismiss">Maybe later</button>
       </div>
     </div>
+
+    <!-- Subscriber help panel — shown below footer, only for active subscribers -->
+    <section id="subscriber-help" class="subscriber-help" hidden aria-label="Subscriber support">
+      <div class="subscriber-help__inner">
+        <h2 class="subscriber-help__heading">Subscriber support</h2>
+        <div class="subscriber-help__status">
+          <span class="subscriber-help__badge">&#10003; Active subscription</span>
+          <span id="subscriber-help-email" class="subscriber-help__email"></span>
+        </div>
+        <div class="subscriber-help__faq">
+          <details>
+            <summary>How do I listen on a new device or after clearing my browser?</summary>
+            <p>Visit this page on the new device and click <strong>Subscribe</strong> → <strong>Already subscribed? Restore access</strong>. Enter the email address you used when subscribing and your access will be restored instantly.</p>
+          </details>
+          <details>
+            <summary>Where can I manage my PayPal subscription?</summary>
+            <p>Log in to PayPal → <strong>Settings</strong> → <strong>Payments</strong> → <strong>Manage automatic payments</strong>. You can also cancel directly from this page using the button below.</p>
+          </details>
+          <details>
+            <summary>I'm having trouble with my access.</summary>
+            <p>Try the restore flow: click <strong>Subscribe</strong> in the menu and use <strong>Already subscribed? Restore access</strong> to re-activate your token. If the problem persists, contact support from the Support page.</p>
+          </details>
+        </div>
+        <div class="subscriber-help__actions">
+          <button id="subscriber-cancel-btn" class="pill ghost subscriber-help__cancel-btn" type="button">Cancel subscription</button>
+          <a href="/support.html" class="pill">Visit support page</a>
+        </div>
+        <div id="subscriber-cancel-confirm" class="subscriber-help__confirm" hidden>
+          <p>Are you sure? Your access will end immediately.</p>
+          <button id="subscriber-cancel-confirm-yes" class="pill" type="button">Yes, cancel my subscription</button>
+          <button id="subscriber-cancel-confirm-no" class="pill ghost" type="button">Keep my subscription</button>
+          <p id="subscriber-cancel-msg" class="subscriber-help__msg" hidden></p>
+        </div>
+      </div>
+    </section>
 
     <div id="toast-container" role="status" aria-live="assertive" aria-atomic="false"></div>
 

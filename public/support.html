@@ -112,12 +112,10 @@
             <strong>Important: keep this access safe</strong>
             Your access is stored in this browser. <strong>If you clear your browser data,
             you'll need to restore it.</strong><br><br>
-            To restore access on any device: go to the Support page, open
-            "Already purchased? Restore access" below, and enter your
-            PayPal <span id="restoreIdLabel">Order ID</span> — it's in your
-            <strong>PayPal receipt email</strong> (subject: "Your purchase from…" or
-            "You have a new subscription").<br><br>
-            Keep that email. That's your key.
+            To restore access on any other browser or device: visit this Support page, open
+            <strong>"Already subscribed? Restore access"</strong> below,
+            and enter the email address you used to subscribe.
+            That's all you need.
           </div>
           <div class="actions">
             <a class="pill primary" href="/player.html">Start listening</a>
@@ -143,18 +141,14 @@
         </article>
       </section>
 
-      <!-- Restore access for returning buyers -->
+      <!-- Restore access for returning subscribers -->
       <section class="restore-section">
         <details id="restoreDetails">
-          <summary>Already purchased? Restore access to this browser</summary>
+          <summary>Already subscribed? Restore access to this browser</summary>
           <div class="restore-form">
-            <select id="restoreType">
-              <option value="order">One-time purchase (Order ID)</option>
-              <option value="subscription">Subscription (Subscription ID)</option>
-            </select>
-            <input type="text" id="restoreId" placeholder="Paste your PayPal Order ID or Subscription ID" autocomplete="off" spellcheck="false" />
-            <p class="restore-hint" id="restoreHint">
-              Your Order ID looks like <code>1AB23456CD789012E</code> and is in your PayPal receipt email.
+            <input type="email" id="restoreEmail" placeholder="Email you used to subscribe" autocomplete="email" />
+            <p class="restore-hint">
+              Enter the email address you used when subscribing via PayPal and we'll restore your access instantly.
             </p>
             <button class="pill primary" id="restoreBtn">Restore access</button>
             <p id="restoreStatus" style="font-size:0.9rem;color:var(--text-secondary,#666);"></p>
@@ -181,6 +175,20 @@
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(err.message || `Verification failed (${res.status})`);
+        }
+        const { token } = await res.json();
+        setAccessToken(token);
+      }
+
+      async function restoreByEmail(email) {
+        const res = await fetch('/.netlify/functions/restoreByEmail', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || `Could not restore access (${res.status})`);
         }
         const { token } = await res.json();
         setAccessToken(token);
@@ -213,7 +221,6 @@
         if (orderId || subscriptionId) {
           const type = subscriptionId ? 'subscription' : 'order';
           const id = subscriptionId || orderId;
-          document.getElementById('restoreIdLabel').textContent = subscriptionId ? 'Subscription ID' : 'Order ID';
           const section = document.getElementById('paymentSuccessSection');
           section.hidden = false;
           try {
@@ -221,47 +228,33 @@
             // Clean up PayPal params from URL without reload
             history.replaceState(null, '', window.location.pathname);
           } catch (err) {
-            // Verification failed — show restore form with the ID pre-filled so user can retry
+            // Verification failed — prompt user to restore by email
             section.hidden = true;
             const details = document.getElementById('restoreDetails');
             details.open = true;
-            document.getElementById('restoreType').value = type;
-            document.getElementById('restoreId').value = id;
-            document.getElementById('restoreStatus').textContent = 'Could not verify automatically — please try the restore form below.';
+            document.getElementById('restoreStatus').textContent = 'Could not verify automatically — enter your email below to restore access.';
           }
         }
 
         // Restore access form
-        const restoreType = document.getElementById('restoreType');
-        const restoreIdInput = document.getElementById('restoreId');
-        const restoreHint = document.getElementById('restoreHint');
+        const restoreEmailInput = document.getElementById('restoreEmail');
         const restoreBtn = document.getElementById('restoreBtn');
         const restoreStatus = document.getElementById('restoreStatus');
 
-        restoreType.addEventListener('change', () => {
-          if (restoreType.value === 'subscription') {
-            restoreIdInput.placeholder = 'Paste your PayPal Subscription ID';
-            restoreHint.innerHTML = 'Your Subscription ID looks like <code>I-XXXXXXXXXXXX</code> and is in your PayPal subscription confirmation email, or under <strong>PayPal account → Automatic payments</strong>.';
-          } else {
-            restoreIdInput.placeholder = 'Paste your PayPal Order ID';
-            restoreHint.innerHTML = 'Your Order ID looks like <code>1AB23456CD789012E</code> and is in your PayPal receipt email.';
-          }
-        });
-
         restoreBtn.addEventListener('click', async () => {
-          const id = restoreIdInput.value.trim();
-          if (!id) { restoreStatus.textContent = 'Please enter your ID.'; return; }
+          const email = (restoreEmailInput?.value || '').trim();
+          if (!email) { restoreStatus.textContent = 'Please enter your email address.'; return; }
           restoreBtn.disabled = true;
-          restoreStatus.textContent = 'Verifying with PayPal…';
+          restoreStatus.textContent = 'Looking up your subscription…';
           try {
-            await verifyAndStore(restoreType.value, id);
+            await restoreByEmail(email);
             restoreStatus.textContent = '';
-            restoreIdInput.value = '';
+            restoreEmailInput.value = '';
             document.getElementById('restoreDetails').open = false;
             document.getElementById('paymentSuccessSection').hidden = false;
             history.replaceState(null, '', window.location.pathname);
           } catch (err) {
-            restoreStatus.textContent = err.message || 'Could not verify — check your ID and try again.';
+            restoreStatus.textContent = err.message || 'Could not restore — check your email and try again.';
           } finally {
             restoreBtn.disabled = false;
           }

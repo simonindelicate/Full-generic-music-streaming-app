@@ -1928,6 +1928,18 @@ function activateSubscribedState() {
   });
   // Remove the dim from paid track items
   document.querySelectorAll('.track-item.paid').forEach(el => el.classList.add('is-subscribed'));
+  // Show the subscriber help panel below the footer
+  showSubscriberHelp();
+}
+
+function showSubscriberHelp() {
+  const section = document.getElementById('subscriber-help');
+  if (!section) return;
+  section.hidden = false;
+  // Display email from token if available
+  const payload = parseTokenPayload(getRawToken());
+  const emailEl = document.getElementById('subscriber-help-email');
+  if (emailEl && payload?.email) emailEl.textContent = payload.email;
 }
 
 function showPaywallModal(track) {
@@ -2455,19 +2467,19 @@ async function initPayments() {
       priceEl.hidden = false;
     }
 
-    // Wire the restore-access form (once, at startup)
+    // Wire the restore-access form (email-based, once at startup)
     document.getElementById('paywall-restore-submit')?.addEventListener('click', async () => {
-      const id = (document.getElementById('paywall-restore-id')?.value || '').trim();
+      const email = (document.getElementById('paywall-restore-email')?.value || '').trim();
       const msgEl = document.getElementById('paywall-restore-msg');
-      if (!id || !msgEl) return;
-      msgEl.textContent = 'Verifying…';
+      if (!msgEl) return;
+      if (!email) { msgEl.textContent = 'Please enter your email address.'; msgEl.hidden = false; return; }
+      msgEl.textContent = 'Looking up your subscription\u2026';
       msgEl.hidden = false;
-      const type = id.startsWith('I-') ? 'subscription' : 'order';
       try {
-        const res2 = await fetch('/.netlify/functions/verifyPayment', {
+        const res2 = await fetch('/.netlify/functions/restoreByEmail', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type, id }),
+          body: JSON.stringify({ email }),
         });
         if (!res2.ok) throw new Error((await res2.json()).message || 'Not found');
         const { token } = await res2.json();
@@ -2478,7 +2490,51 @@ async function initPayments() {
         showToast('Access restored \u2014 welcome back! Full catalogue unlocked.', 'welcome');
         if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
       } catch (err) {
-        msgEl.textContent = `Could not verify: ${err.message}. Find your Subscription ID in your PayPal account under Payments \u2192 Subscriptions.`;
+        msgEl.textContent = err.message || 'Could not restore \u2014 check your email and try again.';
+      }
+    });
+
+    // "Subscriber help" link inside paywall modal opens the help panel
+    document.getElementById('paywall-open-help')?.addEventListener('click', () => {
+      document.getElementById('paywall-modal').hidden = true;
+      const help = document.getElementById('subscriber-help');
+      if (help) { help.hidden = false; help.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+
+    // Cancel subscription flow (inside subscriber-help panel)
+    document.getElementById('subscriber-cancel-btn')?.addEventListener('click', () => {
+      document.getElementById('subscriber-cancel-confirm').hidden = false;
+      document.getElementById('subscriber-cancel-btn').hidden = true;
+    });
+    document.getElementById('subscriber-cancel-confirm-no')?.addEventListener('click', () => {
+      document.getElementById('subscriber-cancel-confirm').hidden = true;
+      document.getElementById('subscriber-cancel-btn').hidden = false;
+    });
+    document.getElementById('subscriber-cancel-confirm-yes')?.addEventListener('click', async () => {
+      const msgEl = document.getElementById('subscriber-cancel-msg');
+      const yesBtn = document.getElementById('subscriber-cancel-confirm-yes');
+      if (yesBtn) yesBtn.disabled = true;
+      if (msgEl) { msgEl.textContent = 'Cancelling\u2026'; msgEl.hidden = false; }
+      try {
+        const raw = getRawToken();
+        const res = await fetch('/.netlify/functions/cancelSubscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Access-Token': raw || '' },
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Cancel failed');
+        clearAccessToken();
+        if (msgEl) msgEl.textContent = 'Subscription cancelled. Your access has ended.';
+        document.getElementById('subscriber-help').hidden = true;
+        const navBtn = document.getElementById('navSubscribe');
+        if (navBtn) {
+          navBtn.classList.remove('is-subscribed');
+          navBtn.textContent = 'Subscribe';
+          navBtn.setAttribute('aria-label', 'Subscribe to unlock all tracks');
+        }
+        showToast('Subscription cancelled.', 'success');
+      } catch (err) {
+        if (yesBtn) yesBtn.disabled = false;
+        if (msgEl) msgEl.textContent = err.message || 'Could not cancel \u2014 please try via your PayPal account.';
       }
     });
 
@@ -2501,11 +2557,12 @@ export async function init() {
   applyCachedSettings();
   // Show skeleton immediately so the user sees structure right away
   showSkeletonCards();
-  // Kick off all network requests in parallel — library and hero can start
-  // fetching while we wait for site settings to apply CSS/branding.
+  // Kick off all network requests in parallel.
+  // Settings are applied from cache immediately above; the fresh fetch updates
+  // in the background so it never blocks the library from rendering.
   const libraryPromise = loadLibrary();
   const heroPromise = loadWelcomeHero();
-  await applySiteSettings();
+  applySiteSettings(); // fire-and-forget — cache already applied above
   // Override with user's stored preference (applied after site default is set)
   const storedOrder = localStorage.getItem(USER_ORDER_KEY);
   if (storedOrder) RELEASE_ORDER = storedOrder;
