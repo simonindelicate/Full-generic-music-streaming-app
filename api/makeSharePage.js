@@ -439,9 +439,13 @@ exports.handler = async event => {
 
     // Always return 200 — platforms (Discord, Twitter, Slack) will not render
     // an embed for any non-200 response, even when the HTML contains valid OG tags.
+    // no-store: prevent Netlify CDN from caching stale OG data across deploys.
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+      headers: {
+        'Content-Type': 'text/html; charset=UTF-8',
+        'Cache-Control': 'public, max-age=0, s-maxage=300',
+      },
       body: html,
     };
   } catch (error) {
@@ -450,7 +454,10 @@ exports.handler = async event => {
     const html = buildShareHtml({ title: 'Music Streaming Player', description: FALLBACK_DESCRIPTION }, fallbackUrl, {});
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+      headers: {
+        'Content-Type': 'text/html; charset=UTF-8',
+        'Cache-Control': 'public, max-age=0, s-maxage=300',
+      },
       body: html,
     };
   }
