@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 const { loadTracks } = require('./lib/legacyTracksStore');
+const { loadShareIndex } = require('./lib/shareIndexStore');
 const { loadSiteSettings } = require('./lib/siteSettingsStore');
 
 const FALLBACK_DESCRIPTION = 'Listen online via this self-hosted music player.';
@@ -66,6 +67,12 @@ function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
   const description = meta.description || siteSettings.shareDescription || FALLBACK_DESCRIPTION;
   const image = meta.image;
   const imageAlt = meta.imageAlt || title;
+  const imageWidth = meta.imageWidth || null;
+  const imageHeight = meta.imageHeight || null;
+  // Provide og:image:type so Discord (and others) don't need to probe the URL
+  const imageType = image
+    ? (/\.png(\?|$)/i.test(image) ? 'image/png' : /\.webp(\?|$)/i.test(image) ? 'image/webp' : /\.gif(\?|$)/i.test(image) ? 'image/gif' : 'image/jpeg')
+    : null;
   const canonical = meta.url;
   const type = meta.type || 'website';
   const embedUrl = meta.embedUrl || null;
@@ -86,6 +93,9 @@ function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
     ${canonical ? `<meta property="og:url" content="${canonical}" />` : ''}
     ${image ? `<meta property="og:image" content="${image}" />` : ''}
     ${image ? `<meta property="og:image:secure_url" content="${image}" />` : ''}
+    ${image ? `<meta property="og:image:type" content="${imageType}" />` : ''}
+    ${imageWidth ? `<meta property="og:image:width" content="${imageWidth}" />` : ''}
+    ${imageHeight ? `<meta property="og:image:height" content="${imageHeight}" />` : ''}
     ${image ? `<meta property="og:image:alt" content="${imageAlt}" />` : ''}
     ${embedUrl ? `<meta property="og:video" content="${embedUrl}" />` : ''}
     ${embedUrl ? `<meta property="og:video:type" content="text/html" />` : ''}
@@ -174,12 +184,17 @@ function buildAlbumMeta(track = {}, origin, albumParam) {
   if (!track.albumName) return null;
   const canonicalAlbumSlug = slugify(track.albumName);
   const redirectUrl = buildRedirect(origin, { album: canonicalAlbumSlug });
+  const rawImage = track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE;
+  const isDefault = rawImage === DEFAULT_IMAGE;
 
   return {
     title: track.albumName,
     description: track.artistName ? `${track.albumName} by ${track.artistName}.` : `${track.albumName}.`,
-    image: absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE),
+    image: absoluteUrl(origin, rawImage),
     imageAlt: track.artistName ? `${track.albumName} by ${track.artistName} — album art` : `${track.albumName} — album art`,
+    // Default og_image.jpg is 1200×630; album art is always square
+    imageWidth: isDefault ? 1200 : 1000,
+    imageHeight: isDefault ? 630 : 1000,
     type: 'music.album',
     url: buildSlugPath(origin, null, albumParam || canonicalAlbumSlug),
     redirectUrl,
@@ -198,11 +213,16 @@ function buildTrackMeta(track = {}, origin, albumParam) {
   const audioSrc = track.mp3Url || track.audioUrl || null;
   const embedUrl = (!track.paid && audioSrc) ? `${origin}/embed/${track._id}` : null;
 
+  const rawImage = track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE;
+  const isDefault = rawImage === DEFAULT_IMAGE;
+
   return {
     title: `${track.trackName}${track.artistName ? ` — ${track.artistName}` : ''}`,
     description: track.albumName ? `${track.trackName} from ${track.albumName}.` : track.trackName,
-    image: absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE),
+    image: absoluteUrl(origin, rawImage),
     imageAlt: track.albumName ? `${track.albumName} — album art` : `${track.trackName} — album art`,
+    imageWidth: isDefault ? 1200 : 1000,
+    imageHeight: isDefault ? 630 : 1000,
     type: 'music.song',
     url: buildSlugPath(origin, track, albumParam || canonicalAlbumSlug),
     redirectUrl,
@@ -280,23 +300,114 @@ function fetchAlbumLeadTrack(tracks, albumParam) {
     .sort((a, b) => (Number(a.trackNumber) || 0) - (Number(b.trackNumber) || 0))[0] || null;
 }
 
+// Pseudo-albums are virtual collections (curated playlists, "all tracks", etc.)
+// defined in siteSettings.pseudoAlbums. They have no real albumName in the track
+// store, so fetchAlbumLeadTrack always misses them. Match them by albumId slug or
+// albumName slug instead.
+function findPseudoAlbum(siteSettings, albumParam) {
+  const entries = Array.isArray(siteSettings?.pseudoAlbums) ? siteSettings.pseudoAlbums : [];
+  const albumSlug = slugify(albumParam);
+  const lower = String(albumParam).toLowerCase();
+  for (const entry of entries) {
+    if (entry.enabled === false) continue;
+    const id = entry.albumId || slugify(entry.albumName || '');
+    if (
+      slugify(id) === albumSlug ||
+      slugify(entry.albumName || '') === albumSlug ||
+      String(id).toLowerCase() === lower
+    ) return entry;
+  }
+  return null;
+}
+
+function buildPseudoAlbumMeta(entry, tracks, origin, albumParam) {
+  const albumName = entry.albumName || albumParam;
+  const rawImage = entry.albumArtworkUrl || entry.artworkUrl || DEFAULT_IMAGE;
+  const isDefault = rawImage === DEFAULT_IMAGE;
+  const albumId = entry.albumId || slugify(albumName);
+
+  // For pseudo-albums with explicit trackIds, find any lead track for artist name
+  const trackIds = Array.isArray(entry.trackIds) ? entry.trackIds.map(String) : [];
+  const leadTrack = trackIds.length
+    ? tracks.find(t => isPublishedTrack(t) && trackIds.includes(String(t._id)))
+    : null;
+
+  const artistName = leadTrack?.artistName || entry.artistName || null;
+
+  return {
+    title: albumName,
+    description: artistName ? `${albumName} by ${artistName}.` : `${albumName}.`,
+    image: absoluteUrl(origin, rawImage),
+    imageAlt: artistName ? `${albumName} by ${artistName} — album art` : `${albumName} — album art`,
+    imageWidth: isDefault ? 1200 : 1000,
+    imageHeight: isDefault ? 630 : 1000,
+    type: 'music.album',
+    url: buildSlugPath(origin, null, albumParam),
+    redirectUrl: buildRedirect(origin, { album: albumId }),
+  };
+}
+
 exports.handler = async event => {
   const origin = buildOrigin(event);
   const { trackParam, albumParam } = extractRequestParams(event);
 
   try {
-    const [trackData, siteSettings] = await Promise.all([loadTracks(), loadSiteSettings().catch(() => ({}))]);
-    const { tracks } = trackData;
+    const [trackData, shareIndex, siteSettings] = await Promise.all([
+      loadTracks().catch(() => ({ tracks: [] })),
+      loadShareIndex().catch(() => ({})),
+      loadSiteSettings().catch(() => ({})),
+    ]);
+    const tracks = trackData?.tracks || [];
 
     const track = fetchTrack(tracks, trackParam);
     const albumTrack = track ? null : fetchAlbumLeadTrack(tracks, albumParam);
 
+    // Share index album lookup — O(1), uses the same proven source as share.js.
+    // Falls back to the loadTracks()-based search above for real albums, and to
+    // siteSettings.pseudoAlbums for virtual collections.
+    const albumIndexEntry = (!track && !albumTrack && albumParam)
+      ? (shareIndex[`album:${albumParam}`] || shareIndex[`album:${slugify(albumParam)}`] || null)
+      : null;
+    const pseudoEntry = (!track && !albumTrack && !albumIndexEntry && albumParam)
+      ? findPseudoAlbum(siteSettings, albumParam)
+      : null;
+
+    if (albumParam && !trackParam && !albumTrack && !albumIndexEntry && !pseudoEntry) {
+      const albumNames = [...new Set(tracks.slice(0, 5).map(t => t.albumName).filter(Boolean))];
+      console.warn(`makeSharePage: no album matched albumParam="${albumParam}". Track store size=${tracks.length}. First album names: ${JSON.stringify(albumNames)}`);
+    }
+
+    const siteTitle = siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player';
+
+    // Build album meta from share index entry (avoids loadTracks() dependency)
+    const albumIndexMeta = albumIndexEntry ? (() => {
+      const rawImage = albumIndexEntry.image || DEFAULT_IMAGE;
+      const isDefault = rawImage === DEFAULT_IMAGE;
+      return {
+        title: albumIndexEntry.albumName,
+        description: albumIndexEntry.artistName
+          ? `${albumIndexEntry.albumName} by ${albumIndexEntry.artistName}.`
+          : `${albumIndexEntry.albumName}.`,
+        image: absoluteUrl(origin, rawImage),
+        imageAlt: albumIndexEntry.imageAlt || albumIndexEntry.albumName,
+        imageWidth: isDefault ? 1200 : 1000,
+        imageHeight: isDefault ? 630 : 1000,
+        type: 'music.album',
+        url: buildSlugPath(origin, null, albumParam),
+        redirectUrl: buildRedirect(origin, { album: albumIndexEntry.albumId || albumParam }),
+      };
+    })() : null;
+
     const meta =
       buildTrackMeta(track, origin, albumParam) ||
-      buildAlbumMeta(albumTrack, origin, albumParam) || {
-        title: siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player',
+      buildAlbumMeta(albumTrack, origin, albumParam) ||
+      albumIndexMeta ||
+      (pseudoEntry ? buildPseudoAlbumMeta(pseudoEntry, tracks, origin, albumParam) : null) || {
+        title: siteTitle,
         description: siteSettings.shareDescription || FALLBACK_DESCRIPTION,
         image: absoluteUrl(origin, siteSettings.ogImage || DEFAULT_IMAGE),
+        imageWidth: 1200,
+        imageHeight: 630,
         url: buildSlugPath(origin, track || albumTrack, albumParam),
         redirectUrl: buildRedirect(origin, { track: trackParam, album: albumParam }),
       };
