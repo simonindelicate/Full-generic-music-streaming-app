@@ -299,6 +299,53 @@ function fetchAlbumLeadTrack(tracks, albumParam) {
     .sort((a, b) => (Number(a.trackNumber) || 0) - (Number(b.trackNumber) || 0))[0] || null;
 }
 
+// Pseudo-albums are virtual collections (curated playlists, "all tracks", etc.)
+// defined in siteSettings.pseudoAlbums. They have no real albumName in the track
+// store, so fetchAlbumLeadTrack always misses them. Match them by albumId slug or
+// albumName slug instead.
+function findPseudoAlbum(siteSettings, albumParam) {
+  const entries = Array.isArray(siteSettings?.pseudoAlbums) ? siteSettings.pseudoAlbums : [];
+  const albumSlug = slugify(albumParam);
+  const lower = String(albumParam).toLowerCase();
+  for (const entry of entries) {
+    if (entry.enabled === false) continue;
+    const id = entry.albumId || slugify(entry.albumName || '');
+    if (
+      slugify(id) === albumSlug ||
+      slugify(entry.albumName || '') === albumSlug ||
+      String(id).toLowerCase() === lower
+    ) return entry;
+  }
+  return null;
+}
+
+function buildPseudoAlbumMeta(entry, tracks, origin, albumParam) {
+  const albumName = entry.albumName || albumParam;
+  const rawImage = entry.albumArtworkUrl || entry.artworkUrl || DEFAULT_IMAGE;
+  const isDefault = rawImage === DEFAULT_IMAGE;
+  const albumId = entry.albumId || slugify(albumName);
+
+  // For pseudo-albums with explicit trackIds, find any lead track for artist name
+  const trackIds = Array.isArray(entry.trackIds) ? entry.trackIds.map(String) : [];
+  const leadTrack = trackIds.length
+    ? tracks.find(t => isPublishedTrack(t) && trackIds.includes(String(t._id)))
+    : null;
+
+  const artistName = leadTrack?.artistName || entry.artistName || null;
+
+  return {
+    title: albumName,
+    description: artistName ? `${albumName} by ${artistName}.` : `${albumName}.`,
+    image: absoluteUrl(origin, rawImage),
+    imageAlt: artistName ? `${albumName} by ${artistName} — album art` : `${albumName} — album art`,
+    imageWidth: isDefault ? 1200 : 1000,
+    imageHeight: isDefault ? 630 : 1000,
+    type: 'music.album',
+    url: buildSlugPath(origin, null, albumParam),
+    redirectUrl: buildRedirect(origin, { album: albumId }),
+  };
+}
+
 exports.handler = async event => {
   const origin = buildOrigin(event);
   const { trackParam, albumParam } = extractRequestParams(event);
@@ -309,30 +356,19 @@ exports.handler = async event => {
 
     const track = fetchTrack(tracks, trackParam);
     const albumTrack = track ? null : fetchAlbumLeadTrack(tracks, albumParam);
+    const pseudoEntry = (!track && !albumTrack && albumParam) ? findPseudoAlbum(siteSettings, albumParam) : null;
 
-    if (albumParam && !trackParam && !albumTrack) {
+    if (albumParam && !trackParam && !albumTrack && !pseudoEntry) {
       const albumNames = [...new Set(tracks.slice(0, 5).map(t => t.albumName).filter(Boolean))];
       console.warn(`makeSharePage: no track matched albumParam="${albumParam}". First album names in store: ${JSON.stringify(albumNames)}`);
     }
 
-    // When we have an albumParam but couldn't match any track, build a partial
-    // album meta from the slug itself so the embed shows something useful.
     const siteTitle = siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player';
-    const albumFallback = (!track && !albumTrack && albumParam) ? {
-      title: albumParam.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-      description: siteSettings.shareDescription || FALLBACK_DESCRIPTION,
-      image: absoluteUrl(origin, siteSettings.ogImage || DEFAULT_IMAGE),
-      imageWidth: 1200,
-      imageHeight: 630,
-      type: 'music.album',
-      url: buildSlugPath(origin, null, albumParam),
-      redirectUrl: buildRedirect(origin, { album: albumParam }),
-    } : null;
 
     const meta =
       buildTrackMeta(track, origin, albumParam) ||
       buildAlbumMeta(albumTrack, origin, albumParam) ||
-      albumFallback || {
+      (pseudoEntry ? buildPseudoAlbumMeta(pseudoEntry, tracks, origin, albumParam) : null) || {
         title: siteTitle,
         description: siteSettings.shareDescription || FALLBACK_DESCRIPTION,
         image: absoluteUrl(origin, siteSettings.ogImage || DEFAULT_IMAGE),
