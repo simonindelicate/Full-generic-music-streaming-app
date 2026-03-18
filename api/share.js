@@ -43,9 +43,11 @@ function findTrack(tracks, rawId) {
   }) || null;
 }
 
-function sharePageHtml({ origin, title, description, image, imageAlt, embedUrl, playerUrl, siteTitle }) {
+function sharePageHtml({ origin, rawId, title, description, image, imageAlt, embedUrl, playerUrl, siteTitle }) {
   const twitterCard = embedUrl ? 'player' : 'summary_large_image';
-  const canonicalUrl = playerUrl; // canonical points to the player, not this intermediate page
+  // og:url must be THIS page — if it points anywhere else (e.g. player.html),
+  // Facebook/LinkedIn will re-scrape that URL and use its generic tags instead.
+  const canonicalUrl = rawId ? `${origin}/s/${rawId}` : origin;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -149,7 +151,7 @@ exports.handler = async event => {
     embedUrl = null;
   }
 
-  const html = sharePageHtml({ origin, title, description, image, imageAlt, embedUrl, playerUrl, siteTitle });
+  const html = sharePageHtml({ origin, rawId, title, description, image, imageAlt, embedUrl, playerUrl, siteTitle });
 
   return {
     statusCode: 200,
