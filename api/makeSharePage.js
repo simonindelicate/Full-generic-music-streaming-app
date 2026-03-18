@@ -444,7 +444,7 @@ exports.handler = async event => {
       statusCode: 200,
       headers: {
         'Content-Type': 'text/html; charset=UTF-8',
-        'Cache-Control': 'no-store',
+        'Cache-Control': 'public, max-age=0, s-maxage=300',
       },
       body: html,
     };
@@ -456,7 +456,7 @@ exports.handler = async event => {
       statusCode: 200,
       headers: {
         'Content-Type': 'text/html; charset=UTF-8',
-        'Cache-Control': 'no-store',
+        'Cache-Control': 'public, max-age=0, s-maxage=300',
       },
       body: html,
     };
