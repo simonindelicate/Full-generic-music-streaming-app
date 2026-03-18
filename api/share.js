@@ -1,15 +1,25 @@
 /**
- * /s/:trackId  — simple, reliable share page for a single track.
+ * /s/:trackId  — share page for a single track.
  *
- * Unlike makeSharePage, this endpoint:
- *  - Uses the raw track _id directly (no slug matching that can fail)
- *  - Returns 200 with site-level fallback when the track isn't found
- *  - Adds Cache-Control so CDN/crawlers don't hammer cold function starts
+ * Strategy:
+ *  1. Look up the track in the pre-generated share index (share-index.json).
+ *     This file is written every time the admin saves/updates/deletes tracks
+ *     so it is always current and loads in a single, tiny network call.
+ *  2. Fall back to loading the full track catalogue if the index doesn't have
+ *     the entry (handles tracks that existed before the index was introduced).
+ *  3. Always return HTTP 200 with correct track-specific OG tags, or site-level
+ *     fallback tags when the track truly cannot be found.
  *
- * URL format:  /s/TRACKID
- * history.replaceState and the share button both generate this URL.
+ * Key correctness rules:
+ *  - The track ID from generateTrackId() is ALWAYS hyphenated, e.g.
+ *    "mmlxkca3-hvt5pym2".  We MUST NOT split on '-' — use the full rawParam
+ *    as the ID.
+ *  - og:url must point to THIS page (/s/:trackId), not to player.html.
+ *    If og:url points elsewhere, Facebook/LinkedIn re-scrape that URL and
+ *    use its generic tags instead.
  */
 
+const { loadShareIndex } = require('./lib/shareIndexStore');
 const { loadTracks } = require('./lib/legacyTracksStore');
 const { loadSiteSettings } = require('./lib/siteSettingsStore');
 
@@ -28,25 +38,10 @@ function absoluteUrl(origin, url) {
   return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function extractId(raw) {
-  // Share URLs are /s/TRACKID — the ID is the whole segment.
-  // Guard against /s/TRACKID-some-slug just in case.
-  return raw ? String(raw).split('-')[0] : null;
-}
-
-function findTrack(tracks, rawId) {
-  if (!rawId) return null;
-  return tracks.find(t => {
-    if (t.published === false) return false;
-    const id = String(t._id || '');
-    return id === rawId;
-  }) || null;
-}
-
 function sharePageHtml({ origin, rawId, title, description, image, imageAlt, embedUrl, playerUrl, siteTitle }) {
   const twitterCard = embedUrl ? 'player' : 'summary_large_image';
-  // og:url must be THIS page — if it points anywhere else (e.g. player.html),
-  // Facebook/LinkedIn will re-scrape that URL and use its generic tags instead.
+  // og:url MUST be this page — pointing it at player.html causes Facebook/LinkedIn
+  // to re-scrape player.html and use its generic tags, ignoring ours entirely.
   const canonicalUrl = rawId ? `${origin}/s/${rawId}` : origin;
 
   return `<!DOCTYPE html>
@@ -106,49 +101,85 @@ function sharePageHtml({ origin, rawId, title, description, image, imageAlt, emb
 exports.handler = async event => {
   const origin = buildOrigin(event);
 
-  // Path is /s/:trackId — extract the segment after /s/
+  // Extract track ID from path /s/:trackId or ?track= query param.
+  // IMPORTANT: do NOT split the ID on '-'.  generateTrackId() always produces
+  // compound IDs like "mmlxkca3-hvt5pym2" — splitting destroys them.
   const segments = (event.path || '').split('/').filter(Boolean);
   const sIndex = segments.indexOf('s');
-  const rawParam = (sIndex >= 0 && segments[sIndex + 1]) ? segments[sIndex + 1] : (event.queryStringParameters?.track || null);
-  const rawId = extractId(rawParam);
+  const rawId = (sIndex >= 0 && segments[sIndex + 1])
+    ? segments[sIndex + 1]
+    : (event.queryStringParameters?.track || null);
 
-  let track = null;
+  let entry = null;        // share index entry (fast path)
   let siteSettings = {};
 
-  try {
-    const [trackData, settings] = await Promise.all([
-      loadTracks(),
-      loadSiteSettings().catch(() => ({})),
-    ]);
-    siteSettings = settings;
-    track = findTrack(trackData.tracks, rawId);
-  } catch (err) {
-    console.error('share: data load failed', err);
-    // Fall through — return site-level OG tags rather than erroring
+  // ── Fast path: share index ──────────────────────────────────────────────────
+  if (rawId) {
+    try {
+      const [index, settings] = await Promise.all([
+        loadShareIndex(),
+        loadSiteSettings().catch(() => ({})),
+      ]);
+      siteSettings = settings;
+      entry = index[rawId] || null;
+    } catch (err) {
+      console.error('share: index load failed', err);
+    }
   }
 
+  // ── Slow fallback: full track catalogue ─────────────────────────────────────
+  // Handles tracks uploaded before the share index existed.
+  if (rawId && !entry) {
+    try {
+      const [trackData, settings] = await Promise.all([
+        loadTracks(),
+        Object.keys(siteSettings).length ? Promise.resolve(siteSettings) : loadSiteSettings().catch(() => ({})),
+      ]);
+      if (!Object.keys(siteSettings).length) siteSettings = settings;
+      const track = trackData.tracks.find(t => {
+        if (t.published === false) return false;
+        return String(t._id || '') === rawId;
+      });
+      if (track) {
+        const audioSrc = track.mp3Url || track.audioUrl || null;
+        entry = {
+          title: `${track.trackName}${track.artistName ? ` \u2014 ${track.artistName}` : ''}`,
+          description: track.albumName
+            ? `${track.trackName} from ${track.albumName}.`
+            : track.trackName,
+          image: track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE,
+          imageAlt: track.albumName
+            ? `${track.albumName} \u2014 album art`
+            : `${track.trackName} \u2014 album art`,
+          paid: Boolean(track.paid),
+          hasAudio: Boolean(audioSrc),
+        };
+      }
+    } catch (err) {
+      console.error('share: track fallback load failed', err);
+    }
+  }
+
+  // ── Build page ──────────────────────────────────────────────────────────────
   const siteTitle = siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player';
-  const playerUrl = track
-    ? `${origin}/player.html?track=${encodeURIComponent(String(track._id))}`
+  const playerUrl = rawId
+    ? `${origin}/player.html?track=${encodeURIComponent(rawId)}`
     : `${origin}/player.html`;
 
   let title, description, image, imageAlt, embedUrl;
 
-  if (track) {
-    const audioSrc = track.mp3Url || track.audioUrl || null;
-    title = `${track.trackName}${track.artistName ? ` \u2014 ${track.artistName}` : ''}`;
-    description = track.albumName
-      ? `${track.trackName} from ${track.albumName}.`
-      : track.trackName;
-    image = absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE);
-    imageAlt = track.albumName ? `${track.albumName} \u2014 album art` : `${track.trackName} \u2014 album art`;
-    embedUrl = (!track.paid && audioSrc) ? `${origin}/embed/${String(track._id)}` : null;
+  if (entry) {
+    title       = entry.title;
+    description = entry.description;
+    image       = absoluteUrl(origin, entry.image);
+    imageAlt    = entry.imageAlt;
+    embedUrl    = (!entry.paid && entry.hasAudio) ? `${origin}/embed/${rawId}` : null;
   } else {
-    title = siteTitle;
+    title       = siteTitle;
     description = siteSettings.shareDescription || FALLBACK_DESCRIPTION;
-    image = absoluteUrl(origin, siteSettings.ogImage || DEFAULT_IMAGE);
-    imageAlt = siteTitle;
-    embedUrl = null;
+    image       = absoluteUrl(origin, siteSettings.ogImage || DEFAULT_IMAGE);
+    imageAlt    = siteTitle;
+    embedUrl    = null;
   }
 
   const html = sharePageHtml({ origin, rawId, title, description, image, imageAlt, embedUrl, playerUrl, siteTitle });
@@ -158,7 +189,6 @@ exports.handler = async event => {
     headers: {
       'Content-Type': 'text/html; charset=UTF-8',
       // Cache for 5 minutes at CDN; serve stale for up to 1 hour while refreshing.
-      // This means a second crawler hit (e.g. link preview re-fetch) is instant.
       'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600',
     },
     body: html,
