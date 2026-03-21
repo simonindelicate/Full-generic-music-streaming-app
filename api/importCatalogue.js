@@ -189,19 +189,16 @@ exports.handler = async (event) => {
     });
   }
 
-  const { action, sourceUrl, position } = body;
+  const { action, sourceUrl } = body;
   if (!action || !sourceUrl) return json(400, { error: 'action and sourceUrl are required' });
-  if (!['preview', 'import', 'link-preview', 'link'].includes(action)) {
-    return json(400, { error: 'action must be "preview", "import", "link-preview", or "link"' });
+  if (!['preview', 'import'].includes(action)) {
+    return json(400, { error: 'action must be "preview" or "import"' });
   }
-
-  // link actions only need discoveryOptIn on the source, not importEnabled
-  const isLinkAction = action === 'link' || action === 'link-preview';
 
   // ── Fetch + validate source ──────────────────────────────────────────────
   let sourceFeed;
   try {
-    sourceFeed = await fetchSourceFeed(sourceUrl, { requireImportEnabled: !isLinkAction });
+    sourceFeed = await fetchSourceFeed(sourceUrl, { requireImportEnabled: true });
   } catch (err) {
     return json(err.status || 500, { error: err.message });
   }
@@ -214,92 +211,6 @@ exports.handler = async (event) => {
 
   const newTracks = sourceTracks.filter((t) => !existingIds.has(String(t.id)));
   const duplicateTracks = sourceTracks.filter((t) => existingIds.has(String(t.id)));
-
-  // ── Link preview ─────────────────────────────────────────────────────────
-  // For link actions, gated tracks have no audioUrl in the public feed, so
-  // we surface that count separately so the admin knows what they'll get.
-  if (action === 'link-preview') {
-    const gatedCount = newTracks.filter((t) => t.gated && !t.audioUrl).length;
-    return json(200, {
-      sourceInstance: sourceFeed.instance,
-      totalTracksInSource: sourceTracks.length,
-      tracksToLink: newTracks.length,
-      gatedTracksWithoutAudio: gatedCount,
-      duplicatesSkipped: duplicateTracks.length,
-      releases: (sourceFeed.releases || []).map((r) => ({
-        title: r.title,
-        artist: r.artist,
-        trackCount: r.tracks?.length || 0,
-        newTracks: (r.tracks || []).filter((t) => !existingIds.has(String(t.id))).length,
-        artworkUrl: r.artworkUrl || null,
-      })),
-    });
-  }
-
-  // ── Link ─────────────────────────────────────────────────────────────────
-  // Includes track metadata with original audioUrls (no file transfer).
-  // position: 'before' | 'after' | 'mix' controls where linked tracks are
-  // inserted relative to existing tracks in the array.
-  if (action === 'link') {
-    const linkPosition = ['before', 'after', 'mix'].includes(position) ? position : 'after';
-    const linked = [];
-    const linkSkipped = duplicateTracks.map((t) => ({ id: t.id, title: t.title, reason: 'duplicate' }));
-
-    for (const sourceTrack of newTracks) {
-      const release = sourceTrack._release;
-      const audioUrl = sourceTrack.audioUrl || null; // public feed — gated tracks have no audioUrl
-
-      const record = {
-        _id: String(sourceTrack.id),
-        albumName: release.title || '',
-        albumId: release.id || '',
-        albumArtworkUrl: release.artworkUrl || '',
-        artistName: release.artist || '',
-        trackName: sourceTrack.title || '',
-        mp3Url: audioUrl || '',
-        artworkUrl: sourceTrack.artworkUrl || release.artworkUrl || '',
-        published: true,
-        fav: false,
-        paid: sourceTrack.gated === true,
-        _linkedFrom: new URL(sourceUrl).origin,
-        createdAt: new Date().toISOString(),
-      };
-
-      if (sourceTrack.trackNumber != null) record.trackNumber = sourceTrack.trackNumber;
-      if (sourceTrack.durationSeconds) { record.durationSeconds = sourceTrack.durationSeconds; record.duration = sourceTrack.durationSeconds; }
-      if (sourceTrack.genre) record.genre = sourceTrack.genre;
-      if (sourceTrack.year) record.year = sourceTrack.year;
-      if (sourceTrack.description) record.trackText = sourceTrack.description;
-      if (sourceTrack.medium) record.trackMedium = sourceTrack.medium;
-
-      linked.push(record);
-    }
-
-    if (linked.length > 0) {
-      const { tracks: fresh } = await loadTracks();
-      const existing = fresh || [];
-      let combined;
-      if (linkPosition === 'before') combined = [...linked, ...existing];
-      else if (linkPosition === 'after') combined = [...existing, ...linked];
-      else combined = [...existing, ...linked]; // 'mix' — player sorts alphabetically
-      const { tracks: withIds } = withTrackIds(combined);
-      await saveTracks(withIds);
-    }
-
-    return json(200, {
-      linked: linked.length,
-      skipped: linkSkipped.length,
-      gatedWithoutAudio: linked.filter((t) => t.paid && !t.mp3Url).length,
-      position: linkPosition,
-      linkedTracks: linked.map((t) => ({
-        id: t._id,
-        title: t.trackName,
-        album: t.albumName,
-        hasAudio: Boolean(t.mp3Url),
-      })),
-      skippedTracks: linkSkipped,
-    });
-  }
 
   // ── Preview ──────────────────────────────────────────────────────────────
   if (action === 'preview') {
