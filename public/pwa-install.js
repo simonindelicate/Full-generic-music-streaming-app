@@ -31,9 +31,16 @@
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    // If the button is already rendered but hidden, reveal it now.
+    // If the banner is already rendered (DOMContentLoaded beat us), restore the
+    // button and wire up the click handler — it was never attached because
+    // deferredPrompt was null when buildBanner() ran.
     const btn = document.getElementById('pwa-install-btn');
-    if (btn) { btn.style.display = ''; btn.textContent = 'Install'; }
+    if (btn) {
+      btn.style.display = '';
+      btn.textContent = 'Install';
+      btn.replaceWith(btn.cloneNode(true)); // drop any stale listeners
+      document.getElementById('pwa-install-btn').addEventListener('click', handleInstallClick);
+    }
   });
 
   // ── Styles ─────────────────────────────────────────────────────────────────
