@@ -69,7 +69,7 @@
       font-size:11px;letter-spacing:.1em;color:rgba(233,225,191,.55);
       background:rgba(20,17,6,.45);border:1px solid rgba(200,182,91,.35);
       border-radius:4px;padding:6px 12px;cursor:pointer}
-  body.is-mobile #mobileMenuBtn{display:block}
+  body.has-touch #mobileMenuBtn{display:block}
 </style>
 </head>
 <body>
@@ -650,21 +650,19 @@ window.BACKROOMS_AUDIO = Audio_;
 /* ===========================================================================
    STATE / INPUT / MODES
    =========================================================================== */
-// Touch devices steer with drags instead of WASD+mouse — the camera drives itself
-// forward at all times (like drift mode) and dragging left/right just turns the wheel,
-// using normal (non-autopilot) collision so you can steer yourself straight into a pit.
-// Requires touch support AND the absence of any fine pointer (mouse/trackpad) — using
-// "any-pointer" rather than "pointer"/"hover" so a touchscreen laptop (which also has a
-// precise mouse available) isn't misdetected as mobile, while phones/tablets (no fine
-// pointer at all) still are, even on browsers that report pointer/hover inconsistently.
+// We deliberately DON'T try to statically classify the device as "mobile" up front —
+// every heuristic (touch support, maxTouchPoints, pointer/hover media queries) gets it
+// wrong on some hardware (touchscreen laptops, stylus phones, desktop touch monitors),
+// which is exactly how the mode ends up mismatched. Instead we just note whether touch
+// is *available* (to show touch affordances like the menu button) and then switch the
+// active control scheme the instant the player actually uses touch vs keyboard/mouse —
+// see enterTouchMode()/exitTouchMode(). The mode therefore always matches real input.
 const HAS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-const HAS_FINE_POINTER = matchMedia('(any-pointer: fine)').matches;
-const IS_MOBILE = HAS_TOUCH && !HAS_FINE_POINTER;
-if(IS_MOBILE) document.body.classList.add('is-mobile');
+if(HAS_TOUCH) document.body.classList.add('has-touch');
 
 const state = { yaw:Math.PI, pitch:0, bob:0, vy:0, falling:false, fade:1, leaving:false,
                 transitioning:false, transPhase:'out', transTarget:0,
-                running:false, endless:false, paused:true, locked:false, t:0 };
+                running:false, endless:false, paused:true, locked:false, touch:false, t:0 };
 const pos = { x:C.cell*0.5, z:C.cell*0.5 };
 const player = { y:0 };
 const drift = { heading:Math.PI, speed:0 };
@@ -677,7 +675,10 @@ const elCross=document.getElementById('crosshair'), elCX=document.getElementById
       elCZ=document.getElementById('cz'), elSnd=document.getElementById('snd'),
       elFade=document.getElementById('fade'), elLV=document.getElementById('lv');
 
+const WALK_KEYS = { KeyW:1, KeyA:1, KeyS:1, KeyD:1, ArrowUp:1, ArrowDown:1, ArrowLeft:1, ArrowRight:1 };
 addEventListener('keydown', e=>{ keys[e.code]=true;
+  // Using the keyboard means this is a desktop session: drop back out of touch-steer.
+  if(WALK_KEYS[e.code]) exitTouchMode();
   if(e.code==='KeyE') toggleEndless();
   if(e.code==='Escape') openMenu();
 });
@@ -693,15 +694,22 @@ renderer.domElement.addEventListener('click', ()=>{
   if(state.running && !state.paused && !state.endless && !state.locked) renderer.domElement.requestPointerLock();
 });
 document.addEventListener('pointerlockchange', ()=>{
-  state.locked = (document.pointerLockElement===renderer.domElement);
-  if(!state.locked && state.running && !state.endless && elMenu.classList.contains('hidden')) openMenu();
+  const nowLocked = (document.pointerLockElement===renderer.domElement);
+  // Only a genuine locked→unlocked transition (Esc/Alt-Tab on desktop) pauses. On touch
+  // devices the lock never engages, so a spurious "unlocked" event must NOT pop the menu.
+  if(state.locked && !nowLocked && state.running && !state.endless && !state.touch
+     && elMenu.classList.contains('hidden')) openMenu();
+  state.locked = nowLocked;
 });
 
-// Mobile drag-to-steer: a held finger sets a turn rate proportional to how far
-// it has dragged from where it touched down (like a self-centering steering wheel).
-if(IS_MOBILE){
+// Drag-to-steer: a held finger sets a turn rate proportional to how far it has
+// dragged from where it touched down (like a self-centering steering wheel). The
+// first canvas touch during a run flips us into the camera-drives-forward steer
+// mode (see enterTouchMode), so this only kicks in once the player actually uses touch.
+if(HAS_TOUCH){
   renderer.domElement.addEventListener('touchstart', e=>{
     if(!state.running || state.paused) return;
+    enterTouchMode();
     const t=e.touches[0];
     touchSteer.active=true; touchSteer.startX=t.clientX; touchSteer.startY=t.clientY; touchSteer.dx=0; touchSteer.dy=0;
   }, { passive:true });
@@ -728,13 +736,33 @@ function clearDist(x,z,yaw,maxD,blk){
 
 function startRun(endless){
   Audio_.start(); Audio_.resume();
-  // Mobile always uses the drag-to-steer, camera-drives-itself mode.
-  const useEndless = IS_MOBILE ? true : endless;
-  state.running=true; state.endless=useEndless; state.paused=false;
+  state.running=true; state.endless=endless; state.paused=false; state.touch=false;
   drift.heading=state.yaw; drift.speed=0;
   elMenu.classList.add('hidden');
-  elCross.style.display = useEndless ? 'none' : 'block';
-  if(IS_MOBILE || useEndless) document.exitPointerLock(); else renderer.domElement.requestPointerLock();
+  elCross.style.display = endless ? 'none' : 'block';
+  // Pointer lock is a desktop affordance; on a touch device the request just no-ops
+  // and the player's first drag will switch us into touch-steer mode instead.
+  if(endless) document.exitPointerLock(); else renderer.domElement.requestPointerLock();
+  updateModeLabel();
+}
+// Switch to touch-steer: camera drives itself forward (like drift) but with plain
+// wall collision, so dragging into a pit still drops you through. Triggered by the
+// first finger-drag on the canvas, never by static device sniffing.
+function enterTouchMode(){
+  if(state.touch) return;
+  state.touch=true; state.endless=true;
+  drift.heading=state.yaw; drift.speed=0;
+  document.exitPointerLock();
+  elCross.style.display='none';
+  applyControlHints(true);
+  updateModeLabel();
+}
+// Return to keyboard/mouse control (e.g. a touchscreen-laptop user grabs the keyboard).
+function exitTouchMode(){
+  if(!state.touch) return;
+  state.touch=false; state.endless=false;
+  elCross.style.display = state.running && !state.paused ? 'block' : 'none';
+  applyControlHints(false);
   updateModeLabel();
 }
 function openMenu(){
@@ -743,26 +771,38 @@ function openMenu(){
   elMenu.classList.remove('hidden'); elMode.textContent='— PAUSED —';
 }
 function toggleEndless(){
-  if(!state.running || state.paused || IS_MOBILE) return;
+  if(!state.running || state.paused || state.touch) return;
   state.endless=!state.endless;
   if(state.endless){ drift.heading=state.yaw; drift.speed=0; document.exitPointerLock(); elCross.style.display='none'; }
   else { renderer.domElement.requestPointerLock(); elCross.style.display='block'; }
   updateModeLabel();
 }
-function updateModeLabel(){ elMode.textContent = state.endless ? 'DRIFT ∞' : 'EXPLORING'; }
+function updateModeLabel(){ elMode.textContent = state.touch ? 'STEER ∞' : state.endless ? 'DRIFT ∞' : 'EXPLORING'; }
+
+// Swap the on-screen instructions between keyboard/mouse and touch wording.
+const elHint = document.getElementById('hint'), elControls = document.getElementById('controls');
+const HINT_DESKTOP = elHint ? elHint.innerHTML : '';
+const CONTROLS_DESKTOP = elControls ? elControls.innerHTML : '';
+function applyControlHints(touch){
+  if(elHint) elHint.innerHTML = touch
+    ? 'drag to steer • you move forward on your own • ⏸ menu'
+    : HINT_DESKTOP;
+  if(elControls) elControls.innerHTML = touch
+    ? '<span>DRAG</span> steer left/right &nbsp;·&nbsp; camera always drifts forward<br>steer into the dark at your own risk'
+    : CONTROLS_DESKTOP;
+}
+// Touch is available — hint at the drag control before the first touch, but keep the
+// keyboard wording too (some devices have both).
+if(HAS_TOUCH){
+  if(elHint) elHint.innerHTML = HINT_DESKTOP + '<br>or drag to steer';
+  if(elControls) elControls.innerHTML = CONTROLS_DESKTOP + '<br><span>DRAG</span> on touch to steer · camera drifts forward';
+}
 
 document.getElementById('enterBtn').onclick = ()=>startRun(false);
 document.getElementById('driftBtn').onclick = ()=>startRun(true);
 elSnd.onclick = ()=>{ const on=Audio_.toggle(); elSnd.textContent='♪ sound: '+(on?'on':'off'); };
 document.getElementById('np-skip').onclick = ()=> Audio_.skipTrack();
 document.getElementById('mobileMenuBtn').onclick = ()=> openMenu();
-
-// Mobile copy: there's no mouse/keyboard, so swap the on-screen instructions.
-if(IS_MOBILE){
-  const hintEl=document.getElementById('hint'), controlsEl=document.getElementById('controls');
-  if(hintEl) hintEl.innerHTML = 'drag to steer • you move forward on your own • ⏸ to pause';
-  if(controlsEl) controlsEl.innerHTML = '<span>DRAG</span> steer left/right &nbsp;·&nbsp; camera always drifts forward<br>steer into the dark at your own risk';
-}
 
 
 /* ===========================================================================
@@ -815,7 +855,7 @@ function updateDrift(dt){
   moveSlide(pos.x+m.x*drift.speed*dt, pos.z+m.z*drift.speed*dt, driftBlocked);
   state.bob += dt*drift.speed*1.4;
 }
-// Mobile: forward speed is constant (no autopilot, no hazard-avoidance — unlike
+// Touch steer: forward speed is constant (no autopilot, no hazard-avoidance — unlike
 // updateDrift this uses plain wall collision, so dragging into a pit cell still falls).
 function updateMobileSteer(dt){
   if(state.falling) return;
@@ -887,7 +927,7 @@ function frame(now){
 
   if(state.running && !state.paused){
     if(!state.transitioning){
-      if(IS_MOBILE) updateMobileSteer(dt);
+      if(state.touch) updateMobileSteer(dt);
       else if(state.endless) updateDrift(dt);
       else updateWalk(dt);
     }
