@@ -810,6 +810,27 @@
         </form>
       </div>
 
+      <!-- ── Easter eggs ───────────────────────── -->
+      <div class="card" style="margin-top:24px;">
+        <div class="panel-title">
+          <div>
+            <h2 style="margin-bottom:4px;">Easter eggs</h2>
+            <p class="meta">Hidden extras for listeners who go looking.</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--surface-2,#f7f7f8);border-radius:10px;border:1px solid var(--border,rgba(0,0,0,0.08));margin-top:4px;">
+          <img src="/img/backrooms-preview.svg" alt="Backrooms easter egg preview" style="width:96px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--border,rgba(0,0,0,0.08));flex-shrink:0;" />
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;margin-bottom:2px;">Backrooms</div>
+            <div class="meta">Adds a hidden pseudo album to the gallery that opens a liminal-space exploration mini-game instead of playing music. Wanders an endless yellow maze built from your catalogue's tracks.</div>
+          </div>
+          <label class="toggle-switch" for="easterEggBackroomsEnabled" title="Enable Backrooms Easter Egg">
+            <input type="checkbox" id="easterEggBackroomsEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
       <!-- ── Shareable Extras ───────────────────────── -->
       <div class="card" style="margin-top:24px;">
         <div class="panel-title">
@@ -1489,6 +1510,7 @@ Encourage the user to test the site and to let you know if there are errors that
         refreshPwaIconPreview();
         document.getElementById('discoveryOptIn').checked = settings.discoveryOptIn === true;
         document.getElementById('catalogueImportEnabled').checked = settings.catalogueImportEnabled === true;
+        document.getElementById('easterEggBackroomsEnabled').checked = settings.easterEggBackroomsEnabled === true;
         updateImportSubPanel();
 
         // Support cards — use new supportCards array if present, otherwise migrate from legacy flat fields
@@ -1541,6 +1563,7 @@ Encourage the user to test the site and to let you know if there are errors that
         const patch = {
           discoveryOptIn: document.getElementById('discoveryOptIn').checked,
           catalogueImportEnabled: document.getElementById('catalogueImportEnabled').checked,
+          easterEggBackroomsEnabled: document.getElementById('easterEggBackroomsEnabled').checked,
           supportCards: collectSupportCards(),
         };
         fields.reduce((acc, key) => {

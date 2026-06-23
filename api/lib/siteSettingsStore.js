@@ -93,6 +93,7 @@ const defaults = {
   pwaInstallPrompt: true,
   catalogueImportEnabled: false,
   linkedCatalogues: [],
+  easterEggBackroomsEnabled: false,
 };
 
 async function readFtp() {

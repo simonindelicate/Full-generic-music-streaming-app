@@ -143,6 +143,21 @@ export async function loadLibrary() {
     });
   }
 
+  // ── Easter egg: Backrooms game pseudo album (admin toggle, no trace when off) ──
+  if (siteSettings.easterEggBackroomsEnabled === true) {
+    const backroomsId = 'no-clip-backrooms';
+    if (!state.albums.some(a => a.albumId === backroomsId)) {
+      state.albums.push({
+        albumName: 'NO CLIP',
+        albumId: backroomsId,
+        pseudoType: 'backrooms-game',
+        pseudoSortOrder: 999,
+        placement: 'after',
+        gameUrl: '/extras/backrooms.html',
+      });
+    }
+  }
+
   state.queue = new Queue(state.tracks);
   return { tracks: state.tracks, albums: state.albums };
 }

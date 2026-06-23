@@ -1321,6 +1321,7 @@ function tracksForAlbum(albumOrName) {
 }
 
 function matchesFilters(album) {
+  if (album.pseudoType === 'backrooms-game') return true;
   const albumTracks = tracksForAlbum(album);
   return albumTracks.some(track => {
     const artistOk = state.filters.artist === 'all' || track.artistName === state.filters.artist;
@@ -1330,6 +1331,27 @@ function matchesFilters(album) {
     const searchOk = !searchText || track.trackName?.toLowerCase().includes(searchText) || album.albumName?.toLowerCase().includes(searchText);
     return artistOk && yearOk && genreOk && searchOk;
   });
+}
+
+function generateBackroomsArt() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+    <defs>
+      <filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="t"/><feColorMatrix in="t" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.04 0"/></filter>
+    </defs>
+    <rect width="300" height="300" fill="#c7a823"/>
+    <rect width="300" height="300" filter="url(#n)"/>
+    <g opacity="0.18" stroke="#8a7113" stroke-width="2">
+      <line x1="0" y1="60" x2="300" y2="60"/>
+      <line x1="0" y1="120" x2="300" y2="120"/>
+      <line x1="0" y1="180" x2="300" y2="180"/>
+      <line x1="0" y1="240" x2="300" y2="240"/>
+    </g>
+    <text x="151" y="142" text-anchor="middle" font-family="monospace" font-weight="700" font-size="40" letter-spacing="4" fill="#ff2d6b" opacity="0.7">NO CL1P</text>
+    <text x="149" y="138" text-anchor="middle" font-family="monospace" font-weight="700" font-size="40" letter-spacing="4" fill="#27e0ff" opacity="0.7">NO CLIP</text>
+    <text x="150" y="140" text-anchor="middle" font-family="monospace" font-weight="700" font-size="40" letter-spacing="4" fill="#1a1604">NO CLIP</text>
+    <text x="150" y="190" text-anchor="middle" font-family="monospace" font-weight="600" font-size="13" letter-spacing="2" fill="#1a1604" opacity="0.7">you are not supposed to be here</text>
+  </svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 function generatePseudoAlbumArt(albumName, pseudoType) {
@@ -1362,6 +1384,7 @@ function generatePseudoAlbumArt(albumName, pseudoType) {
 }
 
 function albumCoverFor(album) {
+  if (album.pseudoType === 'backrooms-game') return generateBackroomsArt();
   if (album.albumArtworkUrl) return album.albumArtworkUrl;
   if (album.artworkUrl) return album.artworkUrl;
   if (album.pseudoType || album.allTracks) {
@@ -1596,6 +1619,9 @@ function refreshDocumentMetadata(context = {}) {
 
 function buildAlbumMeta(albumOrName) {
   const album = typeof albumOrName === 'string' ? findAlbum(albumOrName) : albumOrName;
+  if (album?.pseudoType === 'backrooms-game') {
+    return { tracksInAlbum: [], durationSeconds: 0, summary: 'opens in a new tab' };
+  }
   const albumName = album?.albumName || (typeof albumOrName === 'string' ? albumOrName : '');
   const tracksInAlbum = tracksForAlbum(album || albumName);
   const curatedAlbum = findAlbum(albumName);
@@ -1693,6 +1719,7 @@ function buildAlbumCard(album) {
   meta.className = 'album-card-meta';
   const title = document.createElement('h3');
   title.textContent = album.albumName;
+  if (album.pseudoType === 'backrooms-game') title.classList.add('glitch-title');
   meta.appendChild(title);
   const metaInfo = buildAlbumMeta(album);
   const note = document.createElement('p');
@@ -1778,6 +1805,10 @@ function setTrackToggleState(collapsed) {
 function setAlbum(albumIdentifier) {
   const album = findAlbum(albumIdentifier);
   if (!album) return;
+  if (album.pseudoType === 'backrooms-game') {
+    window.open(album.gameUrl || '/extras/backrooms.html', '_blank', 'noopener');
+    return;
+  }
   const albumName = album.albumName;
   const albumId = album.albumId || slugifyAlbumName(album.albumName);
   const canonicalSlug = canonicalAlbumSlug(album) || slugifyAlbumName(albumName);
