@@ -822,7 +822,12 @@
           <img src="/img/backrooms-preview.svg" alt="Backrooms easter egg preview" style="width:96px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--border,rgba(0,0,0,0.08));flex-shrink:0;" />
           <div style="flex:1;min-width:0;">
             <div style="font-weight:600;margin-bottom:2px;">Backrooms</div>
-            <div class="meta">Adds a hidden pseudo album to the gallery that opens a liminal-space exploration mini-game instead of playing music. Wanders an endless yellow maze built from your catalogue's tracks.</div>
+            <div class="meta">Adds a hidden pseudo album to the gallery that opens a liminal-space exploration mini-game instead of playing music. Wanders an endless yellow maze built from your catalogue's tracks. Appears in a different spot in the gallery on each page load, and only on a fraction of visits.</div>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+              <label for="easterEggBackroomsFrequency" style="font-size:0.78rem;color:var(--muted,#888);">Appearance chance per page load:</label>
+              <input type="number" id="easterEggBackroomsFrequency" min="0" max="100" step="1" style="width:64px;" />
+              <span style="font-size:0.78rem;color:var(--muted,#888);">%</span>
+            </div>
           </div>
           <label class="toggle-switch" for="easterEggBackroomsEnabled" title="Enable Backrooms Easter Egg">
             <input type="checkbox" id="easterEggBackroomsEnabled" />
@@ -1511,6 +1516,7 @@ Encourage the user to test the site and to let you know if there are errors that
         document.getElementById('discoveryOptIn').checked = settings.discoveryOptIn === true;
         document.getElementById('catalogueImportEnabled').checked = settings.catalogueImportEnabled === true;
         document.getElementById('easterEggBackroomsEnabled').checked = settings.easterEggBackroomsEnabled === true;
+        document.getElementById('easterEggBackroomsFrequency').value = typeof settings.easterEggBackroomsFrequency === 'number' ? settings.easterEggBackroomsFrequency : 25;
         updateImportSubPanel();
 
         // Support cards — use new supportCards array if present, otherwise migrate from legacy flat fields
@@ -1564,6 +1570,7 @@ Encourage the user to test the site and to let you know if there are errors that
           discoveryOptIn: document.getElementById('discoveryOptIn').checked,
           catalogueImportEnabled: document.getElementById('catalogueImportEnabled').checked,
           easterEggBackroomsEnabled: document.getElementById('easterEggBackroomsEnabled').checked,
+          easterEggBackroomsFrequency: Math.max(0, Math.min(100, Number(document.getElementById('easterEggBackroomsFrequency').value) || 0)),
           supportCards: collectSupportCards(),
         };
         fields.reduce((acc, key) => {

@@ -653,7 +653,10 @@ window.BACKROOMS_AUDIO = Audio_;
 // Touch devices steer with drags instead of WASD+mouse — the camera drives itself
 // forward at all times (like drift mode) and dragging left/right just turns the wheel,
 // using normal (non-autopilot) collision so you can steer yourself straight into a pit.
-const IS_MOBILE = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+// Checked against pointer/hover media features (not just touch support) so laptops with
+// a touchscreen — which still have a precise mouse as their primary input — aren't
+// misdetected as mobile.
+const IS_MOBILE = matchMedia('(pointer: coarse)').matches && matchMedia('(hover: none)').matches;
 if(IS_MOBILE) document.body.classList.add('is-mobile');
 
 const state = { yaw:Math.PI, pitch:0, bob:0, vy:0, falling:false, fade:1, leaving:false,

@@ -94,6 +94,7 @@ const defaults = {
   catalogueImportEnabled: false,
   linkedCatalogues: [],
   easterEggBackroomsEnabled: false,
+  easterEggBackroomsFrequency: 25,
 };
 
 async function readFtp() {

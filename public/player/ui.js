@@ -1648,11 +1648,20 @@ function sortPseudoAlbums(albums) {
 
 function sortedAlbumsForDisplay() {
   const albums = [...state.albums];
-  const pseudos = sortPseudoAlbums(albums.filter(a => a.allTracks || a.pseudoType));
+  const backrooms = albums.find(a => a.pseudoType === 'backrooms-game');
+  const pseudos = sortPseudoAlbums(albums.filter(a => (a.allTracks || a.pseudoType) && a.pseudoType !== 'backrooms-game'));
   const real    = albums.filter(a => !a.allTracks && !a.pseudoType);
 
   const before = pseudos.filter(a => (a.placement || 'before') === 'before');
   const after  = pseudos.filter(a => a.placement === 'after');
+
+  const insertBackrooms = (list) => {
+    if (!backrooms) return list;
+    const idx = Math.max(0, Math.min(list.length, backrooms._placementIndex ?? list.length));
+    const result = [...list];
+    result.splice(idx, 0, backrooms);
+    return result;
+  };
 
   if (RELEASE_ORDER === 'date-desc' || RELEASE_ORDER === 'date-asc') {
     real.sort((a, b) => {
@@ -1663,7 +1672,7 @@ function sortedAlbumsForDisplay() {
       return (a.artistName || a.albumName || '').localeCompare(b.artistName || b.albumName || '') ||
         (a.albumName || '').localeCompare(b.albumName || '');
     });
-    return [...before, ...real, ...after];
+    return insertBackrooms([...before, ...real, ...after]);
   }
   if (RELEASE_ORDER === 'custom') {
     real.sort((a, b) => {
@@ -1672,10 +1681,10 @@ function sortedAlbumsForDisplay() {
       if (aOrder !== bOrder) return aOrder - bOrder;
       return (a.albumName || '').localeCompare(b.albumName || '');
     });
-    return [...before, ...real, ...after];
+    return insertBackrooms([...before, ...real, ...after]);
   }
   // Default: alphabetical
-  return [...before, ...real, ...after];
+  return insertBackrooms([...before, ...real, ...after]);
 }
 
 function buildAlbumCard(album) {
@@ -1806,7 +1815,7 @@ function setAlbum(albumIdentifier) {
   const album = findAlbum(albumIdentifier);
   if (!album) return;
   if (album.pseudoType === 'backrooms-game') {
-    window.open(album.gameUrl || '/extras/backrooms.html', '_blank', 'noopener');
+    window.location.href = album.gameUrl || '/extras/backrooms.html';
     return;
   }
   const albumName = album.albumName;
