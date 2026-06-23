@@ -34,6 +34,12 @@ function buildAlbums(tracks) {
   return Object.values(grouped).sort((a, b) => (a.albumName || '').localeCompare(b.albumName || ''));
 }
 
+
+function generateBackroomsArtwork() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><defs><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/></filter><filter id="g"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3"/><feDisplacementMap in="SourceGraphic" scale="6"/></filter></defs><rect width="300" height="300" fill="#c8b65b"/><rect width="300" height="300" filter="url(#n)" opacity="0.16"/><path d="M0 84h300M0 149h300M0 214h300M74 0v300M151 0v300M227 0v300" stroke="#8d7d35" stroke-width="8" opacity="0.45"/><text x="150" y="156" text-anchor="middle" font-family="monospace" font-size="39" font-weight="700" fill="#1a1708" filter="url(#g)">nø clip</text><text x="153" y="154" text-anchor="middle" font-family="monospace" font-size="39" font-weight="700" fill="#6b0f0f" opacity="0.42">n0 c1ip</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 // Build pseudo album objects from a settings config entry
 function pseudoAlbumFromConfig(entry) {
   const derivedId = entry.albumId || entry.id || slugifyAlbumName(entry.albumName);
@@ -50,6 +56,7 @@ function pseudoAlbumFromConfig(entry) {
     trackSortOrder: entry.trackSortOrder || 'manual',
     pseudoSortOrder: typeof entry.sortOrder === 'number' ? entry.sortOrder : 999,
     placement: entry.placement || 'before',
+    externalUrl: entry.externalUrl || entry.url || '',
   };
 }
 
@@ -141,6 +148,22 @@ export async function loadLibrary() {
         pseudoSortOrder: entry.pseudoSortOrder,
       });
     });
+  }
+
+
+  if (siteSettings.backroomsEasterEggEnabled === true) {
+    const backroomsAlbum = pseudoAlbumFromConfig({
+      albumName: 'n̷o̴ ̶c̵l̸i̴p̸',
+      albumId: 'backrooms-no-clip',
+      pseudoType: 'backrooms-easter-egg',
+      albumArtworkUrl: generateBackroomsArtwork(),
+      sortOrder: -100,
+      placement: 'before',
+      externalUrl: '/extras/backrooms.html'
+    });
+    if (!state.albums.some(album => album.albumId === backroomsAlbum.albumId)) {
+      state.albums.unshift(backroomsAlbum);
+    }
   }
 
   state.queue = new Queue(state.tracks);

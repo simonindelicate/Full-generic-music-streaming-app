@@ -1322,6 +1322,7 @@ function tracksForAlbum(albumOrName) {
 
 function matchesFilters(album) {
   const albumTracks = tracksForAlbum(album);
+  if (album?.externalUrl) return true;
   return albumTracks.some(track => {
     const artistOk = state.filters.artist === 'all' || track.artistName === state.filters.artist;
     const yearOk = state.filters.year === 'all' || `${track.year}` === `${state.filters.year}`;
@@ -1598,6 +1599,9 @@ function buildAlbumMeta(albumOrName) {
   const album = typeof albumOrName === 'string' ? findAlbum(albumOrName) : albumOrName;
   const albumName = album?.albumName || (typeof albumOrName === 'string' ? albumOrName : '');
   const tracksInAlbum = tracksForAlbum(album || albumName);
+  if (album?.externalUrl) {
+    return { tracksInAlbum, durationSeconds: 0, summary: 'Hidden doorway' };
+  }
   const curatedAlbum = findAlbum(albumName);
   const albumLevelDuration = parseDurationValue(curatedAlbum?.albumLength || curatedAlbum?.length || curatedAlbum?.duration);
   const durationSeconds = tracksInAlbum.reduce((total, track) => total + getTrackDurationSeconds(track), 0);
@@ -1700,14 +1704,18 @@ function buildAlbumCard(album) {
   meta.appendChild(note);
   const view = document.createElement('button');
   view.className = 'pill';
-  view.textContent = 'View album';
+  view.textContent = album.externalUrl ? 'Enter' : 'View album';
   view.addEventListener('click', event => {
     event.stopPropagation();
+    if (album.externalUrl) { window.location.href = album.externalUrl; return; }
     setAlbum(album);
   });
   meta.appendChild(view);
   card.appendChild(meta);
-  card.addEventListener('click', () => setAlbum(album));
+  card.addEventListener('click', () => {
+    if (album.externalUrl) { window.location.href = album.externalUrl; return; }
+    setAlbum(album);
+  });
   return card;
 }
 

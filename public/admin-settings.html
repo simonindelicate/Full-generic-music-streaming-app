@@ -810,6 +810,32 @@
         </form>
       </div>
 
+
+      <!-- ── Easter Eggs ───────────────────────── -->
+      <div class="card" style="margin-top:24px;">
+        <div class="panel-title">
+          <div>
+            <h2 style="margin-bottom:4px;">Easter eggs</h2>
+            <p class="meta">Optional hidden experiences that only appear on the public player when enabled.</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--surface-2,#f7f7f8);border-radius:10px;border:1px solid var(--border,rgba(0,0,0,0.08));">
+          <div aria-hidden="true" style="width:86px;height:86px;flex:0 0 auto;border-radius:8px;overflow:hidden;background:#c8b65b;box-shadow:inset 0 0 34px rgba(0,0,0,.3);position:relative;">
+            <div style="position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(26,23,8,.18),rgba(26,23,8,.18) 5px,transparent 5px,transparent 39px),repeating-linear-gradient(90deg,rgba(26,23,8,.14),rgba(26,23,8,.14) 5px,transparent 5px,transparent 42px);"></div>
+            <div style="position:absolute;left:10px;right:10px;top:31px;font-family:monospace;font-weight:700;font-size:13px;letter-spacing:.05em;color:#1a1708;text-shadow:2px 0 rgba(110,0,0,.4);transform:skew(-3deg);">nø clip</div>
+          </div>
+          <label class="toggle-switch" for="backroomsEasterEggEnabled" title="Enable Backrooms Easter Egg">
+            <input type="checkbox" id="backroomsEasterEggEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
+          <div class="api-toggle-text" style="flex:1;min-width:0;">
+            <strong>Enable Backrooms Easter Egg</strong>
+            <span>Adds a glitchy “no clip” pseudo album to the player. Selecting it opens a procedural Backrooms game that streams from this install's catalogue and exits back to the main player.</span>
+          </div>
+          <a href="/extras/backrooms.html" target="_blank" class="button-secondary button-sm" style="white-space:nowrap;">Preview ↗</a>
+        </div>
+      </div>
+
       <!-- ── Shareable Extras ───────────────────────── -->
       <div class="card" style="margin-top:24px;">
         <div class="panel-title">
@@ -1489,6 +1515,7 @@ Encourage the user to test the site and to let you know if there are errors that
         refreshPwaIconPreview();
         document.getElementById('discoveryOptIn').checked = settings.discoveryOptIn === true;
         document.getElementById('catalogueImportEnabled').checked = settings.catalogueImportEnabled === true;
+        document.getElementById('backroomsEasterEggEnabled').checked = settings.backroomsEasterEggEnabled === true;
         updateImportSubPanel();
 
         // Support cards — use new supportCards array if present, otherwise migrate from legacy flat fields
@@ -1541,6 +1568,7 @@ Encourage the user to test the site and to let you know if there are errors that
         const patch = {
           discoveryOptIn: document.getElementById('discoveryOptIn').checked,
           catalogueImportEnabled: document.getElementById('catalogueImportEnabled').checked,
+          backroomsEasterEggEnabled: document.getElementById('backroomsEasterEggEnabled').checked,
           supportCards: collectSupportCards(),
         };
         fields.reduce((acc, key) => {
