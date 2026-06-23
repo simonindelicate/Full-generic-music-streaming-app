@@ -143,6 +143,25 @@ export async function loadLibrary() {
     });
   }
 
+  // ── Easter egg: Backrooms game pseudo album (admin toggle, no trace when off) ──
+  if (siteSettings.easterEggBackroomsEnabled === true) {
+    const frequency = typeof siteSettings.easterEggBackroomsFrequency === 'number'
+      ? siteSettings.easterEggBackroomsFrequency
+      : 100;
+    const backroomsId = 'no-clip-backrooms';
+    const roll = Math.random() * 100;
+    if (roll < frequency && !state.albums.some(a => a.albumId === backroomsId)) {
+      state.albums.push({
+        albumName: 'NO CLIP',
+        albumId: backroomsId,
+        pseudoType: 'backrooms-game',
+        gameUrl: '/extras/backrooms.html',
+        // Random slot among the real albums, re-rolled on every page load.
+        _placementIndex: Math.floor(Math.random() * (state.albums.length + 1)),
+      });
+    }
+  }
+
   state.queue = new Queue(state.tracks);
   return { tracks: state.tracks, albums: state.albums };
 }
