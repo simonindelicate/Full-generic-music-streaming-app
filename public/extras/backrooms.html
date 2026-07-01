@@ -25,6 +25,13 @@
          animation:grain .6s steps(2) infinite}
   @keyframes grain{0%{transform:translate(0,0)}50%{transform:translate(-3px,2px)}100%{transform:translate(2px,-2px)}}
   #fade{position:fixed;inset:0;pointer-events:none;z-index:9;background:#000;opacity:0}
+  #levelCard{position:fixed;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;
+             justify-content:center;pointer-events:none;opacity:0;text-align:center;
+             font-family:"Bebas Neue",Impact,sans-serif;color:var(--yellow);
+             text-shadow:0 0 34px rgba(200,182,91,.35)}
+  #levelCard .lc-big{font-size:clamp(44px,9vw,110px);letter-spacing:.14em;line-height:1}
+  #levelCard .lc-sub{font-family:"Space Mono",ui-monospace,monospace;font-size:11px;
+                     letter-spacing:.42em;color:rgba(233,225,191,.55);margin-top:12px}
 
   #hud{position:fixed;top:14px;left:16px;z-index:7;font-size:12px;line-height:1.7;
        color:rgba(233,225,191,.55);pointer-events:none;text-shadow:0 1px 2px #000}
@@ -77,6 +84,7 @@
 <div id="vignette"></div>
 <div id="grain"></div>
 <div id="fade"></div>
+<div id="levelCard"><div class="lc-big"></div><div class="lc-sub"></div></div>
 
 <div id="hud">
   <div><b id="mode">— PAUSED —</b></div>
@@ -119,7 +127,7 @@
    =========================================================================== */
 const CONFIG = {
   cell:        4.2,
-  wallThick:   0.18,
+  wallThick:   0.45,     // real drywall, not cardboard — collision derives from this too
   playerRadius:0.34,
   eyeHeight:   1.7,
   walkSpeed:   3.4,
@@ -128,8 +136,7 @@ const CONFIG = {
   renderRadius:12,
 
   fogColor:    0x4a4226,
-  fogNear:     7,
-  fogFar:      38,
+  fogDensity:  0.042,    // FogExp2 — thickens (and darkens) per level, see applyLevelMood()
 
   wallColor:   0xc8b65b,
   floorColor:  0x9c8838,
@@ -234,6 +241,8 @@ function genWallpaper(){
     const i=(yy*N+xx)*4, u=xx/N, v=yy/N;
     let m = Math.sin(TWO*u)*6 + Math.sin(TWO*v+1.3)*5
           + Math.sin(TWO*2*(u+v)+0.7)*4 + Math.sin(TWO*3*u)*2;
+    m += Math.sin(TWO*6*u) > 0 ? 2.5 : -2.5;        // classic two-tone wallpaper stripes
+    m -= Math.max(0, Math.sin(TWO*2*u+0.5)*Math.sin(TWO*3*v+1.7))*7;  // damp mottled patches
     if(Math.sin(TWO*10*u) > 0.6) m -= 5;            // faint vertical striations (tileable)
     const n=(Math.random()-0.5)*10;
     d[i]+=m+n; d[i+1]+=m*0.92+n; d[i+2]+=m*0.6+n*0.7;
@@ -242,17 +251,27 @@ function genWallpaper(){
   return c;
 }
 function genCarpet(){
-  const c=_cv(), x=c.getContext('2d');
-  x.fillStyle=_hex(CONFIG.floorColor); x.fillRect(0,0,256,256);
-  const im=x.getImageData(0,0,256,256), d=im.data;
-  for(let i=0;i<d.length;i+=4){
+  const N=256, c=_cv(), x=c.getContext('2d'), TWO=Math.PI*2;
+  x.fillStyle=_hex(CONFIG.floorColor); x.fillRect(0,0,N,N);
+  const im=x.getImageData(0,0,N,N), d=im.data;
+  for(let yy=0;yy<N;yy++) for(let xx=0;xx<N;xx++){
+    const i=(yy*N+xx)*4, u=xx/N, v=yy/N;
     let n=(Math.random()-0.5)*46; if(Math.random()<0.06) n-=40;
+    // old damp blotches — built from periodic waves so the tile stays seamless
+    const b=Math.sin(TWO*(u+0.13))*Math.sin(TWO*(v*2-0.4)) + Math.sin(TWO*((u+v)*1.5+0.8));
+    if(b>0.85) n -= Math.min(1,(b-0.85)*2.2)*26;
     d[i]+=n; d[i+1]+=n*0.95; d[i+2]+=n*0.6;
   }
   x.putImageData(im,0,0);
   x.globalAlpha=0.05; x.strokeStyle='#000';
-  for(let y=0;y<256;y+=2){ x.beginPath(); x.moveTo(0,y+Math.sin(y)*1.2); x.lineTo(256,y); x.stroke(); }
+  for(let y=0;y<N;y+=2){ x.beginPath(); x.moveTo(0,y+Math.sin(y)*1.2); x.lineTo(N,y); x.stroke(); }
   x.globalAlpha=1;
+  // contact shading at the tile edge — since one floor instance = one maze cell, this
+  // reads as ambient occlusion where carpet meets walls, and carpet-tile seams elsewhere
+  const eg=(x0,y0,x1,y1)=>{ const g=x.createLinearGradient(x0,y0,x1,y1);
+    g.addColorStop(0,'rgba(15,12,3,0.20)'); g.addColorStop(1,'rgba(15,12,3,0)');
+    x.fillStyle=g; x.fillRect(0,0,N,N); };
+  eg(0,0,18,0); eg(N,0,N-18,0); eg(0,0,0,18); eg(0,N,0,N-18);
   return c;
 }
 function genCeiling(){
@@ -269,6 +288,10 @@ function genCeiling(){
     x.fillStyle=g; x.fillRect(0,0,256,256);
   }
   x.strokeStyle='rgba(120,112,86,0.55)'; x.lineWidth=5; x.strokeRect(2,2,252,252);
+  const eg=(x0,y0,x1,y1)=>{ const g=x.createLinearGradient(x0,y0,x1,y1);
+    g.addColorStop(0,'rgba(40,36,20,0.16)'); g.addColorStop(1,'rgba(40,36,20,0)');
+    x.fillStyle=g; x.fillRect(0,0,256,256); };
+  eg(0,0,14,0); eg(256,0,242,0); eg(0,0,0,14); eg(0,256,0,242);
   return c;
 }
 function genLight(){
@@ -276,6 +299,17 @@ function genLight(){
   x.fillStyle=_hex(CONFIG.lightColor); x.fillRect(0,0,256,256);
   x.fillStyle='rgba(255,255,255,0.65)'; x.fillRect(40,0,60,256); x.fillRect(156,0,60,256);
   x.strokeStyle='rgba(180,168,120,0.6)'; x.lineWidth=8; x.strokeRect(4,4,248,248);
+  return c;
+}
+// soft radial disc, drawn additively on the carpet under each panel — cheap volumetric feel
+function genPool(){
+  const c=document.createElement('canvas'); c.width=c.height=128;
+  const x=c.getContext('2d');
+  const g=x.createRadialGradient(64,64,4,64,64,62);
+  g.addColorStop(0,'rgba(255,243,192,0.85)');
+  g.addColorStop(0.5,'rgba(255,240,180,0.28)');
+  g.addColorStop(1,'rgba(255,240,180,0)');
+  x.fillStyle=g; x.fillRect(0,0,128,128);
   return c;
 }
 const _GEN = { wall:genWallpaper, floor:genCarpet, ceiling:genCeiling, light:genLight, pillar:genWallpaper };
@@ -289,23 +323,27 @@ const app = document.getElementById('app');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(C.fogColor);
-scene.fog = new THREE.Fog(C.fogColor, C.fogNear, C.fogFar);
+scene.fog = new THREE.FogExp2(C.fogColor, C.fogDensity);   // exp² haze: damp air up close, void at distance
 
-const camera = new THREE.PerspectiveCamera(74, innerWidth/innerHeight, 0.05, C.fogFar+30);
+const camera = new THREE.PerspectiveCamera(74, innerWidth/innerHeight, 0.05, 80);
 camera.rotation.order = 'YXZ';
 
 const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;        // filmic rolloff — no clipped fluorescents
+renderer.toneMappingExposure = 1.12;
 app.appendChild(renderer.domElement);
 addEventListener('resize', ()=>{
   camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
 
-scene.add(new THREE.AmbientLight(0xfff2c0, 0.42));
-const hemi = new THREE.HemisphereLight(0xfff6d5, 0x5b4d24, 0.55); scene.add(hemi);
+// Slightly dimmer, warmer base than before — the emissive panels and their floor
+// pools carry the light now, so shadowed stretches actually read as shadowed.
+scene.add(new THREE.AmbientLight(0xfff2c0, 0.34));
+const hemi = new THREE.HemisphereLight(0xfff6d5, 0x51431e, 0.48); scene.add(hemi);
 const followLight = new THREE.PointLight(0xfff0c0, 0.55, 22, 2); scene.add(followLight);
 
 const texLoader = new THREE.TextureLoader();
@@ -332,8 +370,14 @@ const matFloor = new THREE.MeshStandardMaterial({ map:T.floor, roughness:1.0 });
 const matCeil  = new THREE.MeshStandardMaterial({ map:T.ceiling,roughness:1.0 });
 const matPill  = new THREE.MeshStandardMaterial({ map:T.pillar, roughness:0.96 });
 const matLight = new THREE.MeshStandardMaterial({ color:0x111008, emissive:C.lightColor,
-                                                  emissiveMap:T.light, emissiveIntensity:1.05 });
+                                                  emissiveMap:T.light, emissiveIntensity:1.15 });
 const matDark  = new THREE.MeshBasicMaterial({ color:0x050403, fog:false, side:THREE.DoubleSide });
+const matBase  = new THREE.MeshStandardMaterial({ color:0x59452a, roughness:0.82 });   // baseboards & trim
+const POOL_OPACITY = 0.34;
+// additive so overlapping pools brighten; fog off so far panels glow faintly through the haze
+const matPool  = new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(genPool()),
+                   transparent:true, opacity:POOL_OPACITY, blending:THREE.AdditiveBlending,
+                   depthWrite:false, fog:false });
 
 const gFloor = new THREE.PlaneGeometry(1,1); gFloor.rotateX(-Math.PI/2);
 const gCeil  = new THREE.PlaneGeometry(1,1); gCeil.rotateX(Math.PI/2);
@@ -351,6 +395,8 @@ const iLight  = instanced(gLight, matLight, 350);
 const iStep   = instanced(gBox,   matFloor, 200);    // staircase treads
 const iAbyss  = instanced(gFloor, matDark,  80);     // dark floor of a hole
 const iShaft  = instanced(gBox,   matDark,  240);    // dark walls of a hole
+const iBase   = instanced(gBox,   matBase,  2600);   // baseboards + pillar bases/capitals
+const iPool   = instanced(gFloor, matPool,  350);    // fluorescent pools on the carpet
 const _d = new THREE.Object3D();
 
 
@@ -368,6 +414,18 @@ function hashf(x,y,salt){
 const gen = { level: 0 };                 // current depth; 0 = the surface backrooms
 // level-salted hash, so every depth is a different (but deterministic) infinite maze
 function H(x,y,salt){ return hashf(x,y, (salt|0) + gen.level*1313); }
+
+// Each level down, the air gets thicker, greener and darker — descending should feel
+// like sinking, not like loading the same map with a different seed.
+const FOG_BASE=new THREE.Color(0x4a4226), FOG_DEEP=new THREE.Color(0x252a12);
+function applyLevelMood(){
+  const k=Math.min(1, gen.level*0.22);
+  const col=FOG_BASE.clone().lerp(FOG_DEEP, k);
+  scene.fog.color.copy(col); scene.background.copy(col);
+  scene.fog.density = C.fogDensity*(1 + gen.level*0.10);
+  renderer.toneMappingExposure = 1.12*(1 - 0.06*Math.min(3, gen.level));
+}
+applyLevelMood();
 
 function regionType(cx,cz){
   const rx=Math.floor(cx/REGION), rz=Math.floor(cz/REGION);
@@ -470,7 +528,7 @@ function setM(mesh,i,px,py,pz,sx,sy,sz){
   _d.updateMatrix(); mesh.setMatrixAt(i,_d.matrix);
 }
 function buildChunk(centerX, centerZ){
-  let fi=0, ci=0, wi=0, pi=0, li=0, si=0, ai=0, hi=0;
+  let fi=0, ci=0, wi=0, pi=0, li=0, si=0, ai=0, hi=0, bi=0, gi=0;
   const R=C.renderRadius, S=C.cell, TH=C.wallThick;
   for(let dz=-R; dz<=R; dz++) for(let dx=-R; dx<=R; dx++){
     const cx=centerX+dx, cz=centerZ+dz;
@@ -478,7 +536,11 @@ function buildChunk(centerX, centerZ){
 
     // ceiling always (seals the top of shafts)
     if(ci<900) setM(iCeil,ci++, X,h,Z, S,1,S);
-    if(f===null && lightAt(cx,cz) && li<350) setM(iLight,li++, X,h-0.02,Z, S*0.82,1,S*0.82);
+    if(f===null && lightAt(cx,cz)){
+      if(li<350) setM(iLight,li++, X,h-0.02,Z, S*0.82,1,S*0.82);
+      // matching pool of light on the carpet below the panel
+      if(gi<350) setM(iPool,gi++, X,0.02,Z, S*1.55,1,S*1.55);
+    }
 
     // floor / feature floor
     if(f===null){
@@ -510,18 +572,30 @@ function buildChunk(centerX, centerZ){
     if(hW!==h && wi<1800){ const lo=Math.min(h,hW),hgh=Math.max(h,hW);
       setM(iWall,wi++, cx*S,(lo+hgh)/2, Z, TH, hgh-lo, S); }
 
-    // walls (extend stair-side walls down into the shaft)
+    // walls (extend stair-side walls down into the shaft), each with a baseboard —
+    // the little dark skirting strip is THE signature detail of the backrooms look
     if(edgeWallH(cx,cz) && wi<1800){
       const yb=stairDownSideH(cx,cz)?-SD:0;
       setM(iWall,wi++, X,(yb+h)/2, cz*S, S, h-yb, TH);
+      if(bi<2600) setM(iBase,bi++, X, yb+0.09, cz*S, S+0.04, 0.18, TH+0.10);
     }
-    if(edgeWallV(cx,cz) && wi<1800) setM(iWall,wi++, cx*S, h/2, Z, TH, h, S);
+    if(edgeWallV(cx,cz) && wi<1800){
+      setM(iWall,wi++, cx*S, h/2, Z, TH, h, S);
+      if(bi<2600) setM(iBase,bi++, cx*S, 0.09, Z, TH+0.10, 0.18, S+0.04);
+    }
 
-    if(pillarAt(cx,cz) && pi<500) setM(iPillar,pi++, X, h/2, Z, 0.7, h, 0.7);
+    if(pillarAt(cx,cz) && pi<500){
+      setM(iPillar,pi++, X, h/2, Z, 0.7, h, 0.7);
+      if(bi<2598){                                   // base + capital dress the column
+        setM(iBase,bi++, X, 0.11,   Z, 0.92, 0.22, 0.92);
+        setM(iBase,bi++, X, h-0.11, Z, 0.88, 0.22, 0.88);
+      }
+    }
   }
   iFloor.count=fi; iCeil.count=ci; iWall.count=wi; iPillar.count=pi;
   iLight.count=li; iStep.count=si; iAbyss.count=ai; iShaft.count=hi;
-  [iFloor,iCeil,iWall,iPillar,iLight,iStep,iAbyss,iShaft].forEach(m=>m.instanceMatrix.needsUpdate=true);
+  iBase.count=bi; iPool.count=gi;
+  [iFloor,iCeil,iWall,iPillar,iLight,iStep,iAbyss,iShaft,iBase,iPool].forEach(m=>m.instanceMatrix.needsUpdate=true);
 }
 
 
@@ -660,8 +734,8 @@ window.BACKROOMS_AUDIO = Audio_;
 const HAS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 if(HAS_TOUCH) document.body.classList.add('has-touch');
 
-const state = { yaw:Math.PI, pitch:0, bob:0, vy:0, falling:false, fade:1, leaving:false,
-                transitioning:false, transPhase:'out', transTarget:0,
+const state = { yaw:Math.PI, pitch:0, roll:0, bob:0, vy:0, falling:false, fade:1, leaving:false,
+                transitioning:false, transPhase:'out', transTarget:0, transHold:0,
                 running:false, endless:false, paused:true, locked:false, touch:false, t:0 };
 const pos = { x:C.cell*0.5, z:C.cell*0.5 };
 const player = { y:0 };
@@ -674,6 +748,8 @@ const elMenu=document.getElementById('menu'), elMode=document.getElementById('mo
 const elCross=document.getElementById('crosshair'), elCX=document.getElementById('cx'),
       elCZ=document.getElementById('cz'), elSnd=document.getElementById('snd'),
       elFade=document.getElementById('fade'), elLV=document.getElementById('lv');
+const elCard=document.getElementById('levelCard'),
+      elCardBig=elCard.querySelector('.lc-big'), elCardSub=elCard.querySelector('.lc-sub');
 
 const WALK_KEYS = { KeyW:1, KeyA:1, KeyS:1, KeyD:1, ArrowUp:1, ArrowDown:1, ArrowLeft:1, ArrowRight:1 };
 addEventListener('keydown', e=>{ keys[e.code]=true;
@@ -872,10 +948,20 @@ function updateMobileSteer(dt){
 
 function respawn(){
   pos.x=C.cell*0.5; pos.z=C.cell*0.5; player.y=0; state.vy=0; state.falling=false;
+  state.roll=0; state.pitch=0;
   state.fade=1; lastCX=1e9; lastCZ=1e9;       // force chunk rebuild
 }
 
-// descend (+1) / ascend (-1) a level, hidden inside a quick fade
+// The level card: a beat of pure black with a title, so changing depth feels like
+// an event rather than a texture swap.
+const LEVEL_SUBS = ['the backrooms','it is deeper here','the hum is louder',
+                    'do not count the lights','no one has been this far'];
+function showLevelCard(big, sub){
+  elCardBig.textContent=big; elCardSub.textContent=sub;
+  elCard.style.opacity=1;
+}
+
+// descend (+1) / ascend (-1) a level, hidden inside a fade → held black → reveal
 function startTransition(delta){
   if(state.transitioning) return;
   state.transitioning=true; state.transPhase='out'; state.transTarget=Math.max(0, gen.level+delta);
@@ -889,25 +975,40 @@ function updateTransition(dt){
       pos.x=C.cell*0.5; pos.z=C.cell*0.5; player.y=0; state.vy=0; state.falling=false;
       state.yaw=Math.PI; drift.heading=state.yaw;
       lastCX=1e9; lastCZ=1e9; buildChunk(0,0);
-      state.transPhase='in';
+      applyLevelMood();
+      showLevelCard('LEVEL '+gen.level, LEVEL_SUBS[Math.min(gen.level, LEVEL_SUBS.length-1)]);
+      state.transHold=0.9; state.transPhase='hold';
     }
+  } else if(state.transPhase==='hold'){
+    state.fade=1; state.transHold-=dt;
+    if(state.transHold<=0) state.transPhase='in';
   } else {
     state.fade=Math.max(0, state.fade-dt*1.8);
-    if(state.fade<=0.01) state.transitioning=false;
+    // the card lingers slightly into the reveal, then dissolves with the dark
+    elCard.style.opacity=Math.max(0,(state.fade-0.1)/0.9).toFixed(3);
+    if(state.fade<=0.01){ state.transitioning=false; elCard.style.opacity=0; }
   }
 }
 function updateVertical(dt){
   if(state.transitioning) return;
   if(state.falling){
     state.vy -= 20*dt; player.y += state.vy*dt;
+    // tumble: an accelerating roll while the head pitches down into the dark
+    state.roll += dt*Math.min(1.6, 0.3 - player.y*0.05);
+    state.pitch += (-1.05 - state.pitch)*Math.min(1, dt*0.9);
     if(player.y < -(AB-1)){
       if(C.overworldUrl){                    // fall "through" to another world
-        if(!state.leaving){ state.leaving=true; Audio_.pause(); location.href=C.overworldUrl; }
+        if(!state.leaving){
+          state.leaving=true; Audio_.pause();
+          showLevelCard('NO CLIP','you have left the backrooms');
+          setTimeout(()=>{ location.href=C.overworldUrl; }, 1600);
+        }
         return;
       }
       respawn();
     }
   } else {
+    state.roll += (0 - state.roll)*Math.min(1, dt*5);     // level out after a survived fall
     const se = stairEndAt(pos.x,pos.z);      // reached the end of a staircase?
     if(se!==0){ startTransition(se); return; }
     const g = floorHeightAt(pos.x,pos.z);
@@ -947,16 +1048,31 @@ function frame(now){
   }
   elFade.style.opacity = state.fade.toFixed(3);
 
-  camera.rotation.set(state.pitch, state.yaw, 0);
+  // camera: pitch/yaw + fall tumble + a whisper of roll-sway while walking
+  const sway = state.falling ? 0 : Math.sin(state.bob*0.5)*0.006;
+  camera.rotation.set(state.pitch, state.yaw, state.roll + sway);
   const bob = state.falling ? 0 : Math.sin(state.bob)*0.045;
   camera.position.set(pos.x, player.y + C.eyeHeight + bob, pos.z);
   followLight.position.copy(camera.position);
+
+  // the lens widens as you drop — vertigo comes from the FOV, not just the fade
+  const targetFov = state.falling ? 95 : 74;
+  if(Math.abs(camera.fov-targetFov)>0.05){
+    camera.fov += (targetFov-camera.fov)*Math.min(1, dt*2.4);
+    camera.updateProjectionMatrix();
+  }
 
   // a fluorescent that buzzes and occasionally falters
   const fl = 0.55 + 0.12*Math.sin(state.t*9.3)
            + (hashf(Math.floor(state.t*3),0,7)>0.93 ? -0.35*Math.random() : 0);
   followLight.intensity = Math.max(0.18, fl);
-  hemi.intensity = 0.5 + 0.05*Math.sin(state.t*2.1);
+
+  // building-wide power sags: now and then every panel in the place dips at once
+  const sag = hashf(Math.floor(state.t*2.5),0,4242) > 0.982;
+  const sagK = sag ? 0.5 + 0.14*Math.sin(state.t*47) : 1;
+  matLight.emissiveIntensity = 1.15*sagK;
+  matPool.opacity = POOL_OPACITY*sagK;
+  hemi.intensity = (0.48 + 0.05*Math.sin(state.t*2.1)) * (sag?0.72:1);
 
   renderer.render(scene,camera);
 }
