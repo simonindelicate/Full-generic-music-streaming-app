@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="dark">
+<title>The Catalogue, charted</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script>
+/* ==========================================================================
+   ▼▼▼  YOUR SITE ADDRESS GOES HERE  ▼▼▼
+   ========================================================================== */
+const BASE_URL = 'https://stream-the-indelicates.netlify.app';
+/* ========================================================================== */
+</script>
+<style>
+:root{
+  --night:#0b1620; --panel:rgb(14 26 36/.82); --ink:#dbe5ea; --muted:#9fb1bb; --faint:#6d8390; --line:rgb(219 229 234/.12);
+  --lamp:#ffcf8a; --lamp-ink:#2a1a06;
+  --serif:'Instrument Serif',Georgia,serif; --sans:'Geist',ui-sans-serif,system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--night);color:var(--ink);font:400 15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+canvas#world{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+:focus-visible{outline:2px solid var(--lamp);outline-offset:3px;border-radius:8px}
+.glass{background:var(--panel);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);border:1px solid var(--line);border-radius:16px}
+
+/* HUD */
+.hud-top{position:fixed;top:14px;left:14px;right:14px;display:flex;align-items:flex-start;gap:12px;pointer-events:none;z-index:5}
+.hud-top > *{pointer-events:auto}
+.progress{padding:12px 16px;margin-right:auto}
+.progress h1{margin:0;font:italic 400 1.35rem/1.1 var(--serif)}
+.progress p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.hbtn{height:44px;padding:0 16px;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500}
+.hbtn svg{width:18px;height:18px}
+.hbtn kbd{font:500 11px/1 var(--sans);color:var(--faint);border:1px solid var(--line);border-radius:5px;padding:3px 5px}
+#minimap{position:fixed;left:14px;bottom:14px;z-index:5;border-radius:12px;border:1px solid var(--line);background:#081017;display:block}
+
+/* song card */
+.card{position:fixed;left:50%;bottom:18px;z-index:6;width:min(560px,calc(100% - 28px));padding:16px 18px;transform:translate(-50%,140%);transition:transform .5s var(--ease);display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:start}
+.card.show{transform:translate(-50%,0)}
+.card img{width:56px;height:56px;border-radius:6px;object-fit:cover}
+.card .t{font:400 1.45rem/1.1 var(--serif)}
+.card .s{color:var(--muted);font-size:13px;margin-top:3px}
+.card .notes{grid-column:1/-1;margin:0;font:italic 400 1.02rem/1.5 var(--serif);color:var(--muted);max-height:4.6em;overflow:hidden;position:relative;cursor:pointer}
+.card .notes.open{max-height:40vh;overflow:auto}
+.card .notes:not(.open)::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1.6em;background:linear-gradient(transparent,rgb(14 26 36))}
+.card .lock{display:inline-flex;align-items:center;gap:6px;color:#e9a08f;font-size:13px;margin-top:6px}
+.card .lock svg{width:13px;height:13px}
+.ibtn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.ibtn:hover{background:rgb(255 255 255/.06);color:var(--ink)}
+.ibtn svg{width:18px;height:18px}
+
+/* toast */
+.toast{position:fixed;top:92px;left:50%;z-index:7;transform:translate(-50%,-20px);opacity:0;padding:12px 20px;text-align:center;transition:opacity .4s,transform .5s var(--ease);pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast small{display:block;color:var(--lamp);font-size:12px;letter-spacing:.04em}
+.toast b{font:400 1.5rem/1.15 var(--serif)}
+
+/* journal */
+.journal{position:fixed;top:0;right:0;bottom:0;z-index:8;width:min(420px,100%);padding:20px 20px 30px;overflow:auto;border-radius:0;border-width:0 0 0 1px;transform:translateX(105%);transition:transform .5s var(--ease)}
+.journal.open{transform:none}
+.journal h2{margin:0;font:400 2rem/1 var(--serif)}
+.j-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.j-sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+.j-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.j-list li button{width:100%;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;padding:8px;border-radius:10px}
+.j-list li button:hover{background:rgb(255 255 255/.05)}
+.j-list img,.j-list .unk{width:44px;height:44px;border-radius:5px;object-fit:cover}
+.j-list .unk{display:grid;place-items:center;border:1px dashed var(--line);color:var(--faint);font:italic 20px/1 var(--serif)}
+.j-list .rt{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.j-list .rs{color:var(--faint);font-size:12.5px}
+.j-list .pct{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.j-list li.target button{background:rgb(255 207 138/.1)}
+.j-list .unknown .rt{color:var(--faint);font-style:italic;font-family:var(--serif);font-size:1.05rem;font-weight:400}
+.j-help{margin-top:22px;color:var(--faint);font-size:12.5px}
+
+/* start */
+.start{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:24px;background:radial-gradient(60% 60% at 50% 50%,rgb(11 22 32/.55),rgb(6 11 16/.92));transition:opacity .8s}
+.start.gone{opacity:0;pointer-events:none}
+.start-in{max-width:560px;text-align:center}
+.start small{color:var(--lamp);letter-spacing:.06em;font-size:12.5px}
+.start h2{margin:12px 0 0;font:400 clamp(3rem,9vw,5.6rem)/.95 var(--serif);letter-spacing:-.02em}
+.start p{color:var(--muted);margin:22px auto 0;max-width:44ch}
+.start .btn{margin-top:32px;height:52px;padding:0 30px;border-radius:999px;background:var(--lamp);color:var(--lamp-ink);font-weight:600;font-size:15px;box-shadow:0 10px 40px -10px rgb(255 207 138/.6);transition:transform .3s var(--ease)}
+.start .btn:hover{transform:translateY(-2px)}
+.start .btn:disabled{opacity:.6}
+.keys{margin-top:26px;color:var(--faint);font-size:13px;line-height:1.9}
+.keys kbd{font:500 12px/1 var(--sans);color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:3px 6px}
+@media (max-width:640px){
+  .hbtn span{display:none}.hbtn kbd{display:none}.hbtn{padding:0 12px}
+  .progress h1{font-size:1.1rem}
+  #minimap{display:none}
+  .card{bottom:10px}
+}
+</style>
+</head>
+<body>
+<canvas id="world" aria-label="Map of the catalogue"></canvas>
+<canvas id="minimap" width="200" height="130" aria-hidden="true"></canvas>
+
+<div class="hud-top">
+  <div class="progress glass"><h1 id="hTitle">The Catalogue, charted</h1><p id="hProg">&nbsp;</p></div>
+  <button class="hbtn glass" data-action="mute" id="muteBtn" aria-label="Mute"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 9.5h3.2L12 5.8v12.4l-4.8-3.7H4z" fill="currentColor" stroke="none"/><path class="w" d="M15.5 9.2a4 4 0 0 1 0 5.6M18 6.8a7.4 7.4 0 0 1 0 10.4"/></svg><kbd>M</kbd></button>
+  <button class="hbtn glass" data-action="journal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></svg><span>Journal</span><kbd>J</kbd></button>
+</div>
+
+<div class="card glass" id="card" aria-live="polite"></div>
+<div class="toast glass" id="toast"><small id="toastK"></small><b id="toastT"></b></div>
+
+<aside class="journal glass" id="journal" aria-label="Journal">
+  <div class="j-top"><h2>Journal</h2><button class="ibtn" data-action="journal" aria-label="Close journal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <p class="j-sub" id="jSub"></p>
+  <ol class="j-list" id="jList"></ol>
+  <p class="j-help">Choose any record to set your lantern's compass towards it. Uncharted records show only the year they're from.</p>
+</aside>
+
+<div class="start" id="start">
+  <div class="start-in">
+    <small id="sKicker">LOADING THE CATALOGUE</small>
+    <h2>The Catalogue, charted</h2>
+    <p id="sLede">A map drawn from the records themselves. Walk the road through the years, find each record by lantern light, and stand by a stone to hear its song.</p>
+    <button class="btn" id="sBtn" data-action="begin" disabled>Loading</button>
+    <div class="keys"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrows to walk, <kbd>Shift</kbd> to hurry, or hold the mouse or a finger where you want to go.<br><kbd>J</kbd> journal, <kbd>M</kbd> mute, scroll to zoom.</div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const API = BASE_URL.replace(/\/+$/, '');
+const $ = s => document.querySelector(s);
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('charted:' + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem('charted:' + k, JSON.stringify(v)); } catch (_) {} }
+};
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = sec => { if (!isFinite(sec) || sec < 0) sec = 0; return Math.floor(sec / 60) + ':' + String(Math.floor(sec % 60)).padStart(2, '0'); };
+const strHash = str => { let h = 2166136261; for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function h2(x, y, s) { let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(s, 982451653) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function vnoise(x, y, s) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = h2(xi, yi, s), b = h2(xi + 1, yi, s), c = h2(xi, yi + 1, s), d = h2(xi + 1, yi + 1, s);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+const fbm = (x, y, s) => vnoise(x, y, s) * .6 + vnoise(x * 2.07, y * 2.07, s + 7) * .28 + vnoise(x * 4.3, y * 4.3, s + 13) * .12;
+function artFallback(seed) {
+  const h = strHash(seed) % 360;
+  return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="hsl(${h},35%,30%)"/><circle cx="50" cy="50" r="26" fill="none" stroke="hsl(${h},40%,70%)" stroke-width="3"/></svg>`);
+}
+
+/* ================= palette ================= */
+const C = {
+  sea: [14, 27, 38], land: [22, 37, 46], land2: [26, 44, 44], fog: '#060b10',
+  ink: 'rgba(219,229,234,', lamp: 'rgba(255,207,138,', lock: 'rgba(233,160,143,'
+};
+
+/* ================= catalogue ================= */
+let instance = {}, recs = [], allTracks = [];
+function mergeReleases(list) {
+  const norm = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const byKey = new Map(), out = [];
+  for (const r of list) {
+    const key = norm(r.title) + '|' + (r.year || '');
+    let m = byKey.get(key);
+    if (!m) { m = { ...r, tracks: [], _a: new Map(), _ids: new Set() }; byKey.set(key, m); out.push(m); }
+    let n = 0;
+    for (const t of (r.tracks || [])) { if (m._ids.has(t.id)) continue; m._ids.add(t.id); m.tracks.push({ ...t, artist: t.artist || r.artist, _o: m.tracks.length }); n++; }
+    if (r.artist) m._a.set(r.artist, (m._a.get(r.artist) || 0) + n);
+    for (const k of ['artworkUrl', 'genre', 'year']) if (!m[k] && r[k]) m[k] = r[k];
+  }
+  for (const m of out) {
+    const names = [...m._a.entries()].sort((a, b) => b[1] - a[1] || a[0].length - b[0].length);
+    if (names.length) m.artist = names[0][0];
+    m.tracks.sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0) || a._o - b._o);
+    const nums = m.tracks.map(t => t.trackNumber);
+    if (nums.some(x => x == null) || new Set(nums).size !== nums.length) m.tracks.forEach((t, i) => t.trackNumber = i + 1);
+    delete m._a; delete m._ids;
+  }
+  return out;
+}
+
+/* ================= world generation ================= */
+const W = { seed: 1, road: [], anchors: [], districts: [], stones: [], milestones: [], x0: 0, y0: 0, x1: 0, y1: 0, lx0: 0, ly0: 0, lx1: 0, ly1: 0 };
+let roadGrid = new Map();
+const RG_CELL = 256;
+function buildWorld() {
+  const N = recs.length;
+  W.seed = strHash(recs.map(r => r.id).join('|')) || 1;
+  const R = rng(W.seed);
+  const perRow = clamp(Math.round(Math.sqrt(N * 1.8)), 3, 8), SP = 760, ROW = 1320;
+  const anchors = [];
+  for (let i = 0; i < N; i++) {
+    const r = Math.floor(i / perRow), k = i % perRow, dir = r % 2 === 0 ? 1 : -1;
+    const x = (dir > 0 ? k : perRow - 1 - k) * SP + (R() - .5) * 140, y = r * ROW + (R() - .5) * 160;
+    anchors.push({ x, y, dir, row: r });
+  }
+  // road control points: along each row, turning at the ends
+  const ctrl = [{ x: anchors[0].x - SP * .9, y: anchors[0].y - 60 }];
+  for (let i = 0; i < N; i++) {
+    const a = anchors[i]; ctrl.push({ x: a.x, y: a.y });
+    const endOfRow = i === N - 1 || anchors[i + 1].row !== a.row;
+    if (endOfRow && i < N - 1) {
+      const nx = a.x + a.dir * SP * .75;
+      ctrl.push({ x: nx, y: a.y + ROW * .28 }, { x: nx, y: a.y + ROW * .72 });
+    }
+  }
+  const last = anchors[N - 1]; ctrl.push({ x: last.x + last.dir * SP * .9, y: last.y + 60 });
+  // Catmull-Rom sampling
+  const road = [];
+  for (let i = 0; i < ctrl.length - 1; i++) {
+    const p0 = ctrl[Math.max(0, i - 1)], p1 = ctrl[i], p2 = ctrl[i + 1], p3 = ctrl[Math.min(ctrl.length - 1, i + 2)];
+    const steps = Math.max(2, Math.ceil(Math.hypot(p2.x - p1.x, p2.y - p1.y) / 22));
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps, t2 = t * t, t3 = t2 * t;
+      const f = (a, b, c, d) => .5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+      road.push({ x: f(p0.x, p1.x, p2.x, p3.x), y: f(p0.y, p1.y, p2.y, p3.y) });
+    }
+  }
+  road.push(ctrl[ctrl.length - 1]);
+  W.road = road; W.anchors = anchors;
+  roadGrid = new Map();
+  road.forEach(p => { const k = Math.floor(p.x / RG_CELL) + ',' + Math.floor(p.y / RG_CELL); (roadGrid.get(k) || roadGrid.set(k, []).get(k)).push(p); });
+
+  // artists -> landmark shape
+  const artistCount = {}; recs.forEach(r => artistCount[r.artist] = (artistCount[r.artist] || 0) + 1);
+  const artistRank = Object.keys(artistCount).sort((a, b) => artistCount[b] - artistCount[a]);
+  const shapes = [0, 4, 6, 3, 8, 5];
+
+  W.districts = []; W.stones = []; W.milestones = [];
+  let prevYear = null;
+  recs.forEach((r, i) => {
+    const a = anchors[i], side = i % 2 === 0 ? 1 : -1;
+    const cx = a.x + (R() - .5) * 120, cy = a.y + side * (330 + R() * 40);
+    const hue = strHash(r.genre || r.artist || r.id) % 360;
+    const d = { rec: r, x: cx, y: cy, ax: a.x, ay: a.y, hue, shape: shapes[artistRank.indexOf(r.artist) % shapes.length], idx: i, img: null };
+    d.img = new Image(); d.img.decoding = 'async'; d.img.src = r.artworkUrl || artFallback(r.id);
+    d.img.onerror = () => { if (!d.img.dataset.fb) { d.img.dataset.fb = 1; d.img.src = artFallback(r.id); } };
+    W.districts.push(d);
+    const n = r.tracks.length, ringR = Math.min(270, 185 + Math.max(0, n - 9) * 9);
+    const a0 = Math.atan2(a.y - cy, a.x - cx), gap = n > 1 ? 1.0 : 0, span = Math.PI * 2 - gap;
+    r.tracks.forEach((t, k) => {
+      const ang = a0 + gap / 2 + span * (k + .5) / Math.max(1, n);
+      const st = { track: t, rec: r, district: d, x: cx + Math.cos(ang) * ringR, y: cy + Math.sin(ang) * ringR, n: t.trackNumber || k + 1 };
+      t._stone = st; W.stones.push(st);
+    });
+    d.ringR = ringR;
+    const y = +r.year || 0;
+    if (y && y !== prevYear) W.milestones.push({ x: a.x - a.dir * SP * .45, y: a.y + (R() - .5) * 20, year: y });
+    prevYear = y || prevYear;
+  });
+
+  // bounds
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const grow = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+  road.forEach(p => grow(p.x, p.y)); W.stones.forEach(s => grow(s.x, s.y)); W.districts.forEach(d => grow(d.x, d.y));
+  W.lx0 = x0 - 560; W.ly0 = y0 - 560; W.lx1 = x1 + 560; W.ly1 = y1 + 560;      // land extent
+  W.x0 = x0 - 1300; W.y0 = y0 - 1300; W.x1 = x1 + 1300; W.y1 = y1 + 1300;     // camera extent
+}
+function coast(x, y) {
+  const d = Math.min(x - W.lx0, W.lx1 - x, y - W.ly0, W.ly1 - y);
+  return d + (fbm(x / 900, y / 900, 5) - .5) * 460 + (vnoise(x / 190, y / 190, 9) - .5) * 80;
+}
+function roadDist(x, y) {
+  const cx = Math.floor(x / RG_CELL), cy = Math.floor(y / RG_CELL); let best = Infinity;
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+    const list = roadGrid.get((cx + i) + ',' + (cy + j)); if (!list) continue;
+    for (const p of list) { const d = (p.x - x) ** 2 + (p.y - y) ** 2; if (d < best) best = d; }
+  }
+  return Math.sqrt(best);
+}
+function nearDistrict(x, y, r) { for (const d of W.districts) if ((d.x - x) ** 2 + (d.y - y) ** 2 < r * r) return d; return null; }
+
+/* ================= chunk renderer ================= */
+const CH = 512, LR = 128;
+const chunkCache = new Map();
+let RS = 1;
+const lowCanvas = document.createElement('canvas'); lowCanvas.width = lowCanvas.height = LR;
+const lowCtx = lowCanvas.getContext('2d');
+function renderChunk(cx, cy) {
+  const c = document.createElement('canvas'); c.width = c.height = Math.ceil(CH * RS);
+  const g = c.getContext('2d');
+  const ox = cx * CH, oy = cy * CH;
+  // terrain & sea at low resolution, scaled up smoothly
+  const img = lowCtx.createImageData(LR, LR), px = img.data, step = CH / LR;
+  for (let j = 0; j < LR; j++) for (let i = 0; i < LR; i++) {
+    const x = ox + (i + .5) * step, y = oy + (j + .5) * step, d = coast(x, y), o = (j * LR + i) * 4;
+    let r, gg, b;
+    if (d < 0) {
+      const f = ((-d / 46) % 1), depth = clamp(-d / 900, 0, 1);
+      const line = (f < .09 ? 1 - f / .09 : 0) * (1 - depth) * .55;
+      r = C.sea[0] * (1 - depth * .35); gg = C.sea[1] * (1 - depth * .35); b = C.sea[2] * (1 - depth * .3);
+      r += line * 120; gg += line * 135; b += line * 140;
+      if (d > -9) { r += 90; gg += 100; b += 104; }
+    } else {
+      const n = fbm(x / 1100, y / 1100, 21), m = clamp(n * 1.6 - .3, 0, 1);
+      r = C.land[0] + (C.land2[0] - C.land[0]) * m; gg = C.land[1] + (C.land2[1] - C.land[1]) * m; b = C.land[2] + (C.land2[2] - C.land[2]) * m;
+      const shade = (vnoise(x / 60, y / 60, 3) - .5) * 6; r += shade; gg += shade; b += shade;
+      if (d < 9) { r += 80; gg += 90; b += 94; }
+    }
+    px[o] = r; px[o + 1] = gg; px[o + 2] = b; px[o + 3] = 255;
+  }
+  lowCtx.putImageData(img, 0, 0);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(lowCanvas, 0, 0, LR, LR, 0, 0, c.width, c.height);
+  g.scale(RS, RS); g.translate(-ox, -oy);
+  // district washes
+  for (const d of W.districts) {
+    if (d.x < ox - 520 || d.x > ox + CH + 520 || d.y < oy - 520 || d.y > oy + CH + 520) continue;
+    const gr = g.createRadialGradient(d.x, d.y, 40, d.x, d.y, 480);
+    gr.addColorStop(0, `hsla(${d.hue},40%,55%,.13)`); gr.addColorStop(1, `hsla(${d.hue},40%,55%,0)`);
+    g.fillStyle = gr; g.fillRect(d.x - 480, d.y - 480, 960, 960);
+  }
+  // grass ticks
+  g.strokeStyle = C.ink + '.16)'; g.lineWidth = 1; g.beginPath();
+  for (let y = Math.floor(oy / 20) * 20; y < oy + CH; y += 20) for (let x = Math.floor(ox / 20) * 20; x < ox + CH; x += 20) {
+    const r1 = h2(x, y, 77); if (r1 > .3) continue;
+    const n = fbm(x / 320, y / 320, 33); if (n < .5) continue;
+    const jx = x + h2(x, y, 5) * 18, jy = y + h2(x, y, 6) * 18;
+    if (coast(jx, jy) < 20 || roadDist(jx, jy) < 26) continue;
+    g.moveTo(jx, jy); g.lineTo(jx + 3, jy - 5); g.moveTo(jx + 4, jy); g.lineTo(jx + 6, jy - 4);
+  }
+  g.stroke();
+  // trees
+  for (let y = Math.floor(oy / 44) * 44 - 44; y < oy + CH + 44; y += 44) for (let x = Math.floor(ox / 44) * 44 - 44; x < ox + CH + 44; x += 44) {
+    const dens = fbm(x / 700, y / 700, 51); if (dens < .5) continue;
+    if (h2(x, y, 91) > (dens - .48) * 2.4) continue;
+    const tx = x + h2(x, y, 11) * 36, ty = y + h2(x, y, 12) * 36;
+    if (coast(tx, ty) < 50 || roadDist(tx, ty) < 64 || nearDistrict(tx, ty, 340)) continue;
+    const r = 6 + h2(x, y, 13) * 6;
+    g.fillStyle = 'rgba(5,10,14,.45)'; g.beginPath(); g.ellipse(tx + 3, ty + r * .7, r, r * .45, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = `rgba(${18 + dens * 10},${40 + dens * 14},${40},1)`; g.strokeStyle = C.ink + '.5)'; g.lineWidth = 1.1;
+    g.beginPath(); g.arc(tx, ty, r, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.beginPath(); g.arc(tx - r * .25, ty - r * .25, r * .45, Math.PI * 1.1, Math.PI * 1.7); g.stroke();
+  }
+  // road
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  g.strokeStyle = C.ink + '.06)'; g.lineWidth = 26; g.beginPath(); W.road.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.stroke();
+  g.strokeStyle = C.ink + '.5)'; g.lineWidth = 2.4; g.setLineDash([14, 10]); g.stroke(); g.setLineDash([]);
+  // spurs, landmark bases and stone rings
+  for (const d of W.districts) {
+    if (d.x < ox - 400 || d.x > ox + CH + 400 || d.y < oy - 600 || d.y > oy + CH + 600) continue;
+    g.strokeStyle = C.ink + '.38)'; g.lineWidth = 1.6; g.setLineDash([4, 7]);
+    g.beginPath(); g.moveTo(d.ax, d.ay); g.lineTo(d.x + (d.ax - d.x) * (1 - (d.ringR + 10) / Math.hypot(d.ax - d.x, d.ay - d.y)), d.y + (d.ay - d.y) * (1 - (d.ringR + 10) / Math.hypot(d.ax - d.x, d.ay - d.y))); g.stroke();
+    g.beginPath(); g.arc(d.x, d.y, d.ringR, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = C.ink + '.35)'; g.lineWidth = 1.2;
+    g.beginPath(); g.arc(d.x, d.y, 96, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(d.x, d.y, 112, 0, Math.PI * 2); g.stroke();
+    g.beginPath();
+    for (let k = 0; k < 48; k++) { const an = k / 48 * Math.PI * 2, l = k % 4 ? 5 : 12; g.moveTo(d.x + Math.cos(an) * 112, d.y + Math.sin(an) * 112); g.lineTo(d.x + Math.cos(an) * (112 + l), d.y + Math.sin(an) * (112 + l)); }
+    g.stroke();
+    if (d.shape) {
+      g.strokeStyle = `hsla(${d.hue},45%,75%,.55)`; g.lineWidth = 1.5; g.beginPath();
+      for (let k = 0; k <= d.shape; k++) { const an = k / d.shape * Math.PI * 2 - Math.PI / 2; const x = d.x + Math.cos(an) * 138, y = d.y + Math.sin(an) * 138; k ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke();
+    }
+  }
+  return c;
+}
+function getChunk(cx, cy, allowBuild) {
+  const k = cx + ',' + cy;
+  let c = chunkCache.get(k);
+  if (c) { chunkCache.delete(k); chunkCache.set(k, c); return c; }
+  if (!allowBuild) return null;
+  c = renderChunk(cx, cy); chunkCache.set(k, c);
+  while (chunkCache.size > 44) chunkCache.delete(chunkCache.keys().next().value);
+  return c;
+}
+
+/* ================= fog of war ================= */
+const FS = 16;
+const fog = document.createElement('canvas'), fctx = fog.getContext('2d');
+function initFog(saved) {
+  fog.width = Math.ceil((W.x1 - W.x0) / FS); fog.height = Math.ceil((W.y1 - W.y0) / FS);
+  fctx.fillStyle = C.fog; fctx.fillRect(0, 0, fog.width, fog.height);
+  if (saved) { const im = new Image(); im.onload = () => { fctx.clearRect(0, 0, fog.width, fog.height); fctx.drawImage(im, 0, 0, fog.width, fog.height); }; im.src = saved; }
+}
+function reveal(x, y, r) {
+  const fx = (x - W.x0) / FS, fy = (y - W.y0) / FS, fr = r / FS;
+  fctx.globalCompositeOperation = 'destination-out';
+  const gr = fctx.createRadialGradient(fx, fy, fr * .45, fx, fy, fr);
+  gr.addColorStop(0, 'rgba(0,0,0,.9)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  fctx.fillStyle = gr; fctx.beginPath(); fctx.arc(fx, fy, fr, 0, Math.PI * 2); fctx.fill();
+  fctx.globalCompositeOperation = 'source-over';
+}
+
+/* ================= state ================= */
+const save = LS.get('save', {});
+const state = {
+  px: 0, py: 0, vx: 0, vy: 0, face: 0, cam: { x: 0, y: 0 }, zoom: 1,
+  disc: new Set(save.disc || []), heard: new Set(save.heard || []), heardT: {}, pos: {}, target: save.target || null,
+  started: false, muted: false, steps: []
+};
+
+/* ================= audio: proximity playback ================= */
+const HEAR = 250, NEAR = 70;
+const decks = [0, 1].map(() => ({ el: new Audio(), stone: null, vol: 0 }));
+decks.forEach(d => { d.el.preload = 'auto'; d.el.loop = false; d.el.addEventListener('ended', () => { if (!d.stone) return; state.pos[d.stone.track.id] = 0; d.el.currentTime = 0; d.el.play().catch(() => {}); }); });
+let nearest = null, nearestD = Infinity;
+function updateAudio(dt) {
+  nearest = null; nearestD = Infinity;
+  for (const s of W.stones) {
+    const d = Math.hypot(s.x - state.px, s.y - state.py);
+    if (d < nearestD) { nearestD = d; nearest = s; }
+  }
+  const T = nearest && nearestD < HEAR && !nearest.track.gated && nearest.track.audioUrl ? nearest : null;
+  const prox = T ? clamp(1 - (nearestD - NEAR) / (HEAR - NEAR), 0, 1) : 0;
+  const want = state.muted ? 0 : prox * prox * (3 - 2 * prox);
+  if (T && !decks.some(d => d.stone === T) && state.started) {
+    const d = decks.find(x => !x.stone) || decks.slice().sort((a, b) => a.vol - b.vol)[0];
+    if (d.stone) { state.pos[d.stone.track.id] = d.el.currentTime; d.el.pause(); }
+    d.stone = T; d.vol = 0; d.el.volume = 0; d.el.src = T.track.audioUrl;
+    const resume = state.pos[T.track.id] || 0;
+    d.el.addEventListener('loadedmetadata', () => { if (resume && isFinite(d.el.duration) && resume < d.el.duration - 5) d.el.currentTime = resume; }, { once: true });
+    d.el.play().catch(() => {});
+    setMedia(T);
+  }
+  for (const d of decks) {
+    if (!d.stone) continue;
+    const target = d.stone === T ? want : 0;
+    d.vol += (target - d.vol) * Math.min(1, dt * (target > d.vol ? 2.2 : 3.5));
+    d.el.volume = clamp(d.vol, 0, 1);
+    if (target === 0 && d.vol < .01) { state.pos[d.stone.track.id] = d.el.currentTime; d.el.pause(); d.stone = null; d.vol = 0; }
+    else if (d.stone === T && d.vol > .15 && !d.el.paused) {
+      const id = T.track.id; state.heardT[id] = (state.heardT[id] || 0) + dt;
+      if (state.heardT[id] > 20 && !state.heard.has(id)) { state.heard.add(id); updateHud(); persist(); }
+    }
+  }
+}
+function playingLevel(stone) { const d = decks.find(x => x.stone === stone); return d ? d.vol : 0; }
+function setMedia(s) {
+  if (!('mediaSession' in navigator)) return;
+  try { navigator.mediaSession.metadata = new MediaMetadata({ title: s.track.title, artist: s.track.artist, album: s.rec.title, artwork: s.rec.artworkUrl ? [{ src: s.rec.artworkUrl, sizes: '512x512' }] : [] }); } catch (_) {}
+}
+function unlock() {
+  const silent = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+  decks.forEach(d => { d.el.src = silent; d.el.play().then(() => d.el.pause()).catch(() => {}); });
+}
+
+/* ================= input ================= */
+const keys = new Set();
+let hold = null;
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+  keys.add(k);
+  if (k === 'j') toggleJournal();
+  if (k === 'm') toggleMute();
+  if (k === '+' || k === '=') state.zoom = clamp(state.zoom * 1.12, .7, 1.5);
+  if (k === '-') state.zoom = clamp(state.zoom / 1.12, .7, 1.5);
+  if (k === 'escape') $('#journal').classList.remove('open');
+});
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('blur', () => { keys.clear(); hold = null; });
+const cv = $('#world'), ctx = cv.getContext('2d');
+cv.addEventListener('pointerdown', e => { hold = { x: e.clientX, y: e.clientY, id: e.pointerId }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { if (hold && hold.id === e.pointerId) { hold.x = e.clientX; hold.y = e.clientY; } });
+const endHold = e => { if (hold && hold.id === e.pointerId) hold = null; };
+cv.addEventListener('pointerup', endHold); cv.addEventListener('pointercancel', endHold);
+cv.addEventListener('wheel', e => { e.preventDefault(); state.zoom = clamp(state.zoom * Math.exp(-e.deltaY * .0012), .7, 1.5); }, { passive: false });
+
+/* ================= HUD ================= */
+let toastTimer;
+function toast(kicker, text) {
+  $('#toastK').textContent = kicker; $('#toastT').textContent = text;
+  const t = $('#toast'); t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+function updateHud() {
+  const playable = allTracks.filter(t => !t.gated).length;
+  $('#hProg').textContent = `${state.disc.size} of ${recs.length} records charted, ${state.heard.size} of ${playable} songs heard`;
+  if ($('#journal').classList.contains('open')) renderJournal();
+}
+let cardStone = null;
+function updateCard() {
+  const s = nearest && nearestD < 150 ? nearest : null;
+  if (s === cardStone) return;
+  cardStone = s;
+  const card = $('#card');
+  if (!s) { card.classList.remove('show'); return; }
+  const t = s.track, notes = String(t.description || '').trim();
+  card.innerHTML = `<img src="${esc(s.rec.artworkUrl || artFallback(s.rec.id))}" alt="">
+    <div style="min-width:0"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}, song ${esc(s.n)} of ${s.rec.tracks.length} on ${esc(s.rec.title)}${t.durationSeconds ? ', ' + fmt(t.durationSeconds) : ''}</div>
+    ${t.gated ? `<div class="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>This stone is sealed</div>` : ''}</div>
+    <button class="ibtn" data-action="share" data-id="${esc(t.id)}" aria-label="Copy a link to this song"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></button>
+    ${notes ? `<p class="notes" data-action="notes">${esc(notes)}</p>` : ''}`;
+  card.classList.add('show');
+}
+function renderJournal() {
+  const playable = allTracks.filter(t => !t.gated).length;
+  $('#jSub').textContent = `${state.disc.size} of ${recs.length} records charted, ${state.heard.size} of ${playable} songs heard.`;
+  $('#jList').innerHTML = recs.map((r, i) => {
+    const known = state.disc.has(r.id), free = r.tracks.filter(t => !t.gated), heard = free.filter(t => state.heard.has(t.id)).length;
+    return `<li class="${known ? '' : 'unknown'}${state.target === r.id ? ' target' : ''}"><button data-action="target" data-id="${esc(r.id)}">
+      ${known ? `<img src="${esc(r.artworkUrl || artFallback(r.id))}" alt="">` : '<span class="unk">?</span>'}
+      <span style="min-width:0"><span class="rt" style="display:block">${known ? esc(r.title) : 'Uncharted'}</span><span class="rs">${known ? esc(r.artist) + ', ' : ''}${esc(r.year || 'year unknown')}</span></span>
+      <span class="pct">${known ? `${heard}/${free.length}` : ''}</span></button></li>`;
+  }).join('');
+}
+function toggleJournal() { const j = $('#journal'); j.classList.toggle('open'); if (j.classList.contains('open')) renderJournal(); }
+function toggleMute() { state.muted = !state.muted; $('#muteBtn').querySelector('.w').style.display = state.muted ? 'none' : ''; }
+async function share(id) {
+  const url = API + '/s/' + encodeURIComponent(id); let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; } catch (_) {
+    const ta = document.createElement('textarea'); ta.value = url; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch (__) {} ta.remove();
+  }
+  if (ok) toast('LINK COPIED', 'Share it about'); else window.prompt('Copy this link:', url);
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]'); if (!el) return;
+  switch (el.dataset.action) {
+    case 'begin': begin(); break;
+    case 'journal': toggleJournal(); break;
+    case 'mute': toggleMute(); break;
+    case 'share': share(el.dataset.id); break;
+    case 'notes': el.classList.toggle('open'); break;
+    case 'target': state.target = state.target === el.dataset.id ? null : el.dataset.id; persist(); renderJournal(); if (innerWidth < 700) $('#journal').classList.remove('open'); break;
+  }
+});
+
+/* ================= persistence ================= */
+let lastSave = 0;
+function persist(force) {
+  const now = performance.now(); if (!force && now - lastSave < 4000) return; lastSave = now;
+  LS.set('save', { seed: W.seed, px: state.px, py: state.py, disc: [...state.disc], heard: [...state.heard], target: state.target, fog: fog.toDataURL('image/png') });
+}
+addEventListener('pagehide', () => persist(true));
+document.addEventListener('visibilitychange', () => { if (document.hidden) persist(true); });
+
+/* ================= drawing ================= */
+let dpr = 1, vw = 0, vh = 0;
+function resize() {
+  dpr = Math.min(devicePixelRatio || 1, 2); vw = innerWidth; vh = innerHeight;
+  cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr);
+  const newRS = Math.min(dpr, 1.5); if (newRS !== RS) { RS = newRS; chunkCache.clear(); }
+}
+addEventListener('resize', resize);
+function wrapLabel(text, max) {
+  const words = String(text).split(' '), lines = []; let line = '';
+  for (const w of words) { if ((line + ' ' + w).trim().length > max && line) { lines.push(line); line = w; } else line = (line + ' ' + w).trim(); }
+  if (line) lines.push(line); return lines.slice(0, 3);
+}
+function draw(t) {
+  const k = dpr * state.zoom, cam = state.cam;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = `rgb(${C.sea.join(',')})`; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(k, 0, 0, k, cv.width / 2 - k * cam.x, cv.height / 2 - k * cam.y);
+  const hw = vw / 2 / state.zoom, hh = vh / 2 / state.zoom;
+  const vx0 = cam.x - hw, vy0 = cam.y - hh, vx1 = cam.x + hw, vy1 = cam.y + hh;
+  // chunks: build at most two new ones per frame, nearest first
+  let built = 0;
+  const cx0 = Math.floor(vx0 / CH), cx1 = Math.floor(vx1 / CH), cy0 = Math.floor(vy0 / CH), cy1 = Math.floor(vy1 / CH);
+  const order = [];
+  for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) order.push([cx, cy, (cx * CH + CH / 2 - cam.x) ** 2 + (cy * CH + CH / 2 - cam.y) ** 2]);
+  order.sort((a, b) => a[2] - b[2]);
+  for (const [cx, cy] of order) {
+    let c = getChunk(cx, cy, false);
+    if (!c && built < 2) { c = getChunk(cx, cy, true); built++; }
+    if (c) ctx.drawImage(c, cx * CH, cy * CH, CH + .6, CH + .6);
+    else { ctx.fillStyle = `rgb(${C.land.join(',')})`; ctx.fillRect(cx * CH, cy * CH, CH, CH); }
+  }
+  // footprints
+  ctx.fillStyle = C.lamp + '.35)';
+  for (const s of state.steps) { const a = 1 - (t - s.t) / 7000; if (a <= 0) continue; ctx.globalAlpha = a * .6; ctx.beginPath(); ctx.arc(s.x, s.y, 1.8, 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  // landmarks
+  for (const d of W.districts) {
+    if (d.x < vx0 - 200 || d.x > vx1 + 200 || d.y < vy0 - 200 || d.y > vy1 + 200) continue;
+    const s = 132;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(d.x - s / 2 + 6, d.y - s / 2 + 8, s, s);
+    if (d.img.complete && d.img.naturalWidth) ctx.drawImage(d.img, d.x - s / 2, d.y - s / 2, s, s);
+    else { ctx.fillStyle = `hsl(${d.hue},30%,28%)`; ctx.fillRect(d.x - s / 2, d.y - s / 2, s, s); }
+    ctx.strokeStyle = C.ink + '.7)'; ctx.lineWidth = 1.5; ctx.strokeRect(d.x - s / 2 - 5, d.y - s / 2 - 5, s + 10, s + 10);
+  }
+  // stones
+  for (const st of W.stones) {
+    if (st.x < vx0 - 80 || st.x > vx1 + 80 || st.y < vy0 - 80 || st.y > vy1 + 80) continue;
+    const lv = playingLevel(st), heard = state.heard.has(st.track.id), locked = st.track.gated;
+    if (lv > .01) {
+      ctx.globalCompositeOperation = 'lighter';
+      const gr = ctx.createRadialGradient(st.x, st.y, 4, st.x, st.y, 150);
+      gr.addColorStop(0, C.lamp + (.35 * lv) + ')'); gr.addColorStop(1, C.lamp + '0)');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(st.x, st.y, 150, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      for (let i = 0; i < 3; i++) {
+        const p = ((t / 2200) + i / 3) % 1;
+        ctx.strokeStyle = C.lamp + (lv * (1 - p) * .6) + ')'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(st.x, st.y, 16 + p * 70, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(st.x + 3, st.y + 11, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = locked ? '#241c1e' : (lv > .01 ? '#3a3122' : '#1b2c35');
+    ctx.strokeStyle = locked ? C.lock + '.8)' : (lv > .01 ? C.lamp + '.95)' : C.ink + (heard ? '.85)' : '.55)'));
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(st.x - 8, st.y - 12, 16, 23, [8, 8, 3, 3]); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = locked ? C.lock + '.9)' : (lv > .01 ? C.lamp + '1)' : C.ink + '.8)');
+    ctx.font = '600 9px Geist, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (locked) { ctx.strokeStyle = C.lock + '.9)'; ctx.lineWidth = 1.2; ctx.strokeRect(st.x - 3.5, st.y - 1, 7, 6); ctx.beginPath(); ctx.arc(st.x, st.y - 1, 2.5, Math.PI, 0); ctx.stroke(); }
+    else ctx.fillText(st.n, st.x, st.y);
+    if (heard && !locked) { ctx.fillStyle = C.lamp + '.9)'; ctx.beginPath(); ctx.arc(st.x + 8, st.y - 12, 2.2, 0, Math.PI * 2); ctx.fill(); }
+  }
+  // player
+  const pr = 7;
+  ctx.globalCompositeOperation = 'lighter';
+  const lg = ctx.createRadialGradient(state.px, state.py, 2, state.px, state.py, 90);
+  lg.addColorStop(0, C.lamp + '.28)'); lg.addColorStop(1, C.lamp + '0)');
+  ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(state.px, state.py, 90, 0, Math.PI * 2); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(state.px + 2, state.py + 6, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(state.px, state.py); ctx.rotate(state.face);
+  ctx.fillStyle = '#e8dcc6'; ctx.beginPath(); ctx.moveTo(pr + 4, 0); ctx.lineTo(-pr, -pr * .8); ctx.lineTo(-pr * .5, 0); ctx.lineTo(-pr, pr * .8); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = C.lamp + '1)'; ctx.beginPath(); ctx.arc(state.px + Math.cos(state.face + 1.2) * 8, state.py + Math.sin(state.face + 1.2) * 8, 2.6, 0, Math.PI * 2); ctx.fill();
+  // fog of war
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(fog, W.x0, W.y0, fog.width * FS, fog.height * FS);
+  // labels (only for charted places)
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  for (const m of W.milestones) {
+    if (m.x < vx0 - 100 || m.x > vx1 + 100 || m.y < vy0 - 100 || m.y > vy1 + 100) continue;
+    if (!isRevealed(m.x, m.y)) continue;
+    ctx.strokeStyle = C.ink + '.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(m.x, m.y + 8); ctx.lineTo(m.x, m.y - 26); ctx.stroke();
+    ctx.fillStyle = '#10202a'; ctx.fillRect(m.x - 26, m.y - 44, 52, 20); ctx.strokeRect(m.x - 26, m.y - 44, 52, 20);
+    ctx.fillStyle = C.ink + '.95)'; ctx.font = '600 12px Geist, sans-serif'; ctx.fillText(m.year, m.x, m.y - 29.5);
+  }
+  for (const d of W.districts) {
+    if (!state.disc.has(d.rec.id)) continue;
+    if (d.x < vx0 - 300 || d.x > vx1 + 300 || d.y < vy0 - 300 || d.y > vy1 + 300) continue;
+    const lines = wrapLabel(d.rec.title, 22);
+    ctx.font = 'italic 400 26px "Instrument Serif", Georgia, serif';
+    ctx.fillStyle = C.ink + '.96)'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 8;
+    lines.forEach((l, i) => ctx.fillText(l, d.x, d.y + 100 + 30 + i * 26));
+    ctx.font = '500 12px Geist, sans-serif'; ctx.fillStyle = C.ink + '.6)';
+    ctx.fillText(`${d.rec.artist}${d.rec.year ? ', ' + d.rec.year : ''}`, d.x, d.y + 100 + 30 + lines.length * 26 - 4);
+    ctx.shadowBlur = 0;
+  }
+  if (nearest && nearestD < 190) {
+    const s = nearest; ctx.font = '500 14px Geist, sans-serif'; ctx.fillStyle = s.track.gated ? C.lock + '.95)' : C.lamp + '1)';
+    ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 6; ctx.fillText(s.track.title, s.x, s.y - 22); ctx.shadowBlur = 0;
+  }
+  // screen-space: vignette and compass
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const sx = vw / 2 + (state.px - cam.x) * state.zoom, sy = vh / 2 + (state.py - cam.y) * state.zoom;
+  const vg = ctx.createRadialGradient(sx, sy, 160 * state.zoom, sx, sy, Math.max(vw, vh) * .75);
+  vg.addColorStop(0, 'rgba(4,8,12,0)'); vg.addColorStop(1, 'rgba(4,8,12,.62)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, vw, vh);
+  drawCompass(sx, sy);
+}
+function isRevealed(x, y) {
+  // Signposts show once a nearby record has been charted, or when the lantern is close.
+  const d = nearDistrict(x, y, 900); return (d && state.disc.has(d.rec.id)) || Math.hypot(x - state.px, y - state.py) < 330;
+}
+function drawCompass(sx, sy) {
+  if (!state.target) return;
+  const d = W.districts.find(x => x.rec.id === state.target); if (!d) return;
+  const dx = d.x - state.px, dy = d.y - state.py, dist = Math.hypot(dx, dy);
+  if (dist < 300) return;
+  const ang = Math.atan2(dy, dx);
+  const r = Math.min(vw, vh) * .5 - 60;
+  let ex = vw / 2 + Math.cos(ang) * r * 1.4, ey = vh / 2 + Math.sin(ang) * r * 1.4;
+  ex = clamp(ex, 40, vw - 40); ey = clamp(ey, 110, vh - 60);
+  const inView = Math.abs((d.x - state.cam.x) * state.zoom) < vw / 2 - 40 && Math.abs((d.y - state.cam.y) * state.zoom) < vh / 2 - 60;
+  if (inView) return;
+  ctx.save(); ctx.translate(ex, ey); ctx.rotate(ang);
+  ctx.fillStyle = C.lamp + '.95)'; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -9); ctx.lineTo(-4, 0); ctx.lineTo(-8, 9); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.font = '500 12px Geist, sans-serif'; ctx.fillStyle = C.lamp + '.95)'; ctx.textAlign = 'center';
+  const name = state.disc.has(d.rec.id) ? d.rec.title : `Uncharted, ${d.rec.year || '?'}`;
+  ctx.fillText(`${name.length > 26 ? name.slice(0, 25) + '…' : name}, ${Math.round(dist / 40)} paces`, clamp(ex, 110, vw - 110), ey + (ey > vh / 2 ? -18 : 26));
+}
+
+/* ================= minimap ================= */
+const mm = $('#minimap'), mctx = mm.getContext('2d');
+let mmT = 0;
+function drawMinimap(t) {
+  if (t - mmT < 250 || mm.offsetParent === null) return; mmT = t;
+  const ww = W.x1 - W.x0, wh = W.y1 - W.y0, sc = Math.min(200 / ww, 130 / wh);
+  const w = Math.round(ww * sc), h = Math.round(wh * sc);
+  if (mm.width !== w * 2) { mm.width = w * 2; mm.height = h * 2; mm.style.width = w + 'px'; mm.style.height = h + 'px'; }
+  mctx.setTransform(2, 0, 0, 2, 0, 0);
+  mctx.fillStyle = '#1b2d38'; mctx.fillRect(0, 0, w, h);
+  mctx.strokeStyle = 'rgba(219,229,234,.35)'; mctx.lineWidth = 1; mctx.beginPath();
+  W.road.forEach((p, i) => { const x = (p.x - W.x0) * sc, y = (p.y - W.y0) * sc; i ? mctx.lineTo(x, y) : mctx.moveTo(x, y); }); mctx.stroke();
+  mctx.drawImage(fog, 0, 0, w, h);
+  for (const d of W.districts) {
+    if (!state.disc.has(d.rec.id) && d.rec.id !== state.target) continue;
+    mctx.fillStyle = d.rec.id === state.target ? '#ffcf8a' : 'rgba(219,229,234,.85)';
+    mctx.beginPath(); mctx.arc((d.x - W.x0) * sc, (d.y - W.y0) * sc, d.rec.id === state.target ? 3 : 2, 0, Math.PI * 2); mctx.fill();
+  }
+  mctx.fillStyle = '#ffcf8a'; mctx.beginPath(); mctx.arc((state.px - W.x0) * sc, (state.py - W.y0) * sc, 3, 0, Math.PI * 2); mctx.fill();
+}
+
+/* ================= loop ================= */
+let last = performance.now(), lastStep = { x: 0, y: 0 };
+function frame(t) {
+  const dt = Math.min(.05, (t - last) / 1000); last = t;
+  if (state.started) {
+    let ax = 0, ay = 0;
+    if (keys.has('arrowleft') || keys.has('a')) ax -= 1;
+    if (keys.has('arrowright') || keys.has('d')) ax += 1;
+    if (keys.has('arrowup') || keys.has('w')) ay -= 1;
+    if (keys.has('arrowdown') || keys.has('s')) ay += 1;
+    if (hold && !ax && !ay) {
+      const sx = vw / 2 + (state.px - state.cam.x) * state.zoom, sy = vh / 2 + (state.py - state.cam.y) * state.zoom;
+      const dx = hold.x - sx, dy = hold.y - sy, l = Math.hypot(dx, dy);
+      if (l > 14) { ax = dx / l * Math.min(1, l / 120); ay = dy / l * Math.min(1, l / 120); }
+    }
+    const l = Math.hypot(ax, ay); if (l > 1) { ax /= l; ay /= l; }
+    const speed = (keys.has('shift') ? 420 : 230);
+    state.vx += (ax * speed - state.vx) * Math.min(1, dt * 8);
+    state.vy += (ay * speed - state.vy) * Math.min(1, dt * 8);
+    let nx = state.px + state.vx * dt, ny = state.py + state.vy * dt;
+    if (coast(nx, ny) < 24) { if (coast(nx, state.py) >= 24) ny = state.py; else if (coast(state.px, ny) >= 24) nx = state.px; else { nx = state.px; ny = state.py; } }
+    state.px = nx; state.py = ny;
+    if (Math.hypot(state.vx, state.vy) > 20) state.face = Math.atan2(state.vy, state.vx);
+    if (Math.hypot(state.px - lastStep.x, state.py - lastStep.y) > 18) {
+      lastStep = { x: state.px, y: state.py };
+      state.steps.push({ x: state.px + Math.cos(state.face + Math.PI / 2) * (state.steps.length % 2 ? 3 : -3), y: state.py + Math.sin(state.face + Math.PI / 2) * (state.steps.length % 2 ? 3 : -3), t });
+      if (state.steps.length > 240) state.steps.shift();
+    }
+    reveal(state.px, state.py, 340);
+    for (const d of W.districts) {
+      if (!state.disc.has(d.rec.id) && Math.hypot(d.x - state.px, d.y - state.py) < 420) {
+        state.disc.add(d.rec.id); toast('CHARTED', `${d.rec.title}${d.rec.year ? ', ' + d.rec.year : ''}`);
+        if (state.target === d.rec.id) state.target = null;
+        updateHud(); persist(true);
+      }
+    }
+    updateAudio(dt); updateCard(); persist();
+  } else {
+    state.px += Math.cos(t / 9000) * 18 * dt; state.py += Math.sin(t / 11000) * 12 * dt;
+  }
+  const f = Math.min(1, dt * 4);
+  state.cam.x += (state.px - state.cam.x) * f; state.cam.y += (state.py - state.cam.y) * f;
+  const hw = vw / 2 / state.zoom, hh = vh / 2 / state.zoom;
+  state.cam.x = clamp(state.cam.x, W.x0 + hw, Math.max(W.x0 + hw, W.x1 - hw));
+  state.cam.y = clamp(state.cam.y, W.y0 + hh, Math.max(W.y0 + hh, W.y1 - hh));
+  draw(t); drawMinimap(t);
+  requestAnimationFrame(frame);
+}
+
+/* ================= start ================= */
+function begin() {
+  unlock();
+  state.started = true;
+  if (save.seed === W.seed && isFinite(save.px) && coast(save.px, save.py) > 24) { state.px = save.px; state.py = save.py; }
+  else { const p = W.road[4] || W.road[0]; state.px = p.x; state.py = p.y; }
+  state.cam.x = state.px; state.cam.y = state.py;
+  $('#start').classList.add('gone');
+  updateHud();
+  if (!state.disc.size) setTimeout(() => toast('THE ROAD BEGINS', 'Follow it through the years'), 900);
+}
+async function load() {
+  resize();
+  try {
+    const res = await fetch(API + '/catalogue', { cache: 'no-store' });
+    if (!res.ok) throw new Error('The server replied ' + res.status);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.releases) || !data.releases.length) throw new Error('The reply had no releases in it');
+    instance = data.instance || {};
+    recs = mergeReleases(data.releases).filter(r => r.tracks.length).sort((a, b) => (+a.year || 9999) - (+b.year || 9999) || String(a.title).localeCompare(b.title));
+    allTracks = recs.flatMap(r => r.tracks);
+    buildWorld();
+    const sameWorld = save.seed === W.seed;
+    if (!sameWorld) { state.disc = new Set(); state.heard = new Set([...state.heard].filter(id => allTracks.some(t => t.id === id))); }
+    initFog(sameWorld ? save.fog : null);
+    const title = `${instance.name || 'The Catalogue'}, charted`;
+    document.title = title; $('#hTitle').textContent = title; $('.start h2').textContent = title;
+    $('#sKicker').textContent = `${recs.length} RECORDS, ${allTracks.length} SONGS`;
+    const btn = $('#sBtn'); btn.disabled = false; btn.textContent = sameWorld && state.disc.size ? 'Carry on exploring' : 'Light the lantern';
+    const p = W.road[Math.floor(W.road.length / 2)]; state.px = p.x; state.py = p.y; state.cam.x = p.x; state.cam.y = p.y; state.zoom = innerWidth < 700 ? .85 : 1;
+    updateHud();
+    requestAnimationFrame(frame);
+  } catch (e) {
+    console.error(e);
+    $('#sKicker').textContent = 'THE MAP WOULD NOT DRAW';
+    $('#sLede').innerHTML = `The catalogue at <b>${esc(API)}/catalogue</b> didn't load (${esc(e.message)}). Check the BASE_URL line at the top of this file and your connection.`;
+    const btn = $('#sBtn'); btn.disabled = false; btn.textContent = 'Try again'; btn.dataset.action = ''; btn.onclick = () => location.reload();
+  }
+}
+load();
+})();
+</script>
+</body>
+</html>

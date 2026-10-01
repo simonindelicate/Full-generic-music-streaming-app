@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Record Town</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+<script>
+/* ==========================================================================
+   ▼▼▼  YOUR SITE ADDRESS GOES HERE  ▼▼▼
+   ========================================================================== */
+const BASE_URL = 'https://stream-the-indelicates.netlify.app';
+/* ========================================================================== */
+</script>
+<style>
+:root{--wb-blue:#0055aa;--wb-white:#ffffff;--wb-black:#000022;--wb-orange:#ff8800;--ui:'Pixelify Sans',ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#fff;font:400 16px/1.35 var(--ui);-webkit-font-smoothing:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+#screen{position:fixed;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges;display:block;touch-action:none}
+
+/* HUD */
+.hud{position:fixed;z-index:4;pointer-events:none;text-shadow:2px 2px 0 #000}
+.hud-l{top:10px;left:12px}
+.hud-l b{display:block;font-size:20px;font-weight:700;letter-spacing:.02em}
+.hud-l span{font-size:14px;color:#ffcd75}
+.hud-r{top:10px;right:12px;display:flex;align-items:center;gap:8px;font-size:24px;font-weight:700}
+.coin{width:22px;height:22px;image-rendering:pixelated}
+.hud-r.bump{animation:bump .35s steps(3)}
+@keyframes bump{50%{transform:scale(1.25)}}
+
+/* walkman */
+.walkman{position:fixed;z-index:4;left:50%;bottom:10px;transform:translate(-50%,160%);transition:transform .35s steps(5);width:min(560px,calc(100% - 20px));
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;background:#1a1c2c;border:3px solid #f4f4f4;box-shadow:0 0 0 3px #000,6px 6px 0 3px #000}
+.walkman.on{transform:translate(-50%,0)}
+.wm-btns{display:flex;gap:6px}
+.wm-btns button{width:36px;height:32px;display:grid;place-items:center;background:#333c57;border:2px solid;border-color:#94b0c2 #000 #000 #94b0c2}
+.wm-btns button:active{border-color:#000 #94b0c2 #94b0c2 #000}
+.wm-btns svg{width:16px;height:16px;image-rendering:pixelated}
+.wm-mid{min-width:0}
+.wm-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;color:#ffcd75}
+.wm-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#94b0c2}
+.wm-bar{height:6px;background:#333c57;margin-top:4px;border:1px solid #000}
+.wm-bar i{display:block;height:100%;width:0;background:#a7f070}
+.wm-tape{font-size:12px;color:#94b0c2;text-align:right;line-height:1.2}
+
+/* Workbench-style window */
+.wb-back{position:fixed;inset:0;z-index:8;display:none;place-items:center;padding:16px;background:rgb(0 0 0/.35)}
+.wb-back.open{display:grid}
+.wb{width:min(560px,100%);max-height:calc(100dvh - 32px);display:flex;flex-direction:column;background:var(--wb-blue);border:2px solid var(--wb-white);box-shadow:0 0 0 2px var(--wb-black),8px 8px 0 2px rgb(0 0 0/.6);color:var(--wb-white)}
+.wb-title{display:flex;align-items:center;gap:8px;height:26px;padding:0 4px;background:repeating-linear-gradient(0deg,var(--wb-white) 0 2px,var(--wb-blue) 2px 4px);border-bottom:2px solid var(--wb-white)}
+.wb-title span{background:var(--wb-white);color:var(--wb-blue);padding:0 8px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80%}
+.wb-close{width:20px;height:18px;background:var(--wb-white);border:2px solid var(--wb-black);position:relative;flex:none}
+.wb-close::after{content:'';position:absolute;inset:4px;background:var(--wb-black)}
+.wb-body{padding:14px 16px;overflow:auto}
+.wb-body p{margin:0 0 12px}
+.wb-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;padding:0 16px 14px}
+.wb-btn{min-width:96px;height:34px;padding:0 14px;background:var(--wb-blue);color:var(--wb-white);font-weight:700;border:2px solid;border-color:var(--wb-white) var(--wb-black) var(--wb-black) var(--wb-white)}
+.wb-btn:active,.wb-btn.primary:active{border-color:var(--wb-black) var(--wb-white) var(--wb-white) var(--wb-black)}
+.wb-btn.primary{background:var(--wb-orange);color:var(--wb-black)}
+.wb-btn:disabled{opacity:.5}
+.songs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.songs li{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:5px 6px;border:2px solid transparent}
+.songs li.now{border-color:var(--wb-orange);background:rgb(255 136 0/.15)}
+.songs .n{color:var(--wb-orange);font-weight:700}
+.songs .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.songs .d{color:#b8d0ff;font-size:14px}
+.songs .play{height:28px;min-width:64px;font-size:14px}
+.songs .lock{display:inline-flex;align-items:center;gap:4px;color:#ffcd75;font-size:14px}
+.songs .heard{color:#a7f070;font-size:13px;margin-left:6px}
+.notes-list{display:flex;flex-direction:column;gap:14px}
+.notes-list h4{margin:0 0 4px;color:var(--wb-orange)}
+.notes-list p{margin:0;white-space:pre-wrap;line-height:1.45}
+
+/* touch controls */
+.pad{position:fixed;z-index:5;bottom:18px;display:none;touch-action:none;user-select:none;-webkit-user-select:none}
+@media (pointer:coarse){.pad{display:block}.walkman{bottom:auto;top:54px}}
+.dpad{left:18px;width:150px;height:150px}
+.dpad button{position:absolute;width:50px;height:50px;background:rgb(26 28 44/.75);border:3px solid #f4f4f4;color:#f4f4f4;font-weight:700;font-size:20px}
+.dpad .u{left:50px;top:0}.dpad .d{left:50px;bottom:0}.dpad .l{left:0;top:50px}.dpad .r{right:0;top:50px}
+.abtn{right:22px;width:78px;height:78px;border-radius:50%;background:rgb(177 62 83/.85);border:3px solid #f4f4f4;color:#fff;font-weight:700;font-size:26px;bottom:44px}
+.fade{position:fixed;inset:0;z-index:7;background:#000;opacity:0;pointer-events:none;transition:opacity .22s steps(4)}
+.fade.on{opacity:1}
+</style>
+</head>
+<body>
+<canvas id="screen"></canvas>
+<div class="hud hud-l" id="hudL" hidden><b id="hudTown"></b><span id="hudArea"></span></div>
+<div class="hud hud-r" id="hudR" hidden><canvas class="coin" id="coinIcon" width="11" height="11"></canvas><span id="coins">0</span></div>
+
+<div class="walkman" id="walkman">
+  <div class="wm-btns">
+    <button data-action="wm-prev" aria-label="Previous song"><svg viewBox="0 0 8 8" fill="#f4f4f4" shape-rendering="crispEdges"><path d="M1 1h1v6H1zM7 1v6L3 4z"/></svg></button>
+    <button data-action="wm-toggle" aria-label="Play or pause" id="wmToggle"></button>
+    <button data-action="wm-next" aria-label="Next song"><svg viewBox="0 0 8 8" fill="#f4f4f4" shape-rendering="crispEdges"><path d="M6 1h1v6H6zM1 1v6l4-3z"/></svg></button>
+  </div>
+  <div class="wm-mid"><div class="wm-t" id="wmT"></div><div class="wm-s" id="wmS"></div><div class="wm-bar"><i id="wmBar"></i></div></div>
+  <div class="wm-tape" id="wmTime">0:00</div>
+</div>
+
+<div class="wb-back" id="wbBack"><div class="wb" role="dialog" aria-modal="true">
+  <div class="wb-title"><button class="wb-close" data-action="wb-close" aria-label="Close"></button><span id="wbTitle"></span></div>
+  <div class="wb-body" id="wbBody"></div>
+  <div class="wb-actions" id="wbActions"></div>
+</div></div>
+
+<div class="pad dpad" id="dpad"><button class="u" data-dir="up">▲</button><button class="l" data-dir="left">◀</button><button class="r" data-dir="right">▶</button><button class="d" data-dir="down">▼</button></div>
+<button class="pad abtn" id="abtn" aria-label="Interact">A</button>
+<div class="fade" id="fade"></div>
+
+<script>
+(() => {
+'use strict';
+const API = BASE_URL.replace(/\/+$/, '');
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = sec => { if (!isFinite(sec) || sec < 0) sec = 0; return Math.floor(sec / 60) + ':' + String(Math.floor(sec % 60)).padStart(2, '0'); };
+const strHash = str => { let h = 2166136261; for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const LS = { get(k, d) { try { const v = localStorage.getItem('rtown:' + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set(k, v) { try { localStorage.setItem('rtown:' + k, JSON.stringify(v)); } catch (_) {} } };
+
+/* ================= palette ================= */
+const P = {
+  ink: '#1a1c2c', plum: '#5d275d', red: '#b13e53', orange: '#ef7d57', yellow: '#ffcd75', lime: '#a7f070', green: '#38b764', teal: '#257179',
+  navy: '#29366f', blue: '#3b5dc9', sky: '#41a6f6', cyan: '#73eff7', white: '#f4f4f4', silver: '#94b0c2', slate: '#566c86', dusk: '#333c57',
+  g1: '#2b8a4a', g2: '#38b764', g3: '#52c46a', g4: '#1f6b3d', leaf: '#1e5a3a',
+  path1: '#c8a878', path2: '#a88858', path3: '#e0c898',
+  wood1: '#8a5a3c', wood2: '#6b3e26', wood3: '#c28a5a', wood4: '#4a2f22',
+  brick: '#9e3b36', brick2: '#7e2c2a', mortar: '#c9a58a', stone: '#7d7d8a', stone2: '#5f6070', stone3: '#9a9aa6',
+  plaster: '#e8d8b8', plaster2: '#d4c29e', skin: '#f4b58a'
+};
+const ROOFS = ['#b13e53', '#3b5dc9', '#257179', '#5d275d', '#8a5a3c', '#566c86', '#ef7d57', '#2b8a4a'];
+const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, n >> 8 & 255, n & 255].map(v => clamp(Math.round(v * f), 0, 255)); return '#' + c.map(v => v.toString(16).padStart(2, '0')).join(''); };
+
+/* ================= 3x5 pixel font ================= */
+const GLYPH_ROWS = {"A": [".#.", "#.#", "###", "#.#", "#.#"], "B": ["##.", "#.#", "##.", "#.#", "##."], "C": [".##", "#..", "#..", "#..", ".##"], "D": ["##.", "#.#", "#.#", "#.#", "##."], "E": ["###", "#..", "##.", "#..", "###"], "F": ["###", "#..", "##.", "#..", "#.."], "G": [".##", "#..", "#.#", "#.#", ".##"], "H": ["#.#", "#.#", "###", "#.#", "#.#"], "I": ["###", ".#.", ".#.", ".#.", "###"], "J": ["..#", "..#", "..#", "#.#", ".#."], "K": ["#.#", "#.#", "##.", "#.#", "#.#"], "L": ["#..", "#..", "#..", "#..", "###"], "M": ["#.#", "###", "###", "#.#", "#.#"], "N": ["##.", "#.#", "#.#", "#.#", "#.#"], "O": [".#.", "#.#", "#.#", "#.#", ".#."], "P": ["##.", "#.#", "##.", "#..", "#.."], "Q": [".#.", "#.#", "#.#", "##.", ".##"], "R": ["##.", "#.#", "##.", "#.#", "#.#"], "S": [".##", "#..", ".#.", "..#", "##."], "T": ["###", ".#.", ".#.", ".#.", ".#."], "U": ["#.#", "#.#", "#.#", "#.#", "###"], "V": ["#.#", "#.#", "#.#", "#.#", ".#."], "W": ["#.#", "#.#", "###", "###", "#.#"], "X": ["#.#", "#.#", ".#.", "#.#", "#.#"], "Y": ["#.#", "#.#", ".#.", ".#.", ".#."], "Z": ["###", "..#", ".#.", "#..", "###"], "0": ["###", "#.#", "#.#", "#.#", "###"], "1": [".#.", "##.", ".#.", ".#.", "###"], "2": ["##.", "..#", ".#.", "#..", "###"], "3": ["##.", "..#", ".#.", "..#", "##."], "4": ["#.#", "#.#", "###", "..#", "..#"], "5": ["###", "#..", "##.", "..#", "##."], "6": [".##", "#..", "###", "#.#", "###"], "7": ["###", "..#", ".#.", ".#.", ".#."], "8": ["###", "#.#", "###", "#.#", "###"], "9": ["###", "#.#", "###", "..#", "##."], " ": ["...", "...", "...", "...", "..."], ".": ["...", "...", "...", "...", ".#."], ",": ["...", "...", "...", ".#.", "#.."], "!": [".#.", ".#.", ".#.", "...", ".#."], "?": ["##.", "..#", ".#.", "...", ".#."], "-": ["...", "...", "###", "...", "..."], "&": [".#.", "#.#", ".#.", "#.#", ".##"], ":": ["...", ".#.", "...", ".#.", "..."], "'": [".#.", ".#.", "...", "...", "..."], "(": [".#.", "#..", "#..", "#..", ".#."], ")": [".#.", "..#", "..#", "..#", ".#."], "/": ["..#", "..#", ".#.", "#..", "#.."], "+": ["...", ".#.", "###", ".#.", "..."], "\"": ["#.#", "#.#", "...", "...", "..."]};
+const GLYPHS = {};
+for (const k in GLYPH_ROWS) GLYPHS[k] = GLYPH_ROWS[k].join('');
+const normText = s => String(s || '').toUpperCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-');
+function drawText(g, str, x, y, color, sc = 1, shadow) {
+  str = normText(str);
+  if (shadow) drawText(g, str, x + sc, y + sc, shadow, sc);
+  g.fillStyle = color;
+  let cx = x;
+  for (const ch of str) {
+    const gl = GLYPHS[ch] || GLYPHS['?'];
+    for (let i = 0; i < 15; i++) if (gl[i] === '#') g.fillRect(cx + (i % 3) * sc, y + Math.floor(i / 3) * sc, sc, sc);
+    cx += 4 * sc;
+  }
+}
+const textW = (str, sc = 1) => normText(str).length * 4 * sc - sc;
+
+/* ================= sprites ================= */
+const SPR_PAL = { k: P.ink, h: '#6b3e26', s: P.skin, y: P.orange, c: P.blue, p: P.dusk, b: P.plum, m: P.red, w: P.white };
+const FRAMES = {
+  down: ['...kkkkkk...', '..khhhhhhk..', '.khhhhhhhhk.', 'ykhhhhhhhhky', 'ykssssssssky', 'ykskssssksky', '.kssssssssk.', '..kssmmssk..', '.kcccccccck.', 'kcccccccccck', 'ksccccccccsk', '.kcccccccck.', '.kppppppppk.', '.kppk..kppk.', '.kbbk..kbbk.', '..kk....kk..'],
+  up: ['...kkkkkk...', '..khhhhhhk..', '.khhhhhhhhk.', 'ykhhhhhhhhky', 'ykhhhhhhhhky', 'ykhhhhhhhhky', '.khhhhhhhhk.', '..kkhhhhkk..', '.kcccccccck.', 'kcccccccccck', 'ksccccccccsk', '.kcccccccck.', '.kppppppppk.', '.kppk..kppk.', '.kbbk..kbbk.', '..kk....kk..'],
+  side: ['...kkkkk....', '..khhhhhk...', '.khhhhhhhk..', '.khhyyyhhhk.', '.khhyyyssssk', '.khhhhssksk.', '..khhsssssk.', '...kssssk...', '...kcccck...', '..kcccccck..', '..kccccsk...', '..kcccccck..', '..kppppppk..', '..kppkkppk..', '..kbbk.kbbk.', '...kk...kk..']
+};
+const LEGS = {
+  down: [null, ['.kppk..kppk.', '.kbbk..kppk.', '..kk...kbbk.'], ['.kppk..kppk.', '.kppk..kbbk.', '.kbbk...kk..']],
+  side: [null, ['..kppk.kppk.', '.kbbk...kbbk', '..kk.....kk.'], ['...kpppk....', '...kbbbk....', '....kkk.....']]
+};
+LEGS.up = LEGS.down;
+function paintFrame(rows, flip) {
+  const c = document.createElement('canvas'); c.width = 12; c.height = 16; const g = c.getContext('2d');
+  rows.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== '.') { g.fillStyle = SPR_PAL[ch]; g.fillRect(flip ? 11 - x : x, y, 1, 1); } }));
+  return c;
+}
+const SPRITES = {};
+for (const dir of ['down', 'up', 'side']) for (let f = 0; f < 3; f++) {
+  const rows = FRAMES[dir].slice(); if (LEGS[dir][f]) rows.splice(13, 3, ...LEGS[dir][f]);
+  SPRITES[dir + f] = paintFrame(rows, false);
+  if (dir === 'side') SPRITES['left' + f] = paintFrame(rows, true);
+}
+
+/* ================= tiles ================= */
+const T = 16;
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function px(g, x, y, c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); }
+function disc(g, cx, cy, r, c) { g.fillStyle = c; for (let y = -r; y <= r; y++) { const w = Math.floor(Math.sqrt(r * r - y * y + r * .6)); g.fillRect(cx - w, cy + y, w * 2 + 1, 1); } }
+const TILES = {};
+function buildTiles() {
+  const mk = (name, fn) => { const c = makeCanvas(T, T); fn(c.getContext('2d'), rng(strHash(name))); TILES[name] = c; };
+  for (let v = 0; v < 4; v++) mk('grass' + v, (g, r) => {
+    g.fillStyle = P.g2; g.fillRect(0, 0, T, T);
+    for (let i = 0; i < 26; i++) px(g, r() * T | 0, r() * T | 0, r() < .5 ? P.g1 : P.g3);
+    if (v === 1) { px(g, 4, 9, P.g4); px(g, 5, 8, P.g4); px(g, 6, 9, P.g4); }
+    if (v === 2) { px(g, 10, 4, P.g3); px(g, 11, 3, P.g3); px(g, 12, 4, P.g3); }
+  });
+  for (let v = 0; v < 3; v++) mk('flowers' + v, (g, r) => {
+    g.drawImage(TILES['grass' + v], 0, 0);
+    const cols = [P.red, P.yellow, P.white, P.orange, P.sky];
+    for (let i = 0; i < 5; i++) { const x = 2 + r() * 12 | 0, y = 2 + r() * 12 | 0, c = cols[r() * cols.length | 0]; px(g, x, y, c); px(g, x + 1, y, c); px(g, x, y + 1, c); px(g, x + 1, y + 1, P.yellow); px(g, x, y + 2, P.g4); }
+  });
+  for (let v = 0; v < 3; v++) mk('path' + v, (g, r) => {
+    g.fillStyle = P.path1; g.fillRect(0, 0, T, T);
+    for (let i = 0; i < 7; i++) { const x = r() * 14 | 0, y = r() * 14 | 0; g.fillStyle = P.path2; g.fillRect(x, y, 2, 1); px(g, x, y - 1, P.path3); }
+    for (let i = 0; i < 10; i++) px(g, r() * T | 0, r() * T | 0, r() < .5 ? P.path2 : P.path3);
+  });
+  for (let f = 0; f < 3; f++) mk('water' + f, (g, r) => {
+    g.fillStyle = P.navy; g.fillRect(0, 0, T, T);
+    g.fillStyle = P.blue; for (let y = 0; y < T; y += 4) g.fillRect(0, y + ((f + y / 4) % 2), T, 1);
+    for (let i = 0; i < 4; i++) { const x = (r() * 12 | 0), y = (r() * 14 | 0); g.fillStyle = P.sky; g.fillRect((x + f * 3) % 14, y, 3, 1); }
+  });
+  mk('bridge', (g) => {
+    for (let x = 0; x < T; x += 4) { g.fillStyle = x % 8 ? P.wood1 : P.wood3; g.fillRect(x, 0, 3, T); g.fillStyle = P.wood4; g.fillRect(x + 3, 0, 1, T); }
+    for (let y = 2; y < T; y += 7) { px(g, 1, y, P.wood4); px(g, 9, y + 3, P.wood4); }
+  });
+  mk('floor', (g, r) => {
+    for (let y = 0; y < T; y += 4) { g.fillStyle = (y / 4) % 2 ? P.wood1 : '#95633f'; g.fillRect(0, y, T, 4); g.fillStyle = P.wood4; g.fillRect(0, y + 3, T, 1); g.fillRect(((y * 5) % 12) + 2, y, 1, 3); }
+    px(g, r() * T | 0, r() * T | 0, P.wood3);
+  });
+  mk('cobble', (g, r) => {
+    g.fillStyle = P.stone3; g.fillRect(0, 0, T, T);
+    for (let y = 0; y < T; y += 4) for (let x = (y % 8 ? 2 : 0); x < T; x += 5) { g.fillStyle = r() < .5 ? P.stone : '#8b8b97'; g.fillRect(x, y, 4, 3); }
+  });
+}
+function paintTree() {
+  const c = makeCanvas(32, 32), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(6, 27, 20, 4);
+  g.fillStyle = P.wood4; g.fillRect(13, 20, 6, 10); g.fillStyle = P.wood2; g.fillRect(14, 20, 3, 10);
+  disc(g, 16, 13, 12, P.leaf); disc(g, 10, 15, 8, P.leaf); disc(g, 22, 15, 8, P.leaf);
+  disc(g, 16, 12, 10, P.g1); disc(g, 11, 14, 6, P.g1); disc(g, 21, 14, 6, P.g1);
+  disc(g, 14, 9, 6, P.g2); disc(g, 19, 11, 4, P.g2); disc(g, 12, 8, 3, P.g3); px(g, 11, 6, P.lime); px(g, 12, 6, P.lime);
+  return c;
+}
+function paintLamp() {
+  const c = makeCanvas(16, 32), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(4, 29, 8, 3);
+  g.fillStyle = P.ink; g.fillRect(7, 9, 3, 21); g.fillRect(5, 28, 7, 2);
+  g.fillStyle = P.dusk; g.fillRect(8, 9, 1, 19);
+  g.fillStyle = P.ink; g.fillRect(4, 2, 9, 8); g.fillStyle = P.yellow; g.fillRect(5, 3, 7, 6); g.fillStyle = '#fff3c4'; g.fillRect(6, 4, 2, 3);
+  g.fillStyle = P.ink; g.fillRect(3, 1, 11, 2); g.fillRect(7, 0, 3, 1);
+  return c;
+}
+function paintBench() {
+  const c = makeCanvas(32, 16), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(2, 13, 28, 3);
+  g.fillStyle = P.wood4; g.fillRect(3, 9, 2, 5); g.fillRect(27, 9, 2, 5);
+  for (let y = 2; y < 11; y += 3) { g.fillStyle = P.wood3; g.fillRect(1, y, 30, 2); g.fillStyle = P.wood4; g.fillRect(1, y + 2, 30, 1); }
+  return c;
+}
+function paintFountain() {
+  const c = makeCanvas(48, 48), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(4, 40, 40, 6);
+  g.fillStyle = P.stone2; g.fillRect(2, 14, 44, 30); g.fillStyle = P.stone3; g.fillRect(2, 14, 44, 4);
+  g.fillStyle = P.navy; g.fillRect(6, 18, 36, 22); g.fillStyle = P.blue; g.fillRect(6, 18, 36, 4);
+  g.fillStyle = P.stone3; g.fillRect(20, 4, 8, 26); g.fillStyle = P.stone; g.fillRect(24, 4, 4, 26);
+  g.fillStyle = P.stone3; g.fillRect(16, 2, 16, 4);
+  return c;
+}
+function paintBoard() {
+  const c = makeCanvas(32, 32), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(4, 29, 24, 3);
+  g.fillStyle = P.wood4; g.fillRect(5, 6, 3, 25); g.fillRect(24, 6, 3, 25);
+  g.fillStyle = P.wood4; g.fillRect(2, 4, 28, 18); g.fillStyle = P.wood3; g.fillRect(3, 5, 26, 16);
+  g.fillStyle = P.white; g.fillRect(6, 8, 8, 9); g.fillRect(17, 7, 9, 6); g.fillStyle = P.yellow; g.fillRect(18, 15, 7, 5);
+  g.fillStyle = P.slate; for (let y = 10; y < 16; y += 2) g.fillRect(7, y, 6, 1);
+  px(g, 10, 8, P.red); px(g, 21, 7, P.red); px(g, 21, 15, P.red);
+  drawText(g, '!', 26, 1, P.red);
+  return c;
+}
+let OBJ = {};
+
+/* ================= catalogue ================= */
+let instance = {}, recs = [], allTracks = [];
+function mergeReleases(list) {
+  const norm = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const byKey = new Map(), out = [];
+  for (const r of list) {
+    const key = norm(r.title) + '|' + (r.year || '');
+    let m = byKey.get(key);
+    if (!m) { m = { ...r, tracks: [], _a: new Map(), _ids: new Set() }; byKey.set(key, m); out.push(m); }
+    let n = 0;
+    for (const t of (r.tracks || [])) { if (m._ids.has(t.id)) continue; m._ids.add(t.id); m.tracks.push({ ...t, artist: t.artist || r.artist, _o: m.tracks.length }); n++; }
+    if (r.artist) m._a.set(r.artist, (m._a.get(r.artist) || 0) + n);
+    for (const k of ['artworkUrl', 'genre', 'year']) if (!m[k] && r[k]) m[k] = r[k];
+  }
+  for (const m of out) {
+    const names = [...m._a.entries()].sort((a, b) => b[1] - a[1] || a[0].length - b[0].length);
+    if (names.length) m.artist = names[0][0];
+    m.tracks.sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0) || a._o - b._o);
+    const nums = m.tracks.map(t => t.trackNumber);
+    if (nums.some(x => x == null) || new Set(nums).size !== nums.length) m.tracks.forEach((t, i) => t.trackNumber = i + 1);
+    delete m._a; delete m._ids;
+  }
+  return out;
+}
+
+/* ================= town generation ================= */
+const ROW_A = 2, ST_A = 8, ROW_B = 11, ST_B = 17, TOWN_H = 26, BH = 6, PLAZA = 15;
+let town = null;
+function buildingWidth(r) { const n = r.tracks.length; return n <= 5 ? 5 : n <= 8 ? 6 : n <= 12 ? 7 : 8; }
+function buildTown() {
+  const R = rng(strHash(recs.map(r => r.id).join('|')));
+  const N = recs.length;
+  const D = N < 4 ? 1 : Math.max(2, Math.ceil(N / 6));
+  const groups = []; let idx = 0;
+  for (let d = 0; d < D; d++) { const n = Math.round((N - idx) / (D - d)); groups.push(recs.slice(idx, idx + n)); idx += n; }
+  const artistCount = {}; recs.forEach(r => artistCount[r.artist] = (artistCount[r.artist] || 0) + 1);
+  const rank = Object.keys(artistCount).sort((a, b) => artistCount[b] - artistCount[a]);
+  const STYLES = ['house', 'pub', 'shop', 'chapel', 'tower'];
+  const buildings = [], districts = [], rivers = [], gates = [];
+  let x = PLAZA;
+  groups.forEach((list, d) => {
+    let gate = null;
+    if (d > 0) { rivers.push(x); gate = { d, x: x + 1, rows: [ST_A, ST_B] }; gates.push(gate); x += 3; }
+    const x0 = x; x += 4;
+    let ax = x, bx = x;
+    list.forEach((r, i) => {
+      const w = buildingWidth(r), rowA = ax <= bx;
+      const bxPos = rowA ? ax : bx, by = rowA ? ROW_A : ROW_B;
+      const style = STYLES[Math.min(STYLES.length - 1, rank.indexOf(r.artist))];
+      buildings.push({ rec: r, tx: bxPos, ty: by, w, h: BH, style, roof: ROOFS[strHash(r.id) % ROOFS.length], era: d, door: { tx: bxPos + Math.floor(w / 2), ty: by + BH - 1 }, district: d });
+      if (rowA) ax += w + 2; else bx += w + 2;
+    });
+    const x1 = Math.max(ax, bx) + 1;
+    const ys = list.map(r => +r.year).filter(Boolean);
+    const y0 = ys.length ? Math.min(...ys) : null, y1 = ys.length ? Math.max(...ys) : null;
+    districts.push({ i: d, x0, x1, cost: d === 0 ? 0 : 15 * d, recs: list, name: d === 0 ? 'Old Town' : (y0 ? (y0 === y1 ? `The ${y0} quarter` : `${y0} to ${y1}`) : `Quarter ${d + 1}`), years: y0 ? (y0 === y1 ? `${y0}` : `${y0} to ${y1}`) : '' });
+    x = x1;
+  });
+  const W = x + 4, H = TOWN_H;
+  const ground = [], solid = [];
+  for (let y = 0; y < H; y++) { ground.push(new Array(W).fill('grass')); solid.push(new Array(W).fill(false)); }
+  const setG = (tx, ty, t) => { if (tx >= 0 && ty >= 0 && tx < W && ty < H) ground[ty][tx] = t; };
+  const setS = (tx, ty, v = true) => { if (tx >= 0 && ty >= 0 && tx < W && ty < H) solid[ty][tx] = v; };
+  // grass variety
+  for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) { const r = R(); ground[y][xx] = r < .08 ? 'grass1' : r < .16 ? 'grass2' : r < .2 ? 'grass3' : 'grass0'; }
+  // streets
+  for (let xx = 0; xx < W; xx++) for (const sy of [ST_A, ST_A + 1, ST_B, ST_B + 1]) setG(xx, sy, 'path');
+  // plaza
+  for (let y = ST_A; y <= ST_B + 1; y++) for (let xx = 2; xx < PLAZA - 2; xx++) setG(xx, y, 'cobble');
+  // connectors
+  for (const d of districts) for (let y = ST_A; y <= ST_B + 1; y++) { setG(d.x0 + 1, y, 'path'); setG(d.x0 + 2, y, 'path'); }
+  // rivers and bridges
+  for (const rx of rivers) for (let y = 0; y < H; y++) for (let k = 0; k < 3; k++) {
+    const onBridge = (y >= ST_A && y <= ST_A + 1) || (y >= ST_B && y <= ST_B + 1);
+    setG(rx + k, y, onBridge ? 'bridge' : 'water'); if (!onBridge) setS(rx + k, y);
+  }
+  // objects
+  const objects = [];
+  const occupied = new Set(); const key = (a, b) => a + ',' + b;
+  const free = (tx, ty, w, h) => { for (let yy = ty; yy < ty + h; yy++) for (let xx = tx; xx < tx + w; xx++) { if (xx < 0 || yy < 0 || xx >= W || yy >= H) return false; const g = ground[yy][xx]; if (occupied.has(key(xx, yy)) || g === 'path' || g === 'water' || g === 'bridge' || g === 'cobble') return false; } return true; };
+  const occupy = (tx, ty, w, h) => { for (let yy = ty; yy < ty + h; yy++) for (let xx = tx; xx < tx + w; xx++) occupied.add(key(xx, yy)); };
+  for (const b of buildings) { occupy(b.tx, b.ty, b.w, b.h); for (let yy = b.ty; yy < b.ty + b.h; yy++) for (let xx = b.tx; xx < b.tx + b.w; xx++) setS(xx, yy); objects.push({ kind: 'building', b, x: b.tx * T, y: b.ty * T, base: (b.ty + b.h) * T }); }
+  const addTree = (tx, ty) => { if (!free(tx, ty, 2, 2)) return false; occupy(tx, ty, 2, 2); setS(tx, ty + 1); setS(tx + 1, ty + 1); objects.push({ kind: 'tree', x: tx * T, y: ty * T, base: (ty + 2) * T }); return true; };
+  const addLamp = (tx, by) => { if (!free(tx, by, 1, 1)) return false; occupy(tx, by, 1, 1); setS(tx, by); objects.push({ kind: 'lamp', x: tx * T, y: (by - 1) * T, base: (by + 1) * T, lx: tx * T + 8, ly: (by - 1) * T + 6 }); return true; };
+  const addBench = (tx, ty) => { if (!free(tx, ty, 2, 1)) return false; occupy(tx, ty, 2, 1); setS(tx, ty); setS(tx + 1, ty); objects.push({ kind: 'bench', x: tx * T, y: ty * T, base: (ty + 1) * T }); return true; };
+  // plaza furniture
+  const fountain = { kind: 'fountain', x: 6 * T, y: 11 * T, base: 14 * T, tx: 6, ty: 11 };
+  for (let yy = 12; yy < 14; yy++) for (let xx = 6; xx < 9; xx++) setS(xx, yy);
+  objects.push(fountain);
+  const board = { kind: 'board', x: 3 * T, y: 9 * T + 2, base: 11 * T, tx: 3, ty: 10 };
+  setS(3, 10); setS(4, 10); objects.push(board);
+  for (let xx = 2; xx < PLAZA - 2; xx++) { occupy(xx, ST_A, 1, ST_B - ST_A + 2); }
+  addBench(10, 10); addBench(10, 15);
+  objects.push({ kind: 'lamp', x: 2 * T, y: 14 * T, base: 16 * T, lx: 2 * T + 8, ly: 14 * T + 6 }); setS(2, 15);
+  objects.push({ kind: 'lamp', x: 12 * T, y: 14 * T, base: 16 * T, lx: 12 * T + 8, ly: 14 * T + 6 }); setS(12, 15);
+  // gates block the bridges until paid
+  for (const g of gates) for (const sy of g.rows) { setS(g.x, sy); setS(g.x, sy + 1); }
+  // lamps along the streets, trees and flowers between buildings
+  for (let xx = PLAZA; xx < W - 2; xx += 7) { addLamp(xx, 10) || addLamp(xx + 1, 10); addLamp(xx + 3, 19) || addLamp(xx + 4, 19); }
+  for (let xx = 1; xx < W - 1; xx++) {
+    if (R() < .55) addTree(xx, 0);
+    if (R() < .35) setG(xx, 10, 'flowers' + (R() * 3 | 0));
+    if (R() < .7) addTree(xx, 21 + (R() * 3 | 0));
+    if (R() < .12) addBench(xx, 19);
+    else if (R() < .18 && free(xx, 19, 1, 1)) setG(xx, 19, 'flowers' + (R() * 3 | 0));
+  }
+  for (const b of buildings) {
+    const gx = b.tx + b.w; // the gap after each building
+    if (R() < .7) addTree(gx, b.ty + 2); else addLamp(gx, b.ty + b.h - 1);
+    if (free(gx, b.ty + b.h - 1, 1, 1) && R() < .6) setG(gx, b.ty + b.h - 1, 'flowers' + (R() * 3 | 0));
+  }
+  // edges are solid
+  for (let y = 0; y < H; y++) { setS(0, y); setS(W - 1, y); }
+  for (let xx = 0; xx < W; xx++) { setS(xx, 0); setS(xx, H - 1); }
+  town = { W, H, ground, solid, objects, buildings, districts, gates, rivers, fountain, board };
+}
+function districtAt(tx) { let d = town.districts[0]; for (const dd of town.districts) if (tx >= dd.x0 - 3) d = dd; return d; }
+
+/* ================= building painter ================= */
+function paintBuilding(b) {
+  const w = b.w * T, h = b.h * T, c = makeCanvas(w, h), g = c.getContext('2d'), R = rng(strHash(b.rec.id));
+  const roofH = 44, wallY = 44, wallH = h - wallY;
+  const material = b.style === 'chapel' || b.style === 'tower' ? 'stone' : b.style === 'pub' ? 'timber' : b.style === 'shop' ? 'wood' : (b.era === 0 ? 'brick' : (strHash(b.rec.id) % 2 ? 'plaster' : 'brick'));
+  // walls
+  const wx = 3, ww = w - 6;
+  if (material === 'brick') {
+    g.fillStyle = P.mortar; g.fillRect(wx, wallY, ww, wallH);
+    for (let y = wallY; y < h; y += 4) for (let x = wx + ((y / 4) % 2 ? 0 : -4); x < wx + ww; x += 8) { g.fillStyle = R() < .3 ? P.brick2 : P.brick; g.fillRect(Math.max(wx, x), y, Math.min(7, wx + ww - Math.max(wx, x)), 3); }
+  } else if (material === 'stone') {
+    g.fillStyle = P.stone2; g.fillRect(wx, wallY, ww, wallH);
+    for (let y = wallY; y < h; y += 7) for (let x = wx + ((y / 7) % 2 ? 0 : -5); x < wx + ww; x += 10) { g.fillStyle = [P.stone, P.stone3, '#868692'][R() * 3 | 0]; g.fillRect(Math.max(wx, x), y, Math.min(9, wx + ww - Math.max(wx, x)), 6); }
+  } else if (material === 'wood') {
+    for (let x = wx; x < wx + ww; x += 4) { g.fillStyle = (x / 4) % 2 ? P.wood1 : '#95633f'; g.fillRect(x, wallY, 4, wallH); g.fillStyle = P.wood4; g.fillRect(x + 3, wallY, 1, wallH); }
+  } else {
+    g.fillStyle = P.plaster; g.fillRect(wx, wallY, ww, wallH);
+    for (let i = 0; i < ww * wallH / 30; i++) px(g, wx + R() * ww | 0, wallY + R() * wallH | 0, P.plaster2);
+    if (material === 'timber') {
+      g.fillStyle = P.wood4; g.fillRect(wx, wallY, ww, 3); g.fillRect(wx, wallY + 24, ww, 2);
+      for (let x = wx; x <= wx + ww - 3; x += 16) g.fillRect(x, wallY, 3, wallH);
+      for (let x = wx + 3; x < wx + ww - 14; x += 32) for (let k = 0; k < 13; k++) g.fillRect(x + k, wallY + 3 + k * 1.6 | 0, 2, 2);
+    }
+  }
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(wx, wallY, ww, 3);
+  g.fillStyle = shade(P.stone2, .8); g.fillRect(wx - 1, h - 3, ww + 2, 3);
+  // roof
+  if (b.style === 'tower') {
+    g.fillStyle = P.stone2; g.fillRect(1, 12, w - 2, roofH - 10);
+    g.fillStyle = P.stone; g.fillRect(3, 14, w - 6, roofH - 16);
+    for (let x = 1; x < w - 4; x += 8) { g.fillStyle = P.stone3; g.fillRect(x, 4, 5, 10); g.fillStyle = P.stone2; g.fillRect(x, 12, 5, 2); }
+    g.fillStyle = b.roof; g.fillRect(w / 2 - 1, 0, 2, 12); g.fillRect(w / 2 + 1, 1, 8, 5);
+  } else {
+    const rc = b.style === 'chapel' ? P.dusk : b.roof, top = b.style === 'chapel' ? 0 : 4;
+    g.fillStyle = shade(rc, .55); g.fillRect(0, top, w, roofH - top + 2);
+    for (let y = top + 1, row = 0; y < roofH; y += 5, row++) {
+      g.fillStyle = shade(rc, .85 + (row % 2) * .12); g.fillRect(1, y, w - 2, 4);
+      g.fillStyle = shade(rc, .6); for (let x = (row % 2) * 4 + 1; x < w - 1; x += 8) g.fillRect(x, y, 1, 4);
+    }
+    g.fillStyle = shade(rc, 1.25); g.fillRect(1, top, w - 2, 2);
+    g.fillStyle = shade(rc, .45); g.fillRect(0, roofH - 2, w, 3);
+    if (b.style !== 'chapel' && R() < .75) { const cx = (w * (.65 + R() * .2)) | 0; g.fillStyle = P.brick2; g.fillRect(cx, 0, 8, 14); g.fillStyle = P.brick; g.fillRect(cx + 1, 0, 6, 12); g.fillStyle = P.ink; g.fillRect(cx - 1, 0, 10, 2); }
+    if (b.style === 'chapel') { g.fillStyle = P.yellow; g.fillRect(w / 2 - 1, 4, 2, 12); g.fillRect(w / 2 - 4, 7, 8, 2); }
+  }
+  // windows
+  b.windows = [];
+  const doorCol = Math.floor(b.w / 2);
+  for (let col = 0; col < b.w; col++) {
+    if (col === doorCol) continue;
+    if (b.w >= 7 && (col === 0 || col === b.w - 1)) continue;
+    const x = col * T + 1, y = wallY + 14;
+    g.fillStyle = material === 'plaster' || material === 'timber' ? P.wood4 : P.white; g.fillRect(x, y, 14, 14);
+    g.fillStyle = P.navy; g.fillRect(x + 2, y + 2, 10, 10);
+    g.fillStyle = P.blue; g.fillRect(x + 2, y + 2, 10, 3); px(g, x + 3, y + 6, P.sky); px(g, x + 4, y + 5, P.sky);
+    g.fillStyle = material === 'plaster' || material === 'timber' ? P.wood4 : P.white; g.fillRect(x + 6, y + 2, 2, 10); g.fillRect(x + 2, y + 6, 10, 2);
+    g.fillStyle = P.wood2; g.fillRect(x - 1, y + 14, 16, 2);
+    b.windows.push({ x: x + 2, y: y + 2, w: 10, h: 10 });
+  }
+  if (b.style === 'chapel') { disc(g, w / 2, wallY + 7, 5, P.white); disc(g, w / 2, wallY + 7, 3, P.sky); }
+  // shop awning
+  if (b.style === 'shop') {
+    for (let x = 1; x < w - 1; x += 4) { g.fillStyle = (x / 4) % 2 ? P.white : P.red; g.fillRect(x, wallY + 8, 4, 5); px(g, x + 1, wallY + 13, (x / 4) % 2 ? P.white : P.red); px(g, x + 2, wallY + 13, (x / 4) % 2 ? P.white : P.red); }
+  }
+  // door
+  const dx = doorCol * T + 1, dy = h - 24;
+  g.fillStyle = P.wood4; g.fillRect(dx - 1, dy - 1, 16, 25);
+  g.fillStyle = P.wood2; g.fillRect(dx + 1, dy + 1, 12, 23);
+  g.fillStyle = P.wood1; g.fillRect(dx + 2, dy + 2, 4, 20); g.fillRect(dx + 8, dy + 2, 4, 20);
+  px(g, dx + 10, dy + 12, P.yellow); px(g, dx + 10, dy + 13, P.orange);
+  g.fillStyle = P.stone3; g.fillRect(dx - 2, h - 2, 18, 2);
+  // sign with the record's name
+  const sy = wallY + (b.style === 'shop' ? 1 : 3), sw = w - 10;
+  g.fillStyle = P.wood4; g.fillRect(4, sy, sw + 2, 9); g.fillStyle = P.wood3; g.fillRect(5, sy + 1, sw, 7);
+  const maxCh = Math.floor((sw - 2) / 4);
+  let label = normText(b.rec.title); if (label.length > maxCh) label = label.slice(0, maxCh - 1).trimEnd() + '.';
+  drawText(g, label, 5 + Math.floor((sw - textW(label)) / 2), sy + 2, P.ink);
+  if (b.style === 'pub') { g.fillStyle = P.ink; g.fillRect(w - 5, wallY + 12, 1, 4); g.fillRect(w - 12, wallY + 12, 8, 1); g.fillStyle = P.wood4; g.fillRect(w - 13, wallY + 16, 10, 10); g.fillStyle = P.yellow; g.fillRect(w - 12, wallY + 17, 8, 8); disc(g, w - 8, wallY + 21, 2, P.red); }
+  b.poster = b.windows.length ? b.windows[0] : null;
+  b.sprite = c;
+  b.img = new Image(); b.img.src = b.rec.artworkUrl || '';
+}
+
+/* ================= interiors ================= */
+function buildInterior(b) {
+  const IW = 12, IH = 10, r = b.rec, hue = strHash(r.id) % 360;
+  const c = makeCanvas(IW * T, IH * T), g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
+  for (let y = 3; y < IH - 1; y++) for (let x = 1; x < IW - 1; x++) g.drawImage(TILES.floor, x * T, y * T);
+  for (let x = 5; x < 7; x++) g.drawImage(TILES.floor, x * T, (IH - 1) * T);
+  // wallpaper
+  g.fillStyle = `hsl(${hue},32%,34%)`; g.fillRect(T, 0, (IW - 2) * T, 3 * T);
+  g.fillStyle = `hsl(${hue},32%,29%)`; for (let x = T; x < (IW - 1) * T; x += 8) g.fillRect(x, 0, 3, 3 * T);
+  g.fillStyle = P.wood4; g.fillRect(T, 3 * T - 5, (IW - 2) * T, 5); g.fillStyle = P.wood2; g.fillRect(T, 3 * T - 4, (IW - 2) * T, 2);
+  g.fillStyle = P.ink; g.fillRect(0, 0, T, IH * T); g.fillRect((IW - 1) * T, 0, T, IH * T); g.fillRect(0, (IH - 1) * T, 5 * T, T); g.fillRect(7 * T, (IH - 1) * T, 5 * T, T);
+  g.fillStyle = `hsl(${hue},20%,20%)`; g.fillRect(T - 2, 0, 2, (IH - 1) * T); g.fillRect((IW - 1) * T, 0, 2, (IH - 1) * T);
+  // rug and doormat
+  g.fillStyle = shade(b.roof, .7); g.fillRect(4 * T, 5 * T, 4 * T, 3 * T); g.fillStyle = b.roof; g.fillRect(4 * T + 3, 5 * T + 3, 4 * T - 6, 3 * T - 6);
+  g.fillStyle = P.yellow; for (let x = 4 * T + 6; x < 8 * T - 6; x += 6) { g.fillRect(x, 5 * T + 6, 2, 2); g.fillRect(x, 8 * T - 8, 2, 2); }
+  g.fillStyle = P.wood3; g.fillRect(5 * T + 2, (IH - 1) * T + 4, 2 * T - 4, 9);
+  const solid = []; for (let y = 0; y < IH; y++) solid.push(new Array(IW).fill(false));
+  for (let y = 0; y < IH; y++) { solid[y][0] = solid[y][IW - 1] = true; }
+  for (let x = 0; x < IW; x++) { solid[0][x] = solid[1][x] = solid[2][x] = true; if (x < 5 || x > 6) solid[IH - 1][x] = true; }
+  const jukebox = { kind: 'jukebox', tx: 2, ty: 3, x: 2 * T, y: 3 * T - 12, base: 5 * T };
+  const lectern = { kind: 'lectern', tx: 9, ty: 4, x: 9 * T, y: 4 * T - 6, base: 5 * T };
+  const plant1 = { kind: 'plant', x: 1 * T, y: 7 * T, base: 9 * T }, plant2 = { kind: 'plant', x: 10 * T, y: 7 * T, base: 9 * T };
+  solid[3][2] = solid[4][2] = true; solid[4][9] = true; solid[8][1] = solid[8][10] = true;
+  return { W: IW, H: IH, groundCanvas: c, solid, objects: [jukebox, lectern, plant1, plant2], building: b, jukebox, lectern };
+}
+function paintJukebox() {
+  const c = makeCanvas(16, 30), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(1, 27, 15, 3);
+  g.fillStyle = P.wood4; g.fillRect(0, 4, 16, 24); disc(g, 8, 7, 7, P.wood4);
+  g.fillStyle = P.wood2; g.fillRect(1, 6, 14, 21); disc(g, 8, 7, 6, P.wood2);
+  g.fillStyle = P.orange; g.fillRect(3, 6, 10, 9); disc(g, 8, 6, 5, P.orange);
+  g.fillStyle = P.yellow; g.fillRect(4, 7, 8, 7); g.fillStyle = P.red; for (let x = 4; x < 12; x += 2) g.fillRect(x, 8, 1, 6);
+  g.fillStyle = P.silver; g.fillRect(3, 17, 10, 4); g.fillStyle = P.ink; g.fillRect(4, 18, 8, 2);
+  g.fillStyle = P.dusk; g.fillRect(3, 22, 10, 4); for (let x = 4; x < 13; x += 2) px(g, x, 23, P.silver);
+  return c;
+}
+function paintLectern() {
+  const c = makeCanvas(16, 22), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(2, 19, 12, 3);
+  g.fillStyle = P.wood4; g.fillRect(6, 8, 4, 12); g.fillRect(3, 18, 10, 2);
+  g.fillStyle = P.wood2; g.fillRect(1, 3, 14, 7); g.fillStyle = P.white; g.fillRect(2, 1, 12, 6); g.fillStyle = P.silver; g.fillRect(8, 1, 1, 6);
+  g.fillStyle = P.slate; for (let y = 2; y < 6; y += 2) { g.fillRect(3, y, 4, 1); g.fillRect(10, y, 3, 1); }
+  return c;
+}
+function paintPlant() {
+  const c = makeCanvas(16, 32), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(2, 29, 12, 3);
+  g.fillStyle = P.brick2; g.fillRect(3, 21, 10, 9); g.fillStyle = P.brick; g.fillRect(4, 21, 8, 8);
+  disc(g, 8, 14, 7, P.leaf); disc(g, 6, 12, 4, P.g1); disc(g, 10, 15, 4, P.g1); disc(g, 7, 10, 2, P.g3);
+  return c;
+}
+
+/* ================= state ================= */
+const save = LS.get('save', {});
+const state = {
+  scene: 'title', coins: save.coins || 0, unlocked: new Set(save.unlocked || [0]), heard: new Set(save.heard || []), done: new Set(save.done || []),
+  heardSec: {}, listenAcc: 0, px: 0, py: 0, dir: 'down', moving: false, anim: 0, interior: null, returnTo: null, muted: false, dialog: false, floats: []
+};
+function persist() {
+  LS.set('save', { seed: town ? strHash(recs.map(r => r.id).join('|')) : 0, coins: state.coins, unlocked: [...state.unlocked], heard: [...state.heard], done: [...state.done], px: state.scene === 'town' ? state.px : (state.returnTo ? state.returnTo.x : state.px), py: state.scene === 'town' ? state.py : (state.returnTo ? state.returnTo.y : state.py) });
+}
+setInterval(persist, 5000);
+addEventListener('pagehide', persist);
+
+/* ================= chip sounds ================= */
+let sfx = null;
+function blip(kind) {
+  if (state.muted) return;
+  try {
+    if (!sfx) sfx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = kind === 'coin' ? [988, 1319] : kind === 'door' ? [196, 147] : kind === 'unlock' ? [523, 659, 784, 1047] : kind === 'deny' ? [220, 180] : [660];
+    notes.forEach((f, i) => {
+      const o = sfx.createOscillator(), gn = sfx.createGain(), t0 = sfx.currentTime + i * .07;
+      o.type = 'square'; o.frequency.value = f; gn.gain.setValueAtTime(.05, t0); gn.gain.exponentialRampToValueAtTime(.0001, t0 + .12);
+      o.connect(gn); gn.connect(sfx.destination); o.start(t0); o.stop(t0 + .13);
+    });
+  } catch (_) {}
+}
+
+/* ================= walkman (music) ================= */
+const audio = new Audio(); audio.preload = 'auto';
+let queue = [], qi = -1, current = null;
+function playQueue(tracks, startIdx) {
+  queue = tracks; qi = startIdx - 1; nextSong(true);
+}
+function nextSong(fromStart) {
+  for (let i = qi + 1; i < queue.length; i++) if (!queue[i].gated && queue[i].audioUrl) { qi = i; return loadSong(queue[i]); }
+  if (!fromStart && queue.length) { for (let i = 0; i <= qi; i++) if (!queue[i].gated && queue[i].audioUrl) { qi = i; return loadSong(queue[i]); } }
+}
+function prevSong() {
+  if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+  for (let i = qi - 1; i >= 0; i--) if (!queue[i].gated && queue[i].audioUrl) { qi = i; return loadSong(queue[i]); }
+  audio.currentTime = 0;
+}
+function loadSong(t) {
+  current = t; audio.src = t.audioUrl; audio.play().catch(() => {});
+  $('#wmT').textContent = t.title; $('#wmS').textContent = `${t.artist}, ${t._rec.title}`;
+  $('#walkman').classList.add('on'); paintToggle();
+  if ('mediaSession' in navigator) try { navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: t.artist, album: t._rec.title, artwork: t._rec.artworkUrl ? [{ src: t._rec.artworkUrl, sizes: '512x512' }] : [] }); } catch (_) {}
+  refreshDialog();
+}
+function paintToggle() {
+  $('#wmToggle').innerHTML = audio.paused
+    ? '<svg viewBox="0 0 8 8" fill="#f4f4f4" shape-rendering="crispEdges"><path d="M2 1v6l5-3z"/></svg>'
+    : '<svg viewBox="0 0 8 8" fill="#f4f4f4" shape-rendering="crispEdges"><path d="M1 1h2v6H1zM5 1h2v6H5z"/></svg>';
+}
+audio.addEventListener('play', () => { paintToggle(); refreshDialog(); }); audio.addEventListener('pause', () => { paintToggle(); refreshDialog(); });
+audio.addEventListener('timeupdate', () => {
+  const d = audio.duration || (current && current.durationSeconds) || 0;
+  $('#wmBar').style.width = d ? (audio.currentTime / d * 100) + '%' : '0'; $('#wmTime').textContent = fmt(audio.currentTime);
+});
+audio.addEventListener('ended', () => {
+  if (current) {
+    state.heard.add(current.id);
+    if (!state.done.has(current.id)) { state.done.add(current.id); addCoins(10, 'NEW SONG +10'); }
+  }
+  nextSong(false);
+});
+audio.addEventListener('error', () => { if (current) { toastFloat("CAN'T PLAY THAT ONE"); setTimeout(() => nextSong(false), 600); } });
+setInterval(() => {
+  if (audio.paused || state.muted || !current || state.scene === 'title') return;
+  state.listenAcc++;
+  state.heardSec[current.id] = (state.heardSec[current.id] || 0) + 1;
+  if (state.heardSec[current.id] >= 30) state.heard.add(current.id);
+  if (state.listenAcc >= 15) { state.listenAcc = 0; addCoins(1, '+1'); }
+}, 1000);
+function addCoins(n, label) {
+  state.coins += n; $('#coins').textContent = state.coins; blip('coin');
+  const r = $('#hudR'); r.classList.remove('bump'); void r.offsetWidth; r.classList.add('bump');
+  state.floats.push({ text: label, x: state.px, y: state.py - 22, t: performance.now(), scene: state.scene, color: P.yellow });
+  persist();
+}
+function toastFloat(text) { state.floats.push({ text, x: state.px, y: state.py - 22, t: performance.now(), scene: state.scene, color: P.white }); }
+
+/* ================= Workbench dialogs ================= */
+let dialogRefresh = null;
+function openDialog(title, bodyHTML, actions, refresh) {
+  $('#wbTitle').textContent = title; $('#wbBody').innerHTML = bodyHTML;
+  $('#wbActions').innerHTML = (actions || [{ label: 'OK', primary: true, action: 'wb-close' }]).map(a => `<button class="wb-btn${a.primary ? ' primary' : ''}" data-action="${a.action}"${a.disabled ? ' disabled' : ''}>${esc(a.label)}</button>`).join('');
+  $('#wbBack').classList.add('open'); state.dialog = true; dialogRefresh = refresh || null;
+  setTimeout(() => { const b = $('#wbActions .primary') || $('#wbActions button'); b && b.focus(); }, 20);
+}
+function closeDialog() { $('#wbBack').classList.remove('open'); state.dialog = false; dialogRefresh = null; }
+function refreshDialog() { if (state.dialog && dialogRefresh) dialogRefresh(); }
+const lockIcon = '<svg viewBox="0 0 8 8" width="12" height="12" fill="#ffcd75" shape-rendering="crispEdges"><path d="M2 1h4v1H2zM1 2h1v2H1zM6 2h1v2H6zM1 4h6v4H1z"/></svg>';
+function jukeboxDialog(b) {
+  const render = () => {
+    const r = b.rec;
+    $('#wbBody').innerHTML = `<p>${esc(r.artist)}${r.year ? ', ' + esc(r.year) : ''}. Pick a song and it keeps playing on your stereo when you head outside.</p>
+      <ol class="songs">${r.tracks.map((t, i) => `<li class="${current && current.id === t.id ? 'now' : ''}"><span class="n">${esc(t.trackNumber || i + 1)}</span>
+        <span class="t" title="${esc(t.title)}">${esc(t.title)}${state.heard.has(t.id) ? '<span class="heard">HEARD</span>' : ''}</span><span class="d">${fmt(t.durationSeconds)}</span>
+        ${t.gated ? `<span class="lock">${lockIcon}LOCKED</span>` : `<button class="wb-btn play" data-action="jb-play" data-i="${i}">${current && current.id === t.id && !audio.paused ? 'PLAYING' : 'PLAY'}</button>`}</li>`).join('')}</ol>`;
+  };
+  openDialog(`Jukebox: ${b.rec.title}`, '', [{ label: 'Play the whole record', primary: true, action: 'jb-all' }, { label: 'Close', action: 'wb-close' }], render);
+  render();
+  jukeboxDialog.b = b;
+}
+function lecternDialog(b) {
+  const with_ = b.rec.tracks.filter(t => String(t.description || '').trim());
+  openDialog(`Liner notes: ${b.rec.title}`, with_.length
+    ? `<div class="notes-list">${with_.map(t => `<div><h4>${esc(t.trackNumber)}. ${esc(t.title)}</h4><p>${esc(String(t.description).trim())}</p></div>`).join('')}</div>`
+    : '<p>The pages are blank. This record prefers to speak for itself.</p>');
+}
+
+/* ================= scenes ================= */
+const fadeEl = $('#fade');
+function fadeTo(fn) { fadeEl.classList.add('on'); setTimeout(() => { fn(); fadeEl.classList.remove('on'); }, 230); }
+function enterBuilding(b) {
+  if (!state.unlocked.has(b.district) || state.transit) return;
+  state.transit = true;
+  blip('door');
+  fadeTo(() => {
+    state.returnTo = { x: b.door.tx * T + 8, y: (b.door.ty + 1) * T + 10 };
+    state.interior = buildInterior(b); state.scene = 'interior';
+    state.px = 6 * T; state.py = 8 * T + 4; state.dir = 'up';
+    $('#hudArea').textContent = b.rec.title; state.transit = false;
+  });
+}
+function leaveBuilding() {
+  if (state.transit) return;
+  state.transit = true;
+  blip('door');
+  fadeTo(() => {
+    state.scene = 'town'; state.interior = null; state.px = state.returnTo.x; state.py = state.returnTo.y; state.dir = 'down';
+    updateArea(); state.transit = false;
+  });
+}
+function updateArea() { if (state.scene === 'town' && town) $('#hudArea').textContent = districtAt(Math.floor(state.px / T)).name; }
+
+/* ================= interaction ================= */
+function facingPoint() {
+  const d = { down: [0, 12], up: [0, -14], left: [-12, 0], right: [12, 0] }[state.dir];
+  return { x: state.px + d[0], y: state.py - 3 + d[1] };
+}
+function findTarget() {
+  const f = facingPoint(), tx = Math.floor(f.x / T), ty = Math.floor(f.y / T);
+  if (state.scene === 'town') {
+    for (const b of town.buildings) if (tx === b.door.tx && (ty === b.door.ty || ty === b.door.ty + 1) && Math.abs(state.px - (b.door.tx * T + 8)) < 14) return { kind: 'door', b };
+    for (const g of town.gates) if (!state.unlocked.has(g.d) && Math.abs(tx - g.x) <= 1 && g.rows.some(r => ty === r || ty === r + 1)) return { kind: 'gate', g };
+    if (tx >= 6 && tx <= 8 && ty >= 11 && ty <= 14) return { kind: 'fountain' };
+    if ((tx === 3 || tx === 4) && ty >= 9 && ty <= 11) return { kind: 'board' };
+  } else if (state.interior) {
+    if (tx === 2 && (ty === 3 || ty === 4 || ty === 5)) return { kind: 'jukebox' };
+    if (tx === 9 && (ty === 4 || ty === 5)) return { kind: 'lectern' };
+    if (ty <= 2 && tx >= 4 && tx <= 7) return { kind: 'painting' };
+  }
+  return null;
+}
+function interact() {
+  if (state.dialog || state.scene === 'title') return;
+  const t = findTarget(); if (!t) return;
+  if (t.kind === 'door') {
+    if (!state.unlocked.has(t.b.district)) return;
+    enterBuilding(t.b);
+  } else if (t.kind === 'gate') {
+    const d = town.districts[t.g.d], can = state.coins >= d.cost;
+    openDialog('Toll bridge', `<p>Beyond this bridge lies <b>${esc(d.name)}</b>: ${d.recs.length} record${d.recs.length === 1 ? '' : 's'}${d.years ? ' from ' + esc(d.years) : ''}.</p>
+      <p>The toll is <b>${d.cost} coins</b>. You have <b>${state.coins}</b>.${can ? '' : ` Listen to ${d.cost - state.coins} more coins' worth of music and come back.`}</p>`,
+      [{ label: `Pay ${d.cost} coins`, primary: true, action: 'pay-' + t.g.d, disabled: !can }, { label: 'Not yet', action: 'wb-close' }]);
+    if (!can) blip('deny');
+  } else if (t.kind === 'fountain') {
+    openDialog('The fountain', `<p>Toss in a coin for luck? You have ${state.coins}.</p>`, [{ label: 'Toss a coin', primary: true, action: 'wish', disabled: state.coins < 1 }, { label: 'Keep it', action: 'wb-close' }]);
+  } else if (t.kind === 'board') {
+    openDialog('Town notices', `<p><b>Welcome to ${esc(town.name)}.</b> Every building is a record. Step inside and play the jukebox.</p>
+      <p>Your stereo keeps playing as you walk. You earn <b>1 coin</b> for every 15 seconds you listen, and <b>10 coins</b> the first time you hear a song right through.</p>
+      <p>Spend coins at the toll bridges to open new quarters of town. Gold discs on the walls inside show the songs you've heard.</p>
+      <p>Arrows or WASD to walk, Shift to hurry, E or Space to use things. P pauses the stereo, N skips, M mutes.</p>`);
+  } else if (t.kind === 'jukebox') jukeboxDialog(state.interior.building);
+  else if (t.kind === 'lectern') lecternDialog(state.interior.building);
+  else if (t.kind === 'painting') { const r = state.interior.building.rec; openDialog(r.title, `<p>${esc(r.artist)}${r.year ? ', ' + esc(r.year) : ''}${r.genre ? '. ' + esc(r.genre) : ''}. ${r.tracks.length} songs.</p>`); }
+}
+const WISHES = ['You feel slightly luckier. There is no evidence for this.', 'The coin sinks. Somewhere, a B-side is reconsidered.', 'A carp looks at you with open contempt.', 'Nothing happens, beautifully.', 'The fountain thanks you for your custom.'];
+
+/* ================= input ================= */
+const keys = new Set();
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (state.dialog) { if (k === 'escape') closeDialog(); return; }
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+  if (state.scene === 'title' && (k === 'enter' || k === ' ')) { startGame(); return; }
+  keys.add(k);
+  if (k === 'e' || k === ' ' || k === 'enter') interact();
+  if (k === 'p') { if (current) audio.paused ? audio.play() : audio.pause(); }
+  if (k === 'n') nextSong(false);
+  if (k === 'm') { state.muted = !state.muted; audio.muted = state.muted; toastFloat(state.muted ? 'MUTED' : 'SOUND ON'); }
+});
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('blur', () => keys.clear());
+const padDirs = new Set();
+document.querySelectorAll('#dpad button').forEach(b => {
+  const d = b.dataset.dir;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); padDirs.add(d); b.setPointerCapture(e.pointerId); });
+  const up = () => padDirs.delete(d); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+});
+$('#abtn').addEventListener('pointerdown', e => { e.preventDefault(); if (state.scene === 'title') startGame(); else interact(); });
+$('#screen').addEventListener('pointerdown', () => { if (state.scene === 'title') startGame(); });
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]'); if (!el) return;
+  const a = el.dataset.action;
+  if (a === 'wb-close') closeDialog();
+  else if (a === 'wm-toggle') { if (current) audio.paused ? audio.play() : audio.pause(); }
+  else if (a === 'wm-next') nextSong(false);
+  else if (a === 'wm-prev') prevSong();
+  else if (a === 'jb-play') { const b = jukeboxDialog.b, i = +el.dataset.i; if (current && current.id === b.rec.tracks[i].id) { audio.paused ? audio.play() : audio.pause(); refreshDialog(); } else playQueue(b.rec.tracks, i); }
+  else if (a === 'jb-all') { const b = jukeboxDialog.b; playQueue(b.rec.tracks, 0); }
+  else if (a === 'wish') { state.coins--; $('#coins').textContent = state.coins; blip('coin'); openDialog('The fountain', `<p>${WISHES[Math.random() * WISHES.length | 0]}</p>`); persist(); }
+  else if (a.startsWith('pay-')) {
+    const d = +a.slice(4), dist = town.districts[d];
+    if (state.coins < dist.cost) return;
+    state.coins -= dist.cost; state.unlocked.add(d); $('#coins').textContent = state.coins;
+    for (const g of town.gates) if (g.d === d) for (const r of g.rows) { town.solid[r][g.x] = false; town.solid[r + 1][g.x] = false; }
+    blip('unlock'); closeDialog(); state.floats.push({ text: 'QUARTER OPEN!', x: state.px, y: state.py - 22, t: performance.now(), scene: 'town', color: P.lime }); persist();
+  }
+});
+
+/* ================= movement ================= */
+function solidAt(px_, py_) {
+  const m = state.scene === 'town' ? town : state.interior;
+  const tx = Math.floor(px_ / T), ty = Math.floor(py_ / T);
+  if (tx < 0 || ty < 0 || tx >= m.W || ty >= m.H) return state.scene !== 'interior' || !(ty >= m.H && (tx === 5 || tx === 6));
+  return m.solid[ty][tx];
+}
+function blocked(x, y) { return solidAt(x - 5, y - 4) || solidAt(x + 4, y - 4) || solidAt(x - 5, y) || solidAt(x + 4, y); }
+function move(dt) {
+  let ax = 0, ay = 0;
+  if (!state.dialog) {
+    if (keys.has('arrowleft') || keys.has('a') || padDirs.has('left')) ax -= 1;
+    if (keys.has('arrowright') || keys.has('d') || padDirs.has('right')) ax += 1;
+    if (keys.has('arrowup') || keys.has('w') || padDirs.has('up')) ay -= 1;
+    if (keys.has('arrowdown') || keys.has('s') || padDirs.has('down')) ay += 1;
+  }
+  if (state.transit) { ax = ay = 0; }
+  state.moving = !!(ax || ay);
+  if (!state.moving) return;
+  if (ax && ay) { ax *= .7071; ay *= .7071; }
+  state.dir = Math.abs(ax) > Math.abs(ay) ? (ax < 0 ? 'left' : 'right') : (ay < 0 ? 'up' : 'down');
+  const sp = (keys.has('shift') ? 105 : 62) * dt;
+  const nx = state.px + ax * sp, ny = state.py + ay * sp;
+  if (!blocked(nx, state.py)) state.px = nx;
+  if (!blocked(state.px, ny)) state.py = ny;
+  state.anim += dt * (keys.has('shift') ? 11 : 7);
+  if (state.scene === 'interior' && state.py > state.interior.H * T - 2) leaveBuilding();
+  if (state.scene === 'town') updateArea();
+}
+
+/* ================= rendering ================= */
+const screen = $('#screen'), sctx = screen.getContext('2d');
+const low = makeCanvas(320, 200), lctx = low.getContext('2d');
+let LW = 320, LH = 200, K = 3;
+function resize() {
+  const dpr = devicePixelRatio || 1, cssW = innerWidth, cssH = innerHeight;
+  const target = Math.max(2, Math.floor(Math.min(cssW / 300, cssH / 190) * dpr));
+  K = target; LW = Math.ceil(cssW * dpr / K); LH = Math.ceil(cssH * dpr / K);
+  low.width = LW; low.height = LH;
+  screen.width = LW * K; screen.height = LH * K; screen.style.width = (LW * K / dpr) + 'px'; screen.style.height = (LH * K / dpr) + 'px';
+  lctx.imageSmoothingEnabled = false; sctx.imageSmoothingEnabled = false;
+}
+addEventListener('resize', resize);
+let townGround = null;
+function prerenderTown() {
+  townGround = makeCanvas(town.W * T, town.H * T); const g = townGround.getContext('2d');
+  for (let y = 0; y < town.H; y++) for (let x = 0; x < town.W; x++) {
+    let t = town.ground[y][x]; if (t === 'path') t = 'path' + ((x * 7 + y * 3) % 3); if (t === 'water') t = 'water0';
+    g.drawImage(TILES[t] || TILES.grass0, x * T, y * T);
+  }
+  // street kerbs and river banks
+  g.fillStyle = P.path2; for (const sy of [ST_A, ST_B]) { g.fillRect(0, sy * T, town.W * T, 1); g.fillRect(0, (sy + 2) * T - 1, town.W * T, 1); }
+  for (const rx of town.rivers) { g.fillStyle = P.g4; g.fillRect(rx * T - 2, 0, 2, town.H * T); g.fillRect((rx + 3) * T, 0, 2, town.H * T); g.fillStyle = P.wood4; for (const sy of [ST_A, ST_B]) { g.fillRect(rx * T, sy * T - 2, 3 * T, 2); g.fillRect(rx * T, (sy + 2) * T, 3 * T, 2); } }
+  // district boundary signs are drawn live; buildings painted into their own sprites
+  town.buildings.forEach(paintBuilding);
+}
+function nightLevel() {
+  const h = new Date().getHours() + new Date().getMinutes() / 60;
+  if (h >= 7 && h <= 18) return 0;
+  if (h > 18 && h < 21) return (h - 18) / 3 * .55;
+  if (h >= 21 || h < 5) return .55;
+  return (7 - h) / 2 * .55;
+}
+function drawObject(o, g, t) {
+  if (o.kind === 'building') {
+    const b = o.b; g.drawImage(b.sprite, o.x, o.y);
+    if (b.poster && b.img.complete && b.img.naturalWidth) { g.imageSmoothingEnabled = true; g.drawImage(b.img, o.x + b.poster.x, o.y + 44 + (b.poster.y - 44), b.poster.w, b.poster.h); g.imageSmoothingEnabled = false; }
+    if (!state.unlocked.has(b.district)) { g.fillStyle = 'rgba(26,28,44,.45)'; g.fillRect(o.x, o.y, b.w * T, b.h * T); }
+  } else if (o.kind === 'tree') g.drawImage(OBJ.tree, o.x, o.y);
+  else if (o.kind === 'lamp') g.drawImage(OBJ.lamp, o.x, o.y);
+  else if (o.kind === 'bench') g.drawImage(OBJ.bench, o.x, o.y);
+  else if (o.kind === 'fountain') {
+    g.drawImage(OBJ.fountain, o.x, o.y);
+    for (let i = 0; i < 6; i++) { const p = ((t / 700) + i / 6) % 1, a = i / 6 * Math.PI * 2; g.fillStyle = P.cyan; g.fillRect(o.x + 24 + Math.cos(a) * p * 14 | 0, o.y + 4 + p * p * 22 - Math.sin(p * Math.PI) * 8 | 0, 1, 2); }
+  } else if (o.kind === 'board') g.drawImage(OBJ.board, o.x, o.y);
+  else if (o.kind === 'jukebox') { g.drawImage(OBJ.jukebox, o.x, o.y); if (current && !audio.paused && current._rec === state.interior.building.rec) { g.fillStyle = [P.yellow, P.orange, P.red][Math.floor(t / 200) % 3]; g.fillRect(o.x + 4, o.y + 7, 8, 1); } }
+  else if (o.kind === 'lectern') g.drawImage(OBJ.lectern, o.x, o.y);
+  else if (o.kind === 'plant') g.drawImage(OBJ.plant, o.x, o.y);
+  else if (o.kind === 'player') drawPlayer(g);
+  else if (o.kind === 'gate') drawGate(g, o);
+}
+function drawGate(g, o) {
+  const open = state.unlocked.has(o.d), x = o.x;
+  for (const r of o.rows) {
+    const y = r * T;
+    g.fillStyle = P.wood4; g.fillRect(x + 6, y - 10, 4, 12); g.fillRect(x + 6, y + 2 * T - 2, 4, 6);
+    if (!open) { for (let k = 0; k < 2 * T; k += 4) { g.fillStyle = (k / 4) % 2 ? P.white : P.red; g.fillRect(x + 6, y + k, 4, 4); } g.fillStyle = P.ink; g.fillRect(x + 5, y, 1, 2 * T); g.fillRect(x + 10, y, 1, 2 * T); }
+    else { for (let k = 0; k < 20; k += 4) { g.fillStyle = (k / 4) % 2 ? P.white : P.red; g.fillRect(x + 6 + k, y - 12, 4, 3); } }
+    if (!open && o.sign) {
+      const d = town.districts[o.d], label = `TOLL ${d.cost}`;
+      g.fillStyle = P.wood4; g.fillRect(x + 7, y - 26, 2, 16); g.fillRect(x - 6, y - 32, textW(label) + 6, 9); g.fillStyle = P.yellow; g.fillRect(x - 5, y - 31, textW(label) + 4, 7);
+      drawText(g, label, x - 3, y - 30, P.ink);
+    }
+  }
+}
+function drawPlayer(g) {
+  const f = state.moving ? 1 + (Math.floor(state.anim) % 2) : 0;
+  const key = (state.dir === 'left' ? 'left' : state.dir === 'right' ? 'side' : state.dir) + f;
+  const x = Math.round(state.px - 6), y = Math.round(state.py - 15);
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(x + 2, y + 14, 8, 3);
+  const bob = state.moving && f ? -1 : 0;
+  g.drawImage(SPRITES[key], x, y + bob);
+  if (current && !audio.paused) { const n = Math.floor(performance.now() / 400) % 2; drawText(g, n ? '"' : "'", x + 12, y - 4 - n, P.yellow); }
+}
+function render(t) {
+  const g = lctx;
+  g.fillStyle = '#000'; g.fillRect(0, 0, LW, LH);
+  if (state.scene === 'title') return renderTitle(g, t);
+  const map = state.scene === 'town' ? town : state.interior;
+  const mapW = map.W * T, mapH = map.H * T;
+  let cx = Math.round(state.px - LW / 2), cy = Math.round(state.py - LH / 2);
+  cx = mapW <= LW ? Math.round((mapW - LW) / 2) : clamp(cx, 0, mapW - LW);
+  cy = mapH <= LH ? Math.round((mapH - LH) / 2) : clamp(cy, 0, mapH - LH);
+  g.save(); g.translate(-cx, -cy);
+  if (state.scene === 'town') {
+    g.drawImage(townGround, cx, cy, LW, LH, cx, cy, LW, LH);
+    const f = Math.floor(t / 450) % 3;
+    for (const rx of town.rivers) for (let y = Math.max(0, Math.floor(cy / T)); y < Math.min(town.H, Math.ceil((cy + LH) / T)); y++) for (let k = 0; k < 3; k++) if (town.ground[y][rx + k] === 'water') g.drawImage(TILES['water' + ((f + y + k) % 3)], (rx + k) * T, y * T);
+  } else g.drawImage(map.groundCanvas, 0, 0);
+  // interior wall decorations: cover painting and gold discs
+  if (state.scene === 'interior') drawInteriorWall(g, t);
+  const list = [];
+  for (const o of map.objects) if (o.x < cx + LW + 64 && o.x > cx - 160 && o.y < cy + LH + 40 && o.base > cy - 20) list.push(o);
+  if (state.scene === 'town') for (const gt of town.gates) gt.rows.forEach((r, i) => list.push({ kind: 'gate', x: gt.x * T, y: r * T, base: (r + 2) * T + 1, d: gt.d, rows: [r], sign: i === 0 }));
+  list.push({ kind: 'player', base: state.py });
+  list.sort((a, b) => a.base - b.base);
+  for (const o of list) drawObject(o, g, t);
+  // prompt
+  const tg = !state.dialog && findTarget();
+  if (tg) {
+    const label = tg.kind === 'door' ? (state.unlocked.has(tg.b.district) ? 'E: ENTER' : 'LOCKED') : tg.kind === 'gate' ? 'E: TOLL' : tg.kind === 'jukebox' ? 'E: JUKEBOX' : tg.kind === 'lectern' ? 'E: READ' : tg.kind === 'board' ? 'E: READ' : tg.kind === 'fountain' ? 'E: WISH' : 'E: LOOK';
+    const w = textW(label) + 6, x = Math.round(state.px - w / 2), y = Math.round(state.py - 30);
+    g.fillStyle = P.ink; g.fillRect(x - 1, y - 1, w + 2, 9); g.fillStyle = P.white; g.fillRect(x, y, w, 7); drawText(g, label, x + 3, y + 1, P.ink);
+    if (tg.kind === 'door') { const title = tg.b.rec.title, tw = Math.min(textW(title), 200); const tx = Math.round(state.px - tw / 2); drawText(g, title.length > 50 ? title.slice(0, 49) + '.' : title, tx, y - 9, P.yellow, 1, P.ink); }
+  }
+  // floating texts
+  const now = performance.now();
+  state.floats = state.floats.filter(f => now - f.t < 1600);
+  for (const f of state.floats) { if (f.scene !== state.scene) continue; const p = (now - f.t) / 1600; drawText(g, f.text, Math.round(f.x - textW(f.text) / 2), Math.round(f.y - p * 18), f.color, 1, P.ink); }
+  g.restore();
+  // night
+  const n = state.scene === 'town' ? nightLevel() : 0;
+  if (n > 0) {
+    g.fillStyle = `rgba(20,24,70,${n})`; g.fillRect(0, 0, LW, LH);
+    g.globalCompositeOperation = 'lighter';
+    for (const o of town.objects) {
+      if (o.kind === 'lamp' && o.x > cx - 60 && o.x < cx + LW + 60 && o.y > cy - 60 && o.y < cy + LH + 60) { const gr = g.createRadialGradient(o.lx - cx, o.ly - cy, 1, o.lx - cx, o.ly - cy, 40); gr.addColorStop(0, `rgba(255,205,117,${n * .9})`); gr.addColorStop(1, 'rgba(255,205,117,0)'); g.fillStyle = gr; g.fillRect(o.lx - cx - 40, o.ly - cy - 40, 80, 80); }
+      if (o.kind === 'building' && o.x > cx - 140 && o.x < cx + LW && o.y > cy - 100 && o.y < cy + LH) for (const w of o.b.windows) { g.fillStyle = `rgba(255,205,117,${n * .8})`; g.fillRect(o.x + w.x - cx, o.y + w.y - cy, w.w, w.h); }
+    }
+    g.globalCompositeOperation = 'source-over';
+  }
+}
+function drawInteriorWall(g, t) {
+  const b = state.interior.building, r = b.rec;
+  const pw = 34, px0 = 6 * T - pw / 2, py0 = 5;
+  g.fillStyle = P.wood4; g.fillRect(px0 - 3, py0 - 3, pw + 6, pw + 6); g.fillStyle = P.yellow; g.fillRect(px0 - 2, py0 - 2, pw + 4, pw + 4); g.fillStyle = P.wood2; g.fillRect(px0 - 1, py0 - 1, pw + 2, pw + 2);
+  if (b.img.complete && b.img.naturalWidth) { g.imageSmoothingEnabled = true; g.drawImage(b.img, px0, py0, pw, pw); g.imageSmoothingEnabled = false; }
+  else { g.fillStyle = b.roof; g.fillRect(px0, py0, pw, pw); }
+  // one disc per song, gold once heard
+  const slots = [];
+  const left = [], right = [];
+  for (let row = 0; row < 3; row++) {
+    for (let x = px0 - 16; x >= T + 4; x -= 12) left.push({ x, y: 8 + row * 12 });
+    for (let x = px0 + pw + 6; x <= (state.interior.W - 1) * T - 14; x += 12) right.push({ x, y: 8 + row * 12 });
+  }
+  for (let i = 0; i < Math.max(left.length, right.length); i++) { if (left[i]) slots.push(left[i]); if (right[i]) slots.push(right[i]); }
+  r.tracks.forEach((tr, i) => {
+    const s = slots[i]; if (!s) return;
+    const heard = state.heard.has(tr.id), playing = current && current.id === tr.id && !audio.paused;
+    g.fillStyle = P.wood4; g.fillRect(s.x - 1, s.y - 1, 12, 12);
+    g.fillStyle = `hsl(${strHash(r.id) % 360},25%,24%)`; g.fillRect(s.x, s.y, 10, 10);
+    const c = tr.gated ? P.dusk : heard ? P.yellow : P.silver, c2 = tr.gated ? P.ink : heard ? P.orange : P.slate;
+    disc(g, s.x + 5, s.y + 5, 3, c); g.fillStyle = c2; g.fillRect(s.x + 4, s.y + 4, 2, 2);
+    if (playing) { const a = t / 150; px(g, s.x + 5 + Math.round(Math.cos(a) * 3), s.y + 5 + Math.round(Math.sin(a) * 3), P.white); }
+    if (tr.gated) { g.fillStyle = P.yellow; g.fillRect(s.x + 3, s.y + 5, 5, 4); g.fillRect(s.x + 4, s.y + 3, 1, 2); g.fillRect(s.x + 6, s.y + 3, 1, 2); }
+  });
+}
+
+/* ================= Amiga title screen ================= */
+let scrollText = '';
+function renderTitle(g, t) {
+  // copper bars
+  for (let y = 0; y < LH; y++) {
+    const v = Math.sin(y * .09 + t / 500) * .5 + .5, band = Math.sin(y * .02 - t / 1300);
+    const hue = (y * 1.6 + t / 20) % 360;
+    g.fillStyle = `hsl(${hue},70%,${8 + v * 14 + (band > .85 ? 30 : 0)}%)`; g.fillRect(0, y, LW, 1);
+  }
+  // starfield
+  for (let i = 0; i < 60; i++) { const sx = (i * 97 + t * (0.02 + (i % 3) * .02)) % LW, sy = (i * 53) % LH; g.fillStyle = i % 3 ? P.silver : P.white; g.fillRect(LW - sx | 0, sy, 1, 1); }
+  const name = town ? town.name : 'RECORD TOWN';
+  const sc = Math.max(2, Math.min(6, Math.floor((LW - 20) / Math.max(1, textW(name)))));
+  const tw = textW(name, sc), tx = Math.round((LW - tw) / 2), ty = Math.round(LH * .26);
+  [...normText(name)].forEach((ch, i) => { const oy = Math.round(Math.sin(t / 300 + i * .5) * 3); drawText(g, ch, tx + i * 4 * sc, ty + oy, P.yellow, sc, P.ink); });
+  const sub = town ? `${recs.length} RECORDS  ${allTracks.length} SONGS` : 'LOADING THE CATALOGUE...';
+  drawText(g, sub, Math.round((LW - textW(sub)) / 2), ty + 6 * sc + 10, P.white, 1, P.ink);
+  if (town && Math.floor(t / 500) % 2) { const s = 'PRESS START'; drawText(g, s, Math.round((LW - textW(s, 2)) / 2), Math.round(LH * .62), P.white, 2, P.ink); }
+  if (loadError) { const lines = ['THE CATALOGUE WOULD NOT LOAD.', 'CHECK BASE_URL AT THE TOP OF THE FILE.']; lines.forEach((l, i) => drawText(g, l, Math.round((LW - textW(l)) / 2), Math.round(LH * .62) + i * 9, P.red, 1, P.ink)); }
+  // sine scroller
+  const sy = LH - 22, speed = t / 28, total = textW(scrollText, 2) + LW;
+  let x = LW - (speed % total);
+  for (const ch of normText(scrollText)) { if (x > -10 && x < LW) drawText(g, ch, Math.round(x), Math.round(sy + Math.sin((x + t / 5) / 22) * 5), P.cyan, 2, P.ink); x += 8; }
+}
+
+/* ================= loop ================= */
+let last = performance.now();
+function frame(t) {
+  const dt = Math.min(.05, (t - last) / 1000); last = t;
+  if (state.scene !== 'title') move(dt);
+  render(t);
+  sctx.drawImage(low, 0, 0, LW * K, LH * K);
+  requestAnimationFrame(frame);
+}
+
+/* ================= start ================= */
+let loadError = false;
+function startGame() {
+  if (!town || state.scene !== 'title') return;
+  blip('unlock');
+  audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; audio.play().then(() => audio.pause()).catch(() => {});
+  fadeTo(() => {
+    state.scene = 'town';
+    $('#hudL').hidden = false; $('#hudR').hidden = false;
+    updateArea();
+    if (!save.px) setTimeout(() => openDialog('Welcome', `<p>Welcome to <b>${esc(town.name)}</b>. Every building is a record: walk up to a door and press <b>E</b> (or <b>A</b>) to go in, then play the jukebox.</p><p>Listening earns coins. Spend them at the toll bridges to open the rest of town. The notice board in the square has the details.</p>`, [{ label: "Let's go", primary: true, action: 'wb-close' }]), 400);
+  });
+}
+async function load() {
+  resize(); buildTiles();
+  OBJ = { tree: paintTree(), lamp: paintLamp(), bench: paintBench(), fountain: paintFountain(), board: paintBoard(), jukebox: paintJukebox(), lectern: paintLectern(), plant: paintPlant() };
+  const ci = $('#coinIcon').getContext('2d'); disc(ci, 5, 5, 5, P.ink); disc(ci, 5, 5, 4, P.yellow); ci.fillStyle = P.orange; ci.fillRect(4, 3, 2, 5); px(ci, 3, 3, '#fff3c4');
+  requestAnimationFrame(frame);
+  try {
+    const res = await fetch(API + '/catalogue', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    instance = data.instance || {};
+    recs = mergeReleases(data.releases || []).filter(r => r.tracks.length).sort((a, b) => (+a.year || 9999) - (+b.year || 9999) || String(a.title).localeCompare(b.title));
+    recs.forEach(r => r.tracks.forEach(t => t._rec = r));
+    allTracks = recs.flatMap(r => r.tracks);
+    buildTown();
+    town.name = `${instance.name || 'Record'} Town`.replace(/\s+Town\s+Town$/, ' Town');
+    document.title = town.name; $('#hudTown').textContent = town.name;
+    prerenderTown();
+    const seed = strHash(recs.map(r => r.id).join('|'));
+    if (save.seed !== seed) { state.unlocked = new Set([0]); }
+    for (const g of town.gates) if (state.unlocked.has(g.d)) for (const r of g.rows) { town.solid[r][g.x] = false; town.solid[r + 1][g.x] = false; }
+    if (save.seed === seed && save.px && !blocked(save.px, save.py)) { state.px = save.px; state.py = save.py; } else { state.px = 7 * T + 8; state.py = 16 * T + 8; }
+    $('#coins').textContent = state.coins;
+    scrollText = `WELCOME TO ${town.name}  ...  EVERY BUILDING IS A RECORD  ...  WALK IN, PLAY THE JUKEBOX, AND YOUR STEREO KEEPS THE MUSIC GOING  ...  LISTEN TO EARN COINS AND PAY THE TOLLS TO OPEN NEW QUARTERS  ...  GREETINGS TO EVERYONE WHO STILL BUYS RECORDS  ...  `;
+  } catch (e) { console.error(e); loadError = true; }
+}
+load();
+})();
+</script>
+</body>
+</html>

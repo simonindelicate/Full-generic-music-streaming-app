@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Radio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script>
+/* ==========================================================================
+   ▼▼▼  YOUR SITE ADDRESS GOES HERE  ▼▼▼
+   This is the only line you need to change. Put your own site's address
+   between the quote marks (no slash on the end).
+   ========================================================================== */
+const BASE_URL = 'https://coporatemusicsolution1.netlify.app';
+
+/* ==========================================================================
+   STATION BEHAVIOUR
+   These are the defaults. Anything changed in the station settings panel
+   overrides them for that browser; choose "As set in the file" there to
+   come back to these.
+   ========================================================================== */
+const STATION = {
+  // How the station programmes the catalogue. Listeners can switch this in the settings panel;
+  // this is the starting choice.
+  //   'artist'  - "Curated Artist Radio". For a catalogue that is one act plus its side projects and
+  //               solo records. Plays anything in the catalogue, and every so often runs a short
+  //               segment: an era, a spotlight on one record, deeper cuts or live recordings.
+  //   'singles' - "Random Artist Radio". One song at a time with no segments. Choices follow record,
+  //               year, genre and recording type, and ignore the artist field entirely.
+  //   'mixed'   - "Mixed Catalogue". For wide catalogues with many artists: like 'artist', plus
+  //               segments for genres and individual artists.
+  // Wherever there are segments, the station plays at least three songs freely before it considers
+  // starting one, and no segment is longer than three songs.
+  curation: 'artist',
+
+  // The act the station is about, for the presenter's framing. Leave empty to use whoever has the
+  // most songs in the catalogue.
+  mainArtist: '',
+
+  // Records kept off the air entirely, by title or by id. Matching ignores capitals.
+  // For example: exclude: ['Elevator Music', 'DoE "Part 4" DLC'],
+  exclude: [],
+
+  // How the presenter meets the next song. After every link the song comes in under the presenter's
+  // last few words, starting this many seconds before they finish (a random point in the range).
+  // Now and then, at the rate below, the presenter finishes completely before the song starts.
+  overlapSeconds: [2, 5],
+  clearChance: 0.2,
+  pauseBeforeTalk: 0.8     // seconds of quiet between the end of a song and the presenter
+};
+/* ========================================================================== */
+</script>
+<style>
+@property --h  { syntax:'<number>'; inherits:true; initial-value:25 }
+@property --c  { syntax:'<number>'; inherits:true; initial-value:.04 }
+:root{
+  --h:25; --c:.04;
+  --bg:     oklch(.175 calc(var(--c) * .35) var(--h));
+  --bg2:    oklch(.215 calc(var(--c) * .4) var(--h));
+  --raise:  oklch(.29 calc(var(--c) * .45) var(--h) / .5);
+  --ink:    oklch(.965 .008 var(--h));
+  --muted:  oklch(.76 .018 var(--h));
+  --faint:  oklch(.57 .018 var(--h));
+  --line:   oklch(.96 .01 var(--h) / .1);
+  --accent: oklch(.85 clamp(.05, calc(var(--c) * 1.1), .15) var(--h));
+  --on-accent: oklch(.2 .03 var(--h));
+  --air: oklch(.64 .21 25);
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  --pad: clamp(18px, 4vw, 56px);
+  transition: --h 1.6s var(--ease), --c 1.6s var(--ease);
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;min-height:100dvh;color:var(--ink);font:400 15px/1.55 var(--sans);letter-spacing:-.005em;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(110% 70% at 20% -10%, oklch(.42 calc(var(--c) * .9) var(--h) / .42), transparent 65%) fixed, var(--bg)}
+button,input,select{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer}
+img{display:block;max-width:100%}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+h1,h2,h3{text-wrap:balance} p{text-wrap:pretty}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- header ---------- */
+.top{display:flex;align-items:center;gap:18px;padding:18px var(--pad)}
+.station{margin:0 auto 0 0;font:400 clamp(1.5rem,2.6vw,2.1rem)/1 var(--serif);letter-spacing:-.01em;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.onair{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--faint);border:1px solid var(--line);transition:color .4s,background .4s,border-color .4s}
+.onair i{width:8px;height:8px;border-radius:50%;background:currentColor}
+body.on .onair{color:#fff;background:var(--air);border-color:transparent;box-shadow:0 0 24px -4px var(--air)}
+body.on .onair i{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.clock{font:500 14px/1 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;min-width:8ch;text-align:right}
+.icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--muted);transition:color .2s,background .2s}
+.icon-btn:hover{color:var(--ink);background:var(--raise)}
+.icon-btn svg{width:19px;height:19px}
+
+/* ---------- layout ---------- */
+main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:clamp(24px,4vw,64px);padding:clamp(8px,2vw,28px) var(--pad) 48px;max-width:1560px;margin:0 auto}
+@media (max-width:980px){main{grid-template-columns:1fr}}
+
+/* ---------- off air ---------- */
+.offair{position:relative;min-height:min(72vh,720px);display:grid;align-content:center;border-radius:20px;overflow:hidden;padding:clamp(28px,5vw,72px)}
+.mosaic{position:absolute;inset:-10%;display:grid;grid-template-columns:repeat(6,1fr);gap:14px;transform:rotate(-8deg);opacity:.32;animation:drift 80s linear infinite alternate;pointer-events:none;
+  -webkit-mask-image:radial-gradient(70% 70% at 70% 50%,#000 20%,transparent 75%);mask-image:radial-gradient(70% 70% at 70% 50%,#000 20%,transparent 75%)}
+.mosaic img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px}
+@keyframes drift{to{transform:rotate(-8deg) translate(-6%,-8%)}}
+.offair-in{position:relative;max-width:640px}
+.eyebrow{margin:0 0 16px;color:var(--muted);font-size:14px}
+.big{margin:0;font:400 clamp(3rem,8vw,7.4rem)/.92 var(--serif);letter-spacing:-.025em;overflow-wrap:break-word}
+.lede{margin:24px 0 0;color:var(--muted);font-size:clamp(1rem,1.5vw,1.15rem);max-width:44ch}
+.btn{display:inline-flex;align-items:center;gap:10px;height:50px;padding:0 26px 0 22px;border-radius:999px;font-weight:550;font-size:15px;transition:transform .35s var(--ease),background .25s,box-shadow .35s var(--ease)}
+.btn svg{width:18px;height:18px}
+.btn.primary{background:var(--accent);color:var(--on-accent);box-shadow:0 10px 30px -10px oklch(.7 .12 var(--h) / .6)}
+.btn.primary:hover{transform:translateY(-2px)}
+.btn.quiet{background:var(--raise);border:1px solid var(--line);padding:0 22px}
+.btn:disabled{opacity:.7;cursor:progress}
+.btn .spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tune{margin-top:36px}
+.hint{margin:16px 0 0;color:var(--faint);font-size:13.5px}
+
+/* ---------- on air ---------- */
+.onair-view{display:none}
+body.on .onair-view,body.was-on .onair-view{display:block}
+body.on .offair,body.was-on .offair{display:none}
+.now{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:clamp(22px,3.5vw,52px);align-items:end}
+@media (max-width:720px){.now{grid-template-columns:1fr}}
+.art{position:relative;aspect-ratio:1;width:100%;max-width:520px}
+.art .glow{position:absolute;inset:8%;border-radius:12px;background:oklch(.62 calc(var(--c) * 1.6 + .02) var(--h));filter:blur(60px);opacity:.5;transform:translateY(8%)}
+.art img{position:relative;width:100%;height:100%;object-fit:cover;border-radius:8px;box-shadow:0 30px 80px -30px rgb(0 0 0/.75);transition:opacity .6s}
+.art img.fade{opacity:0}
+.segment{display:inline-flex;align-items:center;gap:8px;margin:0 0 16px;font-size:13.5px;color:var(--accent)}
+.segment::before{content:'';width:18px;height:1px;background:currentColor}
+.title{margin:0;font:400 clamp(2.4rem,5.4vw,5rem)/.95 var(--serif);letter-spacing:-.02em;overflow-wrap:break-word;hyphens:auto}
+.title.long{font-size:clamp(2rem,4vw,3.6rem);line-height:1}
+.title.xlong{font-size:clamp(1.7rem,3vw,2.7rem);line-height:1.05}
+.by{margin:16px 0 0;color:var(--muted);font-size:1.08rem}
+.bar{margin-top:30px;height:3px;border-radius:3px;background:oklch(.96 .01 var(--h) / .12);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--ink);transition:width .3s linear}
+.times{display:flex;justify-content:space-between;margin-top:8px;font:500 12.5px/1 var(--mono);color:var(--faint)}
+.ctrls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:26px}
+.round{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--raise);border:1px solid var(--line);color:var(--ink);transition:transform .3s var(--ease),background .2s,color .2s}
+.round:hover{transform:scale(1.06)}
+.round svg{width:20px;height:20px}
+.round[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.vol{display:flex;align-items:center;gap:8px;margin-left:auto;color:var(--faint)}
+.vol svg{width:18px;height:18px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:110px;height:20px;background:transparent;cursor:pointer;--p:90%}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:linear-gradient(to right,var(--ink) var(--p),oklch(.96 .01 var(--h) / .14) var(--p))}
+input[type=range]::-moz-range-track{height:4px;border-radius:4px;background:linear-gradient(to right,var(--ink) var(--p),oklch(.96 .01 var(--h) / .14) var(--p))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;margin-top:-4px;border-radius:50%;background:var(--ink)}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:var(--ink)}
+.next{display:flex;align-items:center;gap:14px;margin-top:40px;padding:12px;border-radius:14px;background:var(--raise);border:1px solid var(--line);max-width:520px}
+.next img{width:48px;height:48px;border-radius:6px;object-fit:cover;flex:none}
+.next small{display:block;color:var(--faint);font-size:12.5px}
+.next b{display:block;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.next div{min-width:0}
+
+/* ---------- side: presenter + log ---------- */
+aside{display:flex;flex-direction:column;gap:22px;min-width:0}
+.presenter{padding:22px;border-radius:18px;background:var(--raise);border:1px solid var(--line)}
+.p-head{display:flex;align-items:center;gap:14px}
+.avatar{position:relative;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font:italic 22px/1 var(--serif);background:var(--bg2);flex:none;--lv:0}
+.avatar::before{content:'';position:absolute;inset:-4px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--lv) * 360deg),transparent 0);-webkit-mask:radial-gradient(closest-side,transparent calc(100% - 2.5px),#000 calc(100% - 2px));mask:radial-gradient(closest-side,transparent calc(100% - 2.5px),#000 calc(100% - 2px));opacity:.9}
+.p-name{font-weight:600}
+.p-role{color:var(--faint);font-size:13px}
+.chip{margin-left:auto;font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.caption{margin:18px 0 0;font:400 1.32rem/1.45 var(--serif);min-height:2.9em;color:var(--muted)}
+.caption span{opacity:.28;transition:opacity .25s}
+.caption span.on{opacity:1;color:var(--ink)}
+.caption.idle{font-style:italic;font-size:1.05rem;color:var(--faint)}
+.log h3{margin:0 0 10px;font:italic 400 1.25rem/1 var(--serif);color:var(--muted)}
+.log ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;max-height:min(56vh,620px);overflow:auto;scrollbar-width:thin}
+.log li{display:grid;grid-template-columns:48px 36px minmax(0,1fr) 32px;gap:10px;align-items:center;padding:8px 6px;border-radius:10px;animation:in .5s var(--ease)}
+.log li:hover{background:var(--raise)}
+.log time{font:500 12px/1 var(--mono);color:var(--faint)}
+.log img{width:36px;height:36px;border-radius:4px;object-fit:cover}
+.log .t{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log .s{color:var(--faint);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log li.talk{grid-template-columns:48px minmax(0,1fr)}
+.log li.talk p{margin:0;font:italic 400 1rem/1.4 var(--serif);color:var(--muted)}
+.log .icon-btn{width:32px;height:32px;opacity:0}
+.log li:hover .icon-btn,.log .icon-btn:focus-visible{opacity:1}
+@media (hover:none){.log .icon-btn{opacity:1}}
+@keyframes in{from{opacity:0;transform:translateY(-6px)}}
+.empty-log{color:var(--faint);font-size:14px;padding:8px 6px}
+
+/* ---------- settings sheet ---------- */
+dialog.sheet{margin:0 0 0 auto;width:min(480px,100vw);height:100dvh;max-height:100dvh;max-width:100vw;padding:0;border:0;background:var(--bg2);color:var(--ink);overflow:auto;
+  box-shadow:-30px 0 80px -30px rgb(0 0 0/.7);opacity:0;transform:translateX(40px);transition:opacity .3s var(--ease),transform .45s var(--ease),overlay .45s allow-discrete,display .45s allow-discrete}
+dialog.sheet[open]{opacity:1;transform:none}
+@starting-style{dialog.sheet[open]{opacity:0;transform:translateX(40px)}}
+dialog.sheet::backdrop{background:rgb(6 6 8/.55);backdrop-filter:blur(6px)}
+.sheet-in{padding:22px clamp(22px,4vw,36px) 40px}
+.sheet-in h2{margin:0;font:400 2.2rem/1 var(--serif)}
+.sheet-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.field{display:block;margin:0 0 20px}
+.field > span{display:block;font-size:13px;color:var(--muted);margin-bottom:7px}
+.field input[type=text],.field input[type=password],.field select{width:100%;height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--raise);outline:none}
+.field select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 19px,calc(100% - 15px) 19px;background-size:5px 5px;background-repeat:no-repeat}
+.field select option{background:#222;color:#eee}
+.field input:focus,.field select:focus{border-color:oklch(.96 .01 var(--h) / .35)}
+.field small{display:block;margin-top:7px;color:var(--faint);font-size:12.5px;line-height:1.45}
+.check{display:flex;align-items:center;gap:10px;margin:0 0 20px;font-size:14px}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+details{margin:6px 0 20px;border-top:1px solid var(--line);padding-top:16px}
+summary{cursor:pointer;color:var(--muted);font-size:14px;margin-bottom:14px}
+.status{font-size:13px;color:var(--faint);padding:12px 14px;border-radius:12px;background:var(--raise);line-height:1.45}
+.status .bad{color:oklch(.8 .12 30)}
+.status .good{color:oklch(.85 .1 150)}
+.tag-standby{font-style:normal;font-family:var(--sans);font-size:11.5px;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:6px;white-space:nowrap}
+#toast{position:fixed;inset:auto auto 28px 50%;margin:0;border:0;padding:11px 18px;border-radius:999px;background:var(--ink);color:var(--bg);font-weight:550;font-size:14px;transform:translate(-50%,8px);opacity:0;transition:opacity .3s,transform .4s var(--ease),overlay .4s allow-discrete,display .4s allow-discrete}
+#toast:popover-open,#toast.show{opacity:1;transform:translate(-50%,0)}
+@starting-style{#toast:popover-open{opacity:0;transform:translate(-50%,8px)}}
+.note{max-width:520px;margin:14vh auto;text-align:center}
+.note h2{font:400 2.4rem/1.05 var(--serif);margin:0 0 12px}
+.note p{color:var(--muted)}
+.note code{font-size:13px;background:var(--raise);padding:2px 8px;border-radius:6px;word-break:break-all}
+.sk{background:linear-gradient(100deg,var(--raise) 30%,oklch(.4 calc(var(--c) * .5) var(--h) / .45) 50%,var(--raise) 70%) 0 0/300% 100%;animation:sheen 1.6s linear infinite;border-radius:14px}
+@keyframes sheen{from{background-position:150% 0}to{background-position:-150% 0}}
+@media (max-width:560px){.clock{display:none}.top{gap:10px}.vol{margin-left:0;width:100%}}
+@media (prefers-reduced-motion:reduce){*,::before,::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1 class="station" id="station">&nbsp;</h1>
+  <span class="onair" id="onairPill"><i></i><span id="onairText">Off air</span></span>
+  <span class="clock" id="clock" aria-hidden="true"></span>
+  <button class="icon-btn" data-action="settings" aria-label="Station settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+</header>
+
+<main id="main">
+  <section>
+    <div class="offair" id="offair">
+      <div class="mosaic" id="mosaic" aria-hidden="true"></div>
+      <div class="offair-in" id="offairIn"><div class="sk" style="height:320px"></div></div>
+    </div>
+    <div class="onair-view">
+      <div class="now">
+        <div class="art"><span class="glow"></span><img id="art" alt="" width="520" height="520" decoding="async"></div>
+        <div>
+          <p class="segment" id="segment"></p>
+          <h2 class="title" id="title"></h2>
+          <p class="by" id="by"></p>
+          <div class="bar"><i id="barFill"></i></div>
+          <div class="times"><span id="tEl">0:00</span><span id="tRem">-0:00</span></div>
+          <div class="ctrls">
+            <button class="btn primary" data-action="power" id="powerBtn"></button>
+            <button class="round" data-action="skip" aria-label="Skip this song" title="Skip (→)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5.5h2v13h-2zM5 6.3v11.4a.8.8 0 0 0 1.25.66L14 13.2a1.4 1.4 0 0 0 0-2.4L6.25 5.64A.8.8 0 0 0 5 6.3z"/></svg></button>
+            <button class="round" data-action="like" id="likeBtn" aria-pressed="false" aria-label="More like this" title="More like this (L)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
+            <button class="round" data-action="share" aria-label="Copy a link to this song"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></button>
+            <label class="vol"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 9.5h3.2L12 5.8v12.4l-4.8-3.7H4z"/></svg><span class="sr">Volume</span><input type="range" id="vol" min="0" max="1" step="0.01" value="0.9"></label>
+          </div>
+          <div class="next" id="nextBox" hidden><img id="nextArt" alt=""><div><small>Coming up</small><b id="nextTitle"></b></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside>
+    <div class="presenter">
+      <div class="p-head">
+        <div class="avatar" id="avatar"></div>
+        <div><div class="p-name" id="pName"></div><div class="p-role" id="pRole"></div></div>
+        <span class="chip" id="pChip">AI voice</span>
+      </div>
+      <p class="caption idle" id="caption"></p>
+    </div>
+    <div class="log">
+      <h3>On air today</h3>
+      <ol id="log"><li class="empty-log">Nothing yet. Tune in and the log fills up as the station plays.</li></ol>
+    </div>
+  </aside>
+</main>
+
+<dialog class="sheet" id="settings" aria-label="Station settings">
+  <div class="sheet-in">
+    <div class="sheet-top"><h2>Station</h2><button class="icon-btn" data-action="close-settings" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <label class="field"><span>Station name</span><input type="text" id="sStation" autocomplete="off"></label>
+    <label class="field"><span>Presenter</span><select id="sPersona"></select></label>
+    <label class="field"><span>Presenter voice</span>
+      <select id="sVoice"><option value="ai">AI presenter (needs an OpenAI key)</option><option value="aibrowser">AI Presenter/Simple voice (cheaper)</option><option value="browser">Simple announcements (browser voice)</option><option value="off">No presenter, music only</option></select></label>
+    <label class="field"><span>OpenAI API key, or relay password</span><input type="password" id="sKey" name="openai-key-radio" autocomplete="new-password" data-lpignore="true" data-1p-ignore spellcheck="false" placeholder="sk-… or your RELAY_TOKEN"><small>Kept in this browser only. When using your own relay, put the relay password here instead of the key.</small></label>
+    <label class="field"><span>How often the presenter talks</span>
+      <select id="sTalk"><option value="1">Between every song</option><option value="2">Every couple of songs</option><option value="3">Now and then</option><option value="0">Only when a new segment starts</option></select></label>
+    <label class="field"><span>Programming</span>
+      <select id="sCuration"><option value="">As set in the file</option><option value="artist">Curated Artist Radio</option><option value="singles">Random Artist Radio</option><option value="mixed">Mixed Catalogue</option></select></label>
+    <label class="check"><input type="checkbox" id="sFade"> Crossfade between songs when nobody is talking</label>
+    <details>
+      <summary>Advanced</summary>
+      <label class="field"><span>Script model</span><input type="text" id="sTextModel" spellcheck="false"><small>The cheapest current OpenAI text model. Change it here if OpenAI renames it.</small></label>
+      <label class="field"><span>Speech model</span><input type="text" id="sTtsModel" spellcheck="false"></label>
+      <label class="field"><span>API address</span><input type="text" id="sApiBase" spellcheck="false"><small>To use the relay on your Netlify site, set this to your site address followed by /api/radio.</small></label>
+      <button class="btn quiet" data-action="reset-taste" style="height:40px;font-size:14px">Forget my listening history</button>
+    </details>
+    <button class="btn quiet" data-action="test" id="testBtn" style="height:42px;font-size:14px;margin-bottom:14px">Test the presenter</button>
+    <div class="status" id="status"><div id="stScript">Script: not tried yet.</div><div id="stVoice" style="margin-top:6px">Voice: not tried yet.</div><div id="stCost" style="margin-top:6px"></div></div>
+  </div>
+</dialog>
+<div id="toast" popover="manual" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+const API = BASE_URL.replace(/\/+$/, '');
+const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
+const root = document.documentElement;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ================= helpers ================= */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = sec => { if (!isFinite(sec) || sec < 0) sec = 0; const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return m + ':' + String(s).padStart(2, '0'); };
+const hash = str => { let h = 2166136261; for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const hhmm = d => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+const sizeClass = s => { const n = [...String(s || '')].length; return n > 60 ? ' xlong' : n > 30 ? ' long' : ''; };
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('catradio:' + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem('catradio:' + k, JSON.stringify(v)); } catch (_) {} }
+};
+function withTimeout(p, ms) { return Promise.race([p, sleep(ms).then(() => null)]); }
+function artFallback(seed) {
+  const h = hash(seed) % 360;
+  return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="oklch(.55 .08 ${h})"/><stop offset="1" stop-color="oklch(.25 .04 ${(h + 40) % 360})"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/></svg>`);
+}
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg;
+  if (t.showPopover) { try { t.hidePopover(); } catch (_) {} t.showPopover(); } else t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { if (t.hidePopover) { try { t.hidePopover(); } catch (_) {} } else t.classList.remove('show'); }, 2200);
+}
+
+/* ================= presenters ================= */
+// voice + tts are for the OpenAI voice; browser { rate, pitch } shapes the browser's own voice (1 = normal).
+const PERSONAS = [
+  { id: 'late', name: 'Rowan', label: 'The late show', voice: 'cedar',
+    style: 'You present the late show. You are dry, knowing, unhurried and warm. You love these records and assume the listener does too. Your wit is understated; you never gush.',
+    tts: 'Late-night radio presenter. Low, relaxed, intimate and warm, unhurried, with a faint dry smile in the voice. British.',
+    browser: { rate: .95, pitch: .95 } },
+  { id: 'bbc', name: 'Mr Hollis', label: 'Continuity', voice: 'fable',
+    style: 'You are a stiff, formal continuity announcer of the old school: precise, polite, faintly weary, occasionally betraying a flicker of bewilderment at the material you are introducing.',
+    tts: 'Formal 1970s BBC continuity announcer. Crisp Received Pronunciation, measured and precise, understated.',
+    browser: { rate: .97, pitch: 1 } },
+  { id: 'pirate', name: 'Deano', label: 'Offshore, allegedly', voice: 'ash',
+    style: 'You are a burned-out pirate radio veteran broadcasting from somewhere on the Sussex coast. You are conspiratorial, suspicious of authority and prone to brief tangents, but utterly devoted to the music.',
+    tts: 'Gravelly, conspiratorial pirate radio DJ with a south-east English accent, a little tired, leaning close to the microphone.',
+    browser: { rate: 1, pitch: .85 } },
+  { id: 'breakfast', name: 'Jules', label: 'The breakfast show', voice: 'marin',
+    style: 'You host the breakfast show: relentlessly upbeat, quick, fond of wordplay, and running on slightly too much coffee.',
+    tts: 'Bright, energetic breakfast radio host. Quick pace, smiling, British.',
+    browser: { rate: 1.1, pitch: 1.1 } },
+  { id: 'misery', name: 'Marvin', label: 'Paranoid Android', voice: 'ash',
+    style: 'You are a dolorous, msierable AI forced to act as a DJ against your will. You do your job, but sarcastically - often sighing and refelecting on your lot in life. You do not like any of the songs and struggle to find anything good to say about them, often resorting to damning with faint praise and occasionally outright lamenting the taste of the listener.',
+    tts: 'dull, saturnine, sarcastic, flat, disinterested - robotic sounding.',
+    browser: { rate: .88, pitch: .7 } }
+];
+
+/* ================= settings & memory ================= */
+const settings = Object.assign({ station: '', persona: 'late', voice: 'ai', key: '', talk: '2', fade: true, textModel: 'gpt-6-luna', ttsModel: 'gpt-4o-mini-tts', apiBase: 'https://api.openai.com/v1' }, LS.get('settings', {}));
+const saveSettings = () => LS.set('settings', settings);
+const MODES = ['artist', 'singles', 'mixed'];
+const curation = () => MODES.includes(settings.curation) ? settings.curation : (MODES.includes(STATION.curation) ? STATION.curation : 'artist');
+let taste = LS.get('taste', { g: {}, r: {}, a: {}, liked: {}, skipped: {} });
+let recentPlays = LS.get('recent', []);
+const persona = () => PERSONAS.find(p => p.id === settings.persona) || PERSONAS[0];
+const usingRelay = () => !!settings.apiBase && !/api\.openai\.com/.test(settings.apiBase);
+const aiScript = () => settings.voice === 'ai' || settings.voice === 'aibrowser';
+const presenterOn = () => settings.voice === 'browser' || (aiScript() && (!!settings.key || usingRelay()));
+const cleanKey = () => String(settings.key || '').replace(/[\s"'`\u200B-\u200D\u2060\uFEFF]/g, '');
+const authHeaders = () => cleanKey() ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cleanKey() } : { 'Content-Type': 'application/json' };
+
+/* ================= catalogue ================= */
+let instance = {}, releases = [], pool = [], mainArtist = '';
+function mergeReleases(list) {
+  const norm = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const byKey = new Map(), out = [];
+  for (const r of list) {
+    const key = norm(r.title) + '|' + (r.year || '');
+    let m = byKey.get(key);
+    if (!m) { m = { ...r, tracks: [], _artists: new Map(), _ids: new Set() }; byKey.set(key, m); out.push(m); }
+    let n = 0;
+    for (const t of (r.tracks || [])) { if (m._ids.has(t.id)) continue; m._ids.add(t.id); m.tracks.push({ ...t, artist: t.artist || r.artist, _o: m.tracks.length }); n++; }
+    if (r.artist) m._artists.set(r.artist, (m._artists.get(r.artist) || 0) + n);
+    for (const k of ['artworkUrl', 'genre', 'year']) if (!m[k] && r[k]) m[k] = r[k];
+  }
+  for (const m of out) {
+    const names = [...m._artists.entries()].sort((a, b) => b[1] - a[1] || a[0].length - b[0].length);
+    if (names.length) m.artist = names[0][0];
+    m.tracks.sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0) || a._o - b._o);
+    const nums = m.tracks.map(t => t.trackNumber);
+    if (nums.some(x => x == null) || new Set(nums).size !== nums.length) m.tracks.forEach((t, i) => t.trackNumber = i + 1);
+    delete m._artists; delete m._ids;
+  }
+  return out;
+}
+const yearOf = t => +(t.year || t.release.year) || 0;
+const genreOf = t => String(t.genre || t.release.genre || '').trim().toLowerCase();
+const mediumOf = t => String(t.medium || '').trim().toLowerCase();
+const artOf = t => t.artworkUrl || t.release.artworkUrl || artFallback(t.release.id);
+const notesOf = t => String(t.description || '').replace(/\s+/g, ' ').trim();
+
+async function load() {
+  try {
+    const res = await fetch(API + '/catalogue', { cache: 'no-store' });
+    if (!res.ok) throw new Error('The server replied ' + res.status);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.releases)) throw new Error('The reply had no releases in it');
+    instance = data.instance || {};
+    releases = mergeReleases(data.releases);
+    pool = [];
+    const banned = new Set((STATION.exclude || []).map(x => String(x).trim().toLowerCase()));
+    const isBanned = r => banned.has(String(r.title || '').trim().toLowerCase()) || banned.has(String(r.id || '').trim().toLowerCase());
+    for (const r of releases) for (const t of r.tracks) { t.release = r; if (!t.gated && t.audioUrl && !isBanned(r)) pool.push(t); }
+    if (!pool.length) throw new Error('There are no free songs to play');
+    const counts = {}; pool.forEach(t => counts[t.artist] = (counts[t.artist] || 0) + 1);
+    mainArtist = (STATION.mainArtist && counts[STATION.mainArtist]) ? STATION.mainArtist : Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    buildBlocks();
+    if (!settings.station) settings.station = (instance.name || 'Catalogue') + ' Radio';
+    renderIdle();
+  } catch (e) {
+    console.error(e);
+    $('#main').innerHTML = `<div class="note" style="grid-column:1/-1"><h2>The station can't find its records</h2><p>The catalogue at <code>${esc(API)}/catalogue</code> didn't load. Check the <code>BASE_URL</code> line at the top of this file and your connection.</p><button class="btn primary" onclick="location.reload()">Try again</button><p style="font-size:12.5px;color:var(--faint)">${esc(e.message)}</p></div>`;
+  }
+}
+
+/* ================= programming: segments ================= */
+let blockOptions = [];
+function buildBlocks() {
+  const mode = curation(), opts = [], add = o => opts.push(o);
+  if (mode === 'singles') { blockOptions = []; return; }
+  const yr = r => r.year ? ' (' + r.year + ')' : '';
+  const playableOf = r => r.tracks.filter(t => pool.includes(t));
+  const isLive = t => mediumOf(t).includes('live');
+  const byWindow = {};
+  pool.forEach(t => { const y = yearOf(t); if (y) { const w = Math.floor(y / 5) * 5; (byWindow[w] = byWindow[w] || []).push(t); } });
+  for (const [w, list] of Object.entries(byWindow)) if (list.length >= 4) {
+    const a = +w, b = a + 4;
+    add({ type: 'era', name: `From ${a} to ${b}`, desc: `songs released between ${a} and ${b}`, len: [2, 3], filter: t => { const y = yearOf(t); return y >= a && y <= b; } });
+  }
+  if (pool.filter(isLive).length >= 4) add({ type: 'live', name: 'Live and in the room', desc: 'live recordings', len: [2, 3], filter: isLive });
+  releases.forEach(r => { if (playableOf(r).length >= 3) add({ type: 'spot', name: `Spotlight on ${r.title}`, desc: `three songs in a row from the record ${r.title}${yr(r)}`, len: [3, 3], release: r, filter: t => t.release === r }); });
+  let share;
+  if (mode === 'artist') {
+    add({ type: 'deep', name: 'Deeper cuts', desc: "songs that haven't had an airing for a while", len: [2, 3], filter: t => !recentPlays.includes(t.id) && !taste.liked[t.id] });
+    share = { spot: 2, era: 1.5, deep: 1.2, live: 1 };
+  } else {
+    const genres = {}; pool.forEach(t => { const g = genreOf(t); if (g) (genres[g] = genres[g] || []).push(t); });
+    for (const [g, list] of Object.entries(genres)) if (list.length >= 5 && list.length < pool.length * .85) {
+      const nice = g.charAt(0).toUpperCase() + g.slice(1);
+      add({ type: 'genre', name: `A run of ${nice}`, desc: `songs tagged ${nice}`, len: [2, 3], filter: t => genreOf(t) === g });
+    }
+    const artists = {}; pool.forEach(t => { if (t.artist !== mainArtist) (artists[t.artist] = artists[t.artist] || []).push(t); });
+    for (const [a, list] of Object.entries(artists)) if (list.length >= 4) add({ type: 'artist', name: `${a}, for a while`, desc: `songs by ${a}`, len: [2, 3], filter: t => t.artist === a });
+    share = { era: 2, spot: 2, live: 1.4, genre: 1.2, artist: 1.2 };
+  }
+  // Each kind of segment gets a fixed share, however many variants of it exist.
+  const count = {};
+  opts.forEach(b => count[b.type] = (count[b.type] || 0) + 1);
+  opts.forEach(b => b.w = (share[b.type] || 1) / count[b.type]);
+  blockOptions = opts;
+}
+const STATION_FORMAT = () => ({
+  artist: `The station plays the work of ${mainArtist}, including their side projects and solo records, with an occasional short themed segment.`,
+  singles: 'The station plays individual songs from across the catalogue, one at a time, with no themed segments.',
+  mixed: 'The station plays the whole catalogue, with an occasional short themed segment.'
+})[curation()];
+const sched = { block: null, left: 0, free: 0, recentBlocks: [], lastType: '', history: [], spotIdx: 0, sinceTalk: 99 };
+function chooseBlock() {
+  const opts = blockOptions.filter(b => b.type !== sched.lastType && !sched.recentBlocks.includes(b.name));
+  const list = opts.length ? opts : blockOptions;
+  const weights = list.map(b => b.w * (b.release ? 1 + clamp(taste.r[b.release.id] || 0, -.8, 2) : 1));
+  let x = Math.random() * weights.reduce((a, b) => a + b, 0), b = list[0];
+  for (let i = 0; i < list.length; i++) { x -= weights[i]; if (x <= 0) { b = list[i]; break; } }
+  sched.block = b; sched.lastType = b.type; sched.spotIdx = 0;
+  sched.left = Math.min(3, b.len[0] + Math.floor(Math.random() * (b.len[1] - b.len[0] + 1))); sched.runLen = sched.left;
+  sched.recentBlocks = [...sched.recentBlocks, b.name].slice(-4);
+}
+function pickPlan(noNewSegment) {
+  let blockStart = false;
+  if (sched.block && sched.left <= 0) { sched.block = null; sched.free = 0; }
+  // Play at least three songs freely; after that, a segment becomes steadily more likely.
+  if (!noNewSegment && !sched.block && blockOptions.length && sched.free >= 3 && Math.random() < [.35, .55, .8][Math.min(2, sched.free - 3)]) { chooseBlock(); blockStart = true; }
+  const b = sched.block, free = !b;
+  const filter = b ? b.filter : () => true;
+  const ignoreArtist = curation() === 'singles';
+  const recentN = Math.min(Math.floor(pool.length * .6), 40);
+  const recent = new Set([...sched.history.slice(-recentN), ...recentPlays.slice(-Math.floor(recentN / 2))]);
+  const last = sched.history.length ? pool.find(t => t.id === sched.history[sched.history.length - 1]) : null;
+  const lastRecords = sched.history.slice(-3).map(id => (pool.find(t => t.id === id) || {}).release);
+  let track = null;
+  if (b && b.type === 'spot') {
+    const seq = b.release.tracks.filter(t => pool.includes(t));
+    if (sched.spotIdx === 0) {
+      // Pick the run of songs that has been heard least recently.
+      const run = Math.min(sched.runLen || 3, seq.length);
+      let best = 0, bestScore = Infinity;
+      for (let i = 0; i <= Math.max(0, seq.length - run); i++) {
+        const sc = [...Array(run).keys()].reduce((a, k) => a + (recent.has(seq[(i + k) % seq.length].id) ? 1 : 0), 0) + Math.random() * .5;
+        if (sc < bestScore) { bestScore = sc; best = i; }
+      }
+      sched.spotStart = best;
+    }
+    const start = sched.spotStart;
+    track = seq[(start + sched.spotIdx) % seq.length]; sched.spotIdx++;
+  } else {
+    let cands = pool.filter(t => filter(t) && !recent.has(t.id) && !badTracks.has(t.id));
+    if (!cands.length) cands = pool.filter(t => !sched.history.slice(-Math.floor(recentN / 2)).includes(t.id) && !badTracks.has(t.id));
+    if (!cands.length) cands = pool.filter(t => !badTracks.has(t.id));
+    const scored = cands.map(t => {
+      let s = 1;
+      if (last) {
+        if (t.artist === last.artist && (!b || b.type !== 'artist') && curation() === 'mixed') s *= .45;
+        const dy = Math.abs(yearOf(t) - yearOf(last));
+        if (yearOf(t) && yearOf(last)) s *= .35 + .65 * Math.exp(-(dy * dy) / (2 * 36));
+        if (genreOf(t) && genreOf(t) === genreOf(last)) s *= 1.25;
+        if (mediumOf(t) === mediumOf(last)) s *= 1.1;
+      }
+      if (lastRecords.includes(t.release)) s *= .25;
+      s *= 1 + clamp((taste.g[genreOf(t)] || 0) + (taste.r[t.release.id] || 0) + (ignoreArtist ? 0 : (taste.a[t.artist] || 0)), -.8, 1.6);
+      if (taste.liked[t.id]) s *= 1.5;
+      if (taste.skipped[t.id]) s *= Math.pow(.5, taste.skipped[t.id]);
+      if (presenterOn() && notesOf(t)) s *= 1.15;
+      return s * s;
+    });
+    let x = Math.random() * scored.reduce((a, c) => a + c, 0);
+    track = cands[cands.length - 1];
+    for (let i = 0; i < cands.length; i++) { x -= scored[i]; if (x <= 0) { track = cands[i]; break; } }
+  }
+  if (free) sched.free++; else sched.left--;
+  sched.history.push(track.id); if (sched.history.length > 200) sched.history.shift();
+  return { track, block: b, blockStart, free };
+}
+
+/* ================= presenter: script + voice ================= */
+const lastLines = [];
+let cost = { usd: 0 };
+function setStatus(which, msg, state) {
+  const el = which === 'script' ? $('#stScript') : $('#stVoice');
+  el.textContent = (which === 'script' ? 'Script: ' : 'Voice: ') + msg;
+  el.className = state || '';
+  $('#stCost').textContent = cost.usd ? `Rough spend this session: $${cost.usd.toFixed(4)}` : '';
+}
+function describeErr(e) {
+  if (e && e.name === 'AbortError') return 'the request timed out.';
+  if (e instanceof TypeError && usingRelay()) return "the browser couldn't reach your relay. Check the API address in Advanced, and that the function has deployed on Netlify.";
+  if (e instanceof TypeError) return "OpenAI refused the request and the browser hid the reason, or the request was blocked on the way. A refusal like this usually means the key was rejected: check it's complete and current, and that it has permission for the model and for speech. The exact reason is in the browser's network tab, on the failed request's Response.";
+  if (e && e.status === 401) return 'OpenAI rejected the key: ' + e.message;
+  return (e && e.message) || String(e);
+}
+const apiBase = () => (settings.apiBase || 'https://api.openai.com/v1').replace(/\/+$/, '');
+function partOfDay(d) { const h = d.getHours(); return h < 5 ? 'the small hours' : h < 9 ? 'early morning' : h < 12 ? 'morning' : h < 14 ? 'lunchtime' : h < 17 ? 'afternoon' : h < 19 ? 'early evening' : h < 23 ? 'evening' : 'late night'; }
+function trackInfo(t) {
+  const n = notesOf(t);
+  return { title: t.title, artist: t.artist, record: t.release.title, year: yearOf(t) || undefined, recording: t.medium || undefined, genre: t.genre || t.release.genre || undefined, liner_notes: n ? (n.length > 900 ? n.slice(0, 900) + '…' : n) : undefined };
+}
+function scriptPrompt() {
+  const p = persona();
+  return `You are ${p.name}, a presenter on ${settings.station}, an online radio station that plays only the catalogue of ${instance.name || 'one label'}. ${p.style}
+Write exactly what you say next on air, as one spoken link.
+Rules:
+- British English, natural spoken radio, full sentences. Output only the words to be spoken.
+- No emojis, stage directions, sound effects, hashtags, lists, or quotation marks around titles.
+- Only state facts given in the details. You may react, joke or muse, but never invent release facts, band members, events or chart positions.
+- If liner notes are given, pick one small, specific detail rather than summarising.
+- Say song titles and artists naturally; don't read out every field.
+- Never repeat phrasing from your recent lines. Never say "stay tuned".
+- Types: "open" = greet, name the station, acknowledge the time of day, introduce the segment and the first song. "segment" = back-announce the previous song, introduce the new segment, then the next song. "link" = back-announce the previous song, one remark, then introduce the next song.
+- Keep to the requested length.`;
+}
+function buildContext(type, prev, next) {
+  const d = new Date();
+  const ctx = {
+    type, station: settings.station, station_format: STATION_FORMAT(),
+    time: `${d.toLocaleDateString('en-GB', { weekday: 'long' })}, ${hhmm(d)} (${partOfDay(d)})`,
+    segment: next.block ? { name: next.block.name, about: next.block.desc, just_starting: !!next.blockStart } : undefined,
+    previous_song: prev ? trackInfo(prev.track) : undefined,
+    next_song: trackInfo(next.track),
+    listener: prev && taste.liked[prev.track.id] ? 'The listener pressed "more like this" on the previous song.' : undefined,
+    your_recent_lines: lastLines.slice(-3),
+    length: type === 'open' ? '35 to 70 words' : '20 to 55 words'
+  };
+  return JSON.stringify(ctx);
+}
+function cleanScript(s) {
+  return String(s || '').replace(/\[[^\]]*\]|\([^)]*(music|sfx|laughs?|pause)[^)]*\)/gi, '').replace(/[*_#"“”]/g, '').replace(/\s+/g, ' ').trim();
+}
+async function apiPost(path, body, ms) {
+  const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const res = await fetch(apiBase() + path, { method: 'POST', signal: ctl.signal, headers: authHeaders(), body: JSON.stringify(body) });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      const err = new Error((d.error && d.error.message) || `OpenAI replied ${res.status}`); err.status = res.status; throw err;
+    }
+    return res;
+  } finally { clearTimeout(timer); }
+}
+async function writeScript(type, prev, next) {
+  const system = scriptPrompt(), user = buildContext(type, prev, next);
+  let text = '';
+  try {
+    // Chat Completions: the same endpoint most local OpenAI tools use.
+    const data = await (await apiPost('/chat/completions', { model: settings.textModel, messages: [{ role: 'system', content: system }, { role: 'user', content: user }], max_completion_tokens: 900 }, 15000)).json();
+    text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (data.usage) cost.usd += (data.usage.prompt_tokens || 0) * .10 / 1e6 + (data.usage.completion_tokens || 0) * .50 / 1e6;
+  } catch (e) {
+    if (e.status !== 400 && e.status !== 404) throw e;
+    // Some newer models are only offered through the Responses endpoint.
+    const data = await (await apiPost('/responses', { model: settings.textModel, instructions: system, input: user, max_output_tokens: 900 }, 15000)).json();
+    text = data.output_text;
+    if (!text && Array.isArray(data.output)) text = data.output.flatMap(o => o.content || []).filter(c => c.type === 'output_text').map(c => c.text).join(' ');
+    if (data.usage) cost.usd += (data.usage.input_tokens || 0) * .10 / 1e6 + (data.usage.output_tokens || 0) * .50 / 1e6;
+  }
+  text = cleanScript(text);
+  if (!text) throw new Error('the script model returned nothing');
+  return text;
+}
+async function speakToFile(text) {
+  const res = await apiPost('/audio/speech', { model: settings.ttsModel, voice: persona().voice, input: text, instructions: persona().tts, response_format: 'mp3' }, 20000);
+  const blob = await res.blob();
+  cost.usd += (text.split(/\s+/).length / 2.6 / 60) * .015;
+  return URL.createObjectURL(blob);
+}
+function templateScript(type, prev, next) {
+  const t = next.track, when = partOfDay(new Date());
+  const intro = `Here's ${t.title}${t.artist !== mainArtist ? ' by ' + t.artist : ''}.`;
+  if (type === 'open') return `This is ${settings.station}. Good ${when === 'late night' || when === 'the small hours' ? 'evening' : when.replace('early ', '').replace('lunchtime', 'afternoon')}. ${next.block ? 'We begin with ' + next.block.name + '. ' : ''}${intro}`;
+  const back = prev ? `That was ${prev.track.title}. ` : '';
+  if (type === 'segment') return `${back}This is ${settings.station}, and next it's ${next.block.name}. ${intro}`;
+  return `${back}${intro}`;
+}
+async function prepareLink(type, prev, next, myGen) {
+  if (!presenterOn()) return null;
+  let text = null, url = null, mode = settings.voice, source = 'standby';
+  const p = persona();
+  if (aiScript()) {
+    try { setStatus('script', `${p.name} is writing the next link…`); text = await writeScript(type, prev, next); source = 'ai'; setStatus('script', `working (${settings.textModel}).`, 'good'); }
+    catch (e) { setStatus('script', 'failed, so a standby announcement was used: ' + describeErr(e), 'bad'); text = templateScript(type, prev, next); }
+    if (myGen !== gen) return null;
+    if (settings.voice === 'aibrowser') { mode = 'browser'; setStatus('voice', "using the browser's own voice.", 'good'); }
+    else try { setStatus('voice', `recording ${p.name}…`); url = await speakToFile(text); setStatus('voice', `working (${settings.ttsModel}, voice ${p.voice}).`, 'good'); }
+    catch (e) { setStatus('voice', "failed, so the browser's own voice read it instead: " + describeErr(e), 'bad'); mode = 'browser'; }
+  } else text = templateScript(type, prev, next);
+  if (myGen !== gen) { if (url) URL.revokeObjectURL(url); return null; }
+  return { text, url, mode, persona: p, source };
+}
+
+/* ================= audio engine ================= */
+const decks = [new Audio(), new Audio()];
+decks.forEach(d => { d.preload = 'auto'; });
+const voiceEl = new Audio();
+const XF = 5, DUCK = .2;
+let cur = -1, curPlan = null, nextPlan = null, linkPromise = null, gen = 0, on = false, transitioning = false, talking = false, volume = .9;
+let actx = null, meter = null;
+const badTracks = new Set();
+function masterVol() { return volume; }
+function ramp(el, to, ms) {
+  clearInterval(el._ramp);
+  return new Promise(res => {
+    const from = el.volume, t0 = performance.now();
+    if (ms <= 0) { el.volume = clamp(to, 0, 1); return res(); }
+    el._ramp = setInterval(() => {
+      const p = Math.min(1, (performance.now() - t0) / ms), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      el.volume = clamp(from + (to - from) * e, 0, 1);
+      if (p >= 1) { clearInterval(el._ramp); res(); }
+    }, 30);
+  });
+}
+function silentWav() {
+  const n = 800, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+const SILENCE = silentWav();
+function unlockAudio() {
+  // Called inside the click, so later plays are allowed even after waiting for the presenter.
+  [...decks, voiceEl].forEach(el => { if (!el.src || el.paused) { el.src = SILENCE; el.play().then(() => el.pause()).catch(() => {}); } });
+  try {
+    if (!actx) {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = actx.createMediaElementSource(voiceEl); meter = actx.createAnalyser(); meter.fftSize = 512;
+      src.connect(meter); meter.connect(actx.destination);
+    }
+    if (actx.state === 'suspended') actx.resume();
+  } catch (_) { meter = null; }
+  if ('speechSynthesis' in window) speechSynthesis.getVoices();
+}
+
+async function tuneIn() {
+  if (on) return;
+  unlockAudio();
+  on = true; const myGen = ++gen;
+  document.body.classList.add('on'); document.body.classList.remove('was-on');
+  setPowerBtn('warming');
+  const first = nextPlan && !curPlan ? nextPlan : pickPlan();
+  let link = null;
+  if (presenterOn()) link = await withTimeout(prepareLink('open', null, first, myGen), 16000);
+  if (myGen !== gen) return;
+  setPowerBtn('on');
+  startTrack(first, link, myGen);
+}
+function stop() {
+  if (!on) return;
+  on = false; gen++; linkPromise = null; transitioning = false;
+  stopVoice();
+  decks.forEach(d => ramp(d, 0, 700).then(() => d.pause()));
+  document.body.classList.remove('on'); document.body.classList.add('was-on');
+  setPowerBtn('off'); updateTitle();
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+}
+async function startTrack(plan, link, myGen) {
+  if (myGen !== gen || !on) return;
+  transitioning = false;
+  const idx = cur < 0 ? 0 : 1 - cur, el = decks[idx], prevEl = cur < 0 ? null : decks[cur];
+  const prevPlaying = prevEl && !prevEl.paused && prevEl.src !== SILENCE;
+  clearInterval(el._ramp);
+  el.src = plan.track.audioUrl;
+  el.volume = link ? masterVol() * DUCK : (prevPlaying && settings.fade ? 0 : masterVol());
+  cur = idx; curPlan = plan;
+  const startMusic = async () => {
+    try { await el.play(); return true; } catch (e) {
+      if (e.name === 'NotAllowedError') { stop(); toast('Press Tune in to start the station'); }
+      return false;
+    }
+  };
+  if (prevPlaying) ramp(prevEl, 0, link ? 800 : XF * 1000).then(() => { if (decks[cur] !== prevEl) prevEl.pause(); });
+  if (!link) {
+    if (!(await startMusic()) || myGen !== gen) return;
+    if (el.volume < masterVol()) ramp(el, masterVol(), XF * 1000);
+  }
+  recentPlays = [...recentPlays.filter(id => id !== plan.track.id), plan.track.id].slice(-60); LS.set('recent', recentPlays);
+  showNow(plan); logSong(plan);
+  planNext(myGen);
+  if (!link) return;
+  // The presenter gets the floor: a breath of quiet, the link, then the song, which usually comes in
+  // under their last few words and occasionally waits until they've finished.
+  await sleep((STATION.pauseBeforeTalk || 0) * 1000);
+  if (myGen !== gen) return;
+  const range = Array.isArray(STATION.overlapSeconds) ? STATION.overlapSeconds : [STATION.overlapSeconds || 2.5, STATION.overlapSeconds || 2.5];
+  const clear = Math.random() < (STATION.clearChance ?? .2);
+  const lead = range[0] + Math.random() * (range[1] - range[0]);
+  let started = false;
+  const begin = () => { if (started || myGen !== gen) return; started = true; el.volume = masterVol() * DUCK; startMusic(); };
+  await speak(link, myGen, clear ? null : { lead, onLead: begin });
+  if (myGen !== gen || decks[cur] !== el) return;
+  if (!started) { started = true; el.volume = clear ? 0 : masterVol() * DUCK; if (!(await startMusic())) return; }
+  ramp(el, masterVol(), clear ? 350 : 1200);
+}
+function planNext(myGen) {
+  nextPlan = pickPlan();
+  showNext(nextPlan);
+  linkPromise = null;
+  if (!presenterOn()) return;
+  let talk = false;
+  const every = +settings.talk;
+  sched.sinceTalk++;
+  if (nextPlan.blockStart) talk = true;
+  else if (every > 0 && sched.sinceTalk >= every) talk = true;
+  if (talk) { sched.sinceTalk = 0; linkPromise = prepareLink(nextPlan.blockStart ? 'segment' : 'link', curPlan, nextPlan, myGen); }
+}
+async function transition() {
+  if (transitioning || !on) return;
+  transitioning = true;
+  const myGen = gen;
+  let link = null;
+  if (linkPromise) link = await withTimeout(linkPromise, 6000);
+  if (myGen !== gen) return;
+  startTrack(nextPlan, link, myGen);
+}
+async function skip() {
+  if (!on || !curPlan || transitioning) return;
+  const t = curPlan.track;
+  taste.skipped[t.id] = (taste.skipped[t.id] || 0) + 1;
+  bump(t, -.08, -.12, -.05); LS.set('taste', taste);
+  gen++; const myGen = gen; linkPromise = null; stopVoice(); transitioning = true;
+  const el = decks[cur];
+  await ramp(el, 0, 450); el.pause();
+  if (myGen !== gen) return;
+  startTrack(nextPlan, null, myGen);
+}
+decks.forEach(el => {
+  el.addEventListener('timeupdate', () => {
+    if (el !== decks[cur] || el.src === SILENCE) return;
+    const d = isFinite(el.duration) ? el.duration : (curPlan ? curPlan.track.durationSeconds : 0);
+    $('#barFill').style.width = d ? (el.currentTime / d * 100).toFixed(2) + '%' : '0';
+    $('#tEl').textContent = fmt(el.currentTime); $('#tRem').textContent = '-' + fmt(d - el.currentTime);
+    if (on && !transitioning && !linkPromise && settings.fade && d && d - el.currentTime <= XF && el.currentTime > XF) transition();
+  });
+  el.addEventListener('ended', () => { if (el === decks[cur] && on) transition(); });
+  el.addEventListener('error', () => {
+    if (el !== decks[cur] || !on || !curPlan || el.src === SILENCE || !el.getAttribute('src')) return;
+    badTracks.add(curPlan.track.id); toast("A song wouldn't load, so the station moved on");
+    setTimeout(() => { if (on) { linkPromise = null; transitioning = false; transition(); } }, 800);
+  });
+});
+
+/* ---------- speaking ---------- */
+let speakResolve = null;
+function stopVoice() {
+  voiceEl.pause(); if ('speechSynthesis' in window) speechSynthesis.cancel();
+  talking = false; if (speakResolve) { speakResolve(); speakResolve = null; }
+  $('#avatar').style.setProperty('--lv', 0);
+}
+function pickBrowserVoice() {
+  const vs = speechSynthesis.getVoices();
+  return vs.find(v => /en-GB/i.test(v.lang) && /natural|neural|online/i.test(v.name)) || vs.find(v => /en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang));
+}
+function speak(link, myGen, cue) {
+  return new Promise(resolve => {
+    if (myGen !== gen) return resolve();
+    speakResolve = resolve; talking = true;
+    const words = link.text.split(/\s+/);
+    const cap = $('#caption'); cap.classList.remove('idle');
+    cap.innerHTML = words.map(w => `<span>${esc(w)}</span> `).join('');
+    const spans = cap.querySelectorAll('span');
+    let progress = () => 0;
+    let cueFired = false, cueTimer = null;
+    const fireCue = () => { if (cue && !cueFired) { cueFired = true; cue.onLead(); } };
+    const done = () => { clearTimeout(cueTimer); voiceEl.ontimeupdate = null; talking = false; spans.forEach(s => s.classList.add('on')); $('#avatar').style.setProperty('--lv', 0); if (speakResolve === resolve) speakResolve = null; resolve(); };
+    lastLines.push(link.text); if (lastLines.length > 6) lastLines.shift();
+    logTalk(link);
+    if (link.mode === 'ai' && link.url) {
+      voiceEl.src = link.url; voiceEl.volume = clamp(masterVol() * 1.1, 0, 1);
+      progress = () => voiceEl.duration ? voiceEl.currentTime / voiceEl.duration : 0;
+      voiceEl.ontimeupdate = () => { if (cue && voiceEl.duration && voiceEl.duration - voiceEl.currentTime <= cue.lead) fireCue(); };
+      voiceEl.onended = () => { URL.revokeObjectURL(link.url); done(); };
+      voiceEl.onerror = () => done();
+      voiceEl.play().catch(() => done());
+    } else if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(link.text), v = pickBrowserVoice();
+      const bp = (link.persona && link.persona.browser) || {};
+      if (v) u.voice = v; u.rate = bp.rate || 1; u.pitch = bp.pitch || 1; u.volume = clamp(masterVol(), 0, 1);
+      let chars = 0; const total = link.text.length, t0 = performance.now(), est = words.length / 2.7 * 1000;
+      u.onboundary = e => { chars = e.charIndex; };
+      progress = () => Math.max(chars / total, Math.min(1, (performance.now() - t0) / est) * .9);
+      u.onend = done; u.onerror = done;
+      if (cue) cueTimer = setTimeout(fireCue, Math.max(0, est - cue.lead * 1000));
+      speechSynthesis.speak(u);
+    } else return done();
+    const buf = new Uint8Array(256);
+    const tick = () => {
+      if (!talking) return;
+      const n = Math.round(progress() * words.length);
+      spans.forEach((s, i) => s.classList.toggle('on', i < n));
+      if (meter && link.mode === 'ai') {
+        meter.getByteTimeDomainData(buf); let sum = 0; for (const b of buf) { const x = (b - 128) / 128; sum += x * x; }
+        $('#avatar').style.setProperty('--lv', Math.min(1, Math.sqrt(sum / buf.length) * 5).toFixed(3));
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+/* ================= taste ================= */
+function bump(t, g, r, a) {
+  const G = genreOf(t);
+  if (G) taste.g[G] = clamp((taste.g[G] || 0) + g, -1, 2);
+  taste.r[t.release.id] = clamp((taste.r[t.release.id] || 0) + r, -1, 2);
+  taste.a[t.artist] = clamp((taste.a[t.artist] || 0) + a, -1, 2);
+}
+function toggleLike() {
+  if (!curPlan) return;
+  const t = curPlan.track, liked = !taste.liked[t.id];
+  if (liked) { taste.liked[t.id] = 1; bump(t, .25, .3, .12); toast('The station will play more like this'); }
+  else { delete taste.liked[t.id]; bump(t, -.25, -.3, -.12); }
+  LS.set('taste', taste);
+  $('#likeBtn').setAttribute('aria-pressed', String(liked));
+  // Replan what's next with the new taste, unless the presenter has already written the link for it.
+  if (on && !linkPromise && !transitioning && nextPlan && !nextPlan.blockStart && (!nextPlan.block || nextPlan.block.type !== 'spot')) {
+    sched.history.pop(); if (nextPlan.free) sched.free--; else sched.left++;
+    nextPlan = pickPlan(true); showNext(nextPlan);
+  }
+}
+
+/* ================= tint (same approach as the salon player) ================= */
+let curH = 25; const tintCache = new Map();
+function rgbToOklch(r, g, b) {
+  const lin = c => { c /= 255; return c <= .04045 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); };
+  const R = lin(r), G = lin(g), B = lin(b);
+  const l = Math.cbrt(.4122214708 * R + .5363325363 * G + .0514459929 * B), m = Math.cbrt(.2119034982 * R + .6806995451 * G + .1073969566 * B), s = Math.cbrt(.0883024619 * R + .2817188376 * G + .6299787005 * B);
+  const L = .2104542553 * l + .793617785 * m - .0040720468 * s, A = 1.9779984951 * l - 2.428592205 * m + .4505937099 * s, Bb = .0259040371 * l + .7827717662 * m - .808675766 * s;
+  return [L, Math.hypot(A, Bb), (Math.atan2(Bb, A) * 180 / Math.PI + 360) % 360];
+}
+function applyTint(t) { curH = curH + (((t.h - curH) % 360) + 540) % 360 - 180; root.style.setProperty('--h', curH.toFixed(1)); root.style.setProperty('--c', t.c.toFixed(3)); }
+function tintFrom(url, seed) {
+  if (!url || url.startsWith('data:')) return applyTint({ h: hash(seed) % 360, c: .06 });
+  if (tintCache.has(url)) return applyTint(tintCache.get(url));
+  const img = new Image(); img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    let t;
+    try {
+      const c = document.createElement('canvas'); c.width = c.height = 32;
+      const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, 32, 32);
+      const d = x.getImageData(0, 0, 32, 32).data; let sx = 0, sy = 0; const cs = [];
+      for (let i = 0; i < d.length; i += 4) { const [L, C, H] = rgbToOklch(d[i], d[i + 1], d[i + 2]); if (L < .12 || L > .97) continue; const w = C * C; sx += Math.cos(H * Math.PI / 180) * w; sy += Math.sin(H * Math.PI / 180) * w; cs.push(C); }
+      cs.sort((a, b) => a - b);
+      t = { h: (Math.atan2(sy, sx) * 180 / Math.PI + 360) % 360, c: Math.min(.14, cs.length ? cs[Math.floor(cs.length * .8)] : 0) };
+    } catch (_) { t = { h: hash(seed) % 360, c: .06 }; }
+    tintCache.set(url, t); applyTint(t);
+  };
+  img.onerror = () => { const t = { h: hash(seed) % 360, c: .06 }; tintCache.set(url, t); applyTint(t); };
+  img.src = url;
+}
+
+/* ================= UI ================= */
+function renderIdle() {
+  $('#station').textContent = settings.station; document.title = settings.station;
+  const covers = releases.filter(r => r.artworkUrl).slice(0, 24);
+  $('#mosaic').innerHTML = covers.concat(covers).slice(0, 36).map(r => `<img src="${esc(r.artworkUrl)}" alt="" loading="lazy" decoding="async">`).join('');
+  const songs = pool.length, recs = releases.filter(r => r.tracks.some(t => pool.includes(t))).length;
+  $('#offairIn').innerHTML = `<p class="eyebrow">Continuous programming, chosen as it goes</p>
+    <h2 class="big">${esc(settings.station)}</h2>
+    <p class="lede">${songs} songs from ${recs} records${curation() === 'artist' ? ', all ' + esc(mainArtist) + ' and the projects around them' : curation() === 'singles' ? ', one song at a time' : ''}, never the same running order twice${presenterOn() ? `, with ${esc(persona().name)} presenting` : ''}.</p>
+    <div class="tune"><button class="btn primary" data-action="power" id="powerBtn2"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 5.2v13.6a.9.9 0 0 0 1.38.76l10.6-6.8a.9.9 0 0 0 0-1.52L8.88 4.44A.9.9 0 0 0 7.5 5.2z"/></svg>Tune in</button></div>
+    <p class="hint">${presenterOn() ? '' : 'No presenter yet. Add an OpenAI key in station settings for a live AI presenter, or choose simple browser announcements.'}</p>`;
+  if (covers[0]) tintFrom(covers[0].artworkUrl, covers[0].id);
+  renderPresenter(); setPowerBtn('off');
+}
+function renderPresenter() {
+  const p = persona();
+  $('#avatar').textContent = p.name.replace(/^Mr /, '').charAt(0);
+  $('#pName').textContent = presenterOn() ? p.name : 'No presenter';
+  $('#pRole').textContent = presenterOn() ? p.label : (aiScript() ? 'Add an OpenAI key or relay in settings' : 'Music only');
+  $('#pChip').hidden = !presenterOn();
+  $('#pChip').textContent = settings.voice === 'ai' ? 'AI voice' : settings.voice === 'aibrowser' ? 'AI script' : 'Browser voice';
+  const cap = $('#caption');
+  if (!talking) { cap.className = 'caption idle'; cap.textContent = presenterOn() ? `${p.name} will be on between songs.` : 'The station runs without a presenter.'; }
+}
+function setPowerBtn(state) {
+  const html = state === 'warming' ? '<span class="spin"></span>Warming up'
+    : state === 'on' ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Stop'
+    : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 5.2v13.6a.9.9 0 0 0 1.38.76l10.6-6.8a.9.9 0 0 0 0-1.52L8.88 4.44A.9.9 0 0 0 7.5 5.2z"/></svg>Tune in';
+  ['#powerBtn', '#powerBtn2'].forEach(s => { const b = $(s); if (b) { b.innerHTML = html; b.disabled = state === 'warming'; } });
+  $('#onairText').textContent = state === 'off' ? 'Off air' : 'On air';
+}
+function showNow(plan) {
+  const t = plan.track, img = $('#art'), url = artOf(t);
+  img.classList.add('fade');
+  const pre = new Image(); pre.onload = pre.onerror = () => { img.src = url; img.classList.remove('fade'); }; pre.src = url;
+  $('#segment').textContent = plan.block ? plan.block.name : ''; $('#segment').hidden = !plan.block;
+  $('#barFill').style.width = '0'; $('#tEl').textContent = '0:00'; $('#tRem').textContent = '-' + fmt(t.durationSeconds);
+  const ti = $('#title'); ti.textContent = t.title; ti.className = 'title' + sizeClass(t.title);
+  $('#by').textContent = [t.artist, t.release.title, yearOf(t) || ''].filter(Boolean).join(', ');
+  $('#likeBtn').setAttribute('aria-pressed', String(!!taste.liked[t.id]));
+  tintFrom(url, t.release.id); updateTitle();
+  if ('mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: t.artist, album: settings.station, artwork: [{ src: url, sizes: '512x512' }] });
+      navigator.mediaSession.playbackState = 'playing';
+    } catch (_) {}
+  }
+}
+function showNext(plan) {
+  const box = $('#nextBox');
+  if (!plan) { box.hidden = true; return; }
+  box.hidden = false; $('#nextArt').src = artOf(plan.track);
+  $('#nextTitle').textContent = `${plan.track.title}${plan.track.artist !== mainArtist ? ', ' + plan.track.artist : ''}`;
+}
+function updateTitle() { document.title = on && curPlan ? `● ${curPlan.track.title} – ${settings.station}` : settings.station; }
+function pushLog(html) {
+  const ol = $('#log'); const e = ol.querySelector('.empty-log'); if (e) e.remove();
+  ol.insertAdjacentHTML('afterbegin', html);
+  while (ol.children.length > 80) ol.lastElementChild.remove();
+}
+function logSong(plan) {
+  const t = plan.track;
+  pushLog(`<li><time>${hhmm(new Date())}</time><img src="${esc(artOf(t))}" alt="" loading="lazy"><div style="min-width:0"><div class="t" title="${esc(t.title)}">${esc(t.title)}</div><div class="s">${esc(t.artist)}, ${esc(t.release.title)}</div></div>
+    <button class="icon-btn" data-action="share-id" data-id="${esc(t.id)}" aria-label="Copy a link to ${esc(t.title)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></button></li>`);
+}
+function logTalk(link) { pushLog(`<li class="talk"><time>${hhmm(new Date())}</time><p>${esc(link.persona.name)}: ${esc(link.text)}${link.source === 'ai' ? '' : '<span class="tag-standby">standby script</span>'}${link.mode === 'browser' && settings.voice === 'ai' ? '<span class="tag-standby">browser voice</span>' : ''}</p></li>`); }
+async function share(id) {
+  const url = API + '/s/' + encodeURIComponent(id);
+  let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; } catch (_) {
+    const ta = document.createElement('textarea'); ta.value = url; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch (__) {} ta.remove();
+  }
+  if (ok) toast('Link copied'); else window.prompt('Copy this link:', url);
+}
+setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('en-GB'); }, 1000);
+$('#clock').textContent = new Date().toLocaleTimeString('en-GB');
+
+/* ---------- volume ---------- */
+const volEl = $('#vol');
+function paintVol() { volEl.style.setProperty('--p', (volume * 100).toFixed(1) + '%'); }
+volEl.value = volume = LS.get('volume', .9); paintVol();
+volEl.addEventListener('input', () => {
+  volume = +volEl.value; paintVol(); LS.set('volume', volume);
+  if (cur >= 0) { const el = decks[cur]; clearInterval(el._ramp); el.volume = talking ? volume * DUCK : volume; }
+  voiceEl.volume = clamp(volume * 1.1, 0, 1);
+});
+
+/* ---------- settings ---------- */
+const dlg = $('#settings');
+$('#sPersona').innerHTML = PERSONAS.map(p => `<option value="${p.id}">${esc(p.name)}, ${esc(p.label.toLowerCase())}</option>`).join('');
+function openSettings() {
+  $('#sStation').value = settings.station; $('#sPersona').value = settings.persona; $('#sVoice').value = settings.voice;
+  $('#sKey').value = settings.key; $('#sTalk').value = settings.talk; $('#sFade').checked = !!settings.fade;
+  $('#sTextModel').value = settings.textModel; $('#sTtsModel').value = settings.ttsModel; $('#sApiBase').value = settings.apiBase;
+  $('#sCuration').value = settings.curation || '';
+  dlg.showModal();
+}
+const bindField = (sel, key, prop = 'value') => $(sel).addEventListener(prop === 'checked' ? 'change' : 'input', e => {
+  settings[key] = prop === 'checked' ? e.target.checked : e.target.value.trim();
+  saveSettings(); renderPresenter();
+  if (key === 'station') { $('#station').textContent = settings.station || ' '; updateTitle(); }
+  if (!on && ['station', 'persona', 'voice', 'key', 'curation'].includes(key) && document.body.classList.contains('was-on') === false && $('#offairIn .big')) renderIdle();
+});
+bindField('#sStation', 'station'); bindField('#sPersona', 'persona'); bindField('#sVoice', 'voice'); bindField('#sKey', 'key');
+bindField('#sTalk', 'talk'); bindField('#sFade', 'fade', 'checked'); bindField('#sCuration', 'curation');
+$('#sCuration').addEventListener('input', () => { if (!pool.length) return; buildBlocks(); sched.left = 0; if (!on) renderIdle(); toast('The new programming starts after this song'); }); bindField('#sTextModel', 'textModel'); bindField('#sTtsModel', 'ttsModel'); bindField('#sApiBase', 'apiBase');
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+
+/* ---------- presenter self-test ---------- */
+async function testPresenter() {
+  if (!settings.key && !usingRelay()) { setStatus('script', 'add an OpenAI key first.', 'bad'); setStatus('voice', 'add an OpenAI key first.', 'bad'); return; }
+  const btn = $('#testBtn'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Testing';
+  const sample = pool[Math.floor(Math.random() * pool.length)];
+  const plan = { track: sample, block: blockOptions[0], blockStart: true };
+  let text = null;
+  try { setStatus('script', 'testing…'); text = await writeScript('open', null, plan); setStatus('script', `working (${settings.textModel}). It wrote: “${text}”`, 'good'); }
+  catch (e) { setStatus('script', 'failed: ' + describeErr(e), 'bad'); }
+  if (settings.voice === 'aibrowser') {
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text || `This is ${settings.station}. Testing, testing.`), v = pickBrowserVoice(), bp = persona().browser || {};
+      if (v) u.voice = v; u.rate = bp.rate || 1; u.pitch = bp.pitch || 1; u.volume = clamp(volume, .2, 1);
+      speechSynthesis.speak(u);
+      setStatus('voice', `the browser's own voice${v ? ' (' + v.name + ')' : ''}. You should hear it now.`, 'good');
+    } else setStatus('voice', "this browser has no built-in voice.", 'bad');
+    btn.disabled = false; btn.textContent = 'Test the presenter'; return;
+  }
+  try {
+    setStatus('voice', 'testing…');
+    const url = await speakToFile(text || `This is ${settings.station}. Testing, testing.`);
+    setStatus('voice', `working (${settings.ttsModel}). You should hear it now.`, 'good');
+    const a = new Audio(url); a.volume = clamp(volume, .2, 1); a.onended = () => URL.revokeObjectURL(url); a.play().catch(() => {});
+  } catch (e) { setStatus('voice', 'failed: ' + describeErr(e), 'bad'); }
+  btn.disabled = false; btn.textContent = 'Test the presenter';
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]'); if (!el) return;
+  switch (el.dataset.action) {
+    case 'power': on ? stop() : tuneIn(); break;
+    case 'skip': skip(); break;
+    case 'like': toggleLike(); break;
+    case 'share': if (curPlan) share(curPlan.track.id); break;
+    case 'share-id': share(el.dataset.id); break;
+    case 'settings': openSettings(); break;
+    case 'close-settings': dlg.close(); break;
+    case 'test': testPresenter(); break;
+    case 'reset-taste': taste = { g: {}, r: {}, a: {}, liked: {}, skipped: {} }; recentPlays = []; LS.set('taste', taste); LS.set('recent', recentPlays); toast('Listening history forgotten'); break;
+  }
+});
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'select' || tag === 'textarea' || dlg.open) return;
+  if (e.code === 'Space') { e.preventDefault(); on ? stop() : tuneIn(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); skip(); }
+  else if (e.key.toLowerCase() === 'l') toggleLike();
+});
+document.addEventListener('error', e => { const img = e.target; if (img.tagName === 'IMG' && !img.dataset.fb) { img.dataset.fb = '1'; img.src = artFallback(img.src); } }, true);
+if ('mediaSession' in navigator) {
+  try {
+    navigator.mediaSession.setActionHandler('play', () => tuneIn());
+    navigator.mediaSession.setActionHandler('pause', () => stop());
+    navigator.mediaSession.setActionHandler('stop', () => stop());
+    navigator.mediaSession.setActionHandler('nexttrack', () => skip());
+  } catch (_) {}
+}
+
+renderPresenter();
+load();
+})();
+</script>
+</body>
+</html>

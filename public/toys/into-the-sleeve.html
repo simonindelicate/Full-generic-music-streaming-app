@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Into the sleeve</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300..800&family=Syne:wght@500..800&display=swap" rel="stylesheet">
+<script>
+/* ==========================================================================
+   ▼▼▼  YOUR SITE ADDRESS GOES HERE  ▼▼▼
+   ========================================================================== */
+const BASE_URL = 'https://stream-the-indelicates.netlify.app';
+/* ========================================================================== */
+</script>
+<style>
+:root{--ink:#f6f2ec;--muted:rgb(246 242 236/.66);--faint:rgb(246 242 236/.4);--line:rgb(246 242 236/.12);--accent:#f0c36a;
+  --display:'Syne',ui-sans-serif,system-ui,sans-serif;--sans:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;--ease:cubic-bezier(.2,.8,.2,1)}
+*{box-sizing:border-box}
+html{background:#09080a}
+body{margin:0;min-height:100dvh;color:var(--ink);font:400 15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.ambient{position:fixed;inset:-15%;z-index:-2;background-size:cover;background-position:center;filter:blur(90px) saturate(1.6) brightness(.55);transition:background-image 1s}
+.shade{position:fixed;inset:0;z-index:-1;background:radial-gradient(100% 80% at 40% 40%,transparent,rgb(6 5 7/.75))}
+main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:clamp(20px,4vw,60px);padding:clamp(16px,3vw,40px) clamp(16px,4vw,60px) 30px;max-width:1500px;margin:0 auto;align-items:center;min-height:calc(100dvh - 170px)}
+@media (max-width:900px){main{grid-template-columns:1fr;min-height:0}}
+.view{position:relative;aspect-ratio:1;width:100%;max-height:calc(100dvh - 200px);margin:0 auto;border-radius:10px}
+canvas#gl{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.status{position:absolute;inset:auto 0 0 0;margin:auto;bottom:18px;width:fit-content;max-width:calc(100% - 32px);padding:10px 16px;border-radius:999px;background:rgb(10 9 11/.75);backdrop-filter:blur(12px);border:1px solid var(--line);font-size:14px;text-align:center;transition:opacity .4s}
+.status.hide{opacity:0;pointer-events:none}
+.bar{height:3px;border-radius:3px;background:rgb(255 255 255/.12);margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.drop{position:absolute;inset:0;border-radius:10px;border:2px dashed var(--accent);display:none;place-items:center;font:700 1.2rem var(--sans);background:rgb(10 9 11/.6)}
+.view.dragging .drop{display:grid}
+.panel h1{margin:0;font:800 clamp(2.2rem,4.6vw,4.4rem)/.92 var(--display);letter-spacing:-.03em;overflow-wrap:break-word}
+.panel .by{margin:14px 0 0;font-weight:600;font-size:1.15rem}
+.panel .facts{margin:4px 0 0;color:var(--muted)}
+.kicker{margin:0 0 14px;font:700 12px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.play{display:flex;align-items:center;gap:14px;margin-top:26px;padding:10px 14px 10px 10px;border-radius:999px;background:rgb(255 255 255/.06);border:1px solid var(--line);max-width:100%}
+.pp{width:46px;height:46px;flex:none;border-radius:50%;background:var(--ink);color:#09080a;display:grid;place-items:center}
+.pp svg{width:20px;height:20px}
+.pp .pa,body.playing .pp .pl{display:none}
+body.playing .pp .pa{display:block}
+.play .now{min-width:0}
+.play b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.play small{color:var(--faint)}
+.skip{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;color:var(--muted);margin-left:auto}
+.skip:hover{background:rgb(255 255 255/.08);color:var(--ink)}
+.skip svg{width:18px;height:18px}
+.controls{margin-top:26px;display:flex;flex-direction:column;gap:14px}
+.ctl{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center;font-size:14px;color:var(--muted)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:20px;background:transparent;cursor:pointer;--p:50%}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:linear-gradient(90deg,var(--accent) var(--p),rgb(255 255 255/.16) var(--p))}
+input[type=range]::-moz-range-track{height:4px;border-radius:4px;background:linear-gradient(90deg,var(--accent) var(--p),rgb(255 255 255/.16) var(--p))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;margin-top:-5px;border-radius:50%;background:var(--ink)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:var(--ink)}
+.btns{display:flex;flex-wrap:wrap;gap:10px}
+.chip{height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:rgb(255 255 255/.05);font-size:13.5px;font-weight:600}
+.chip:hover{background:rgb(255 255 255/.1)}
+.chip[aria-pressed=true]{background:var(--accent);color:#1a1206;border-color:transparent}
+.hint{margin:18px 0 0;color:var(--faint);font-size:13px}
+.shelf{display:flex;gap:12px;overflow-x:auto;padding:14px clamp(16px,4vw,60px) 26px;scrollbar-width:thin}
+.shelf button{flex:none;width:92px;text-align:left}
+.shelf img{width:92px;height:92px;object-fit:cover;border-radius:5px;box-shadow:0 10px 24px -12px rgb(0 0 0/.9);transition:transform .3s var(--ease),outline-color .3s;outline:2px solid transparent;outline-offset:3px}
+.shelf button:hover img{transform:translateY(-4px)}
+.shelf button[aria-current=true] img{outline-color:var(--accent)}
+.shelf small{display:block;margin-top:6px;font-size:11.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg{position:absolute;inset:0;display:grid;place-items:center;padding:28px;text-align:center;color:var(--muted)}
+.msg b{color:var(--ink)}
+.msg code{background:rgb(255 255 255/.1);padding:2px 6px;border-radius:5px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="ambient" id="ambient"></div><div class="shade"></div>
+<main>
+  <div class="view" id="view">
+    <canvas id="gl" aria-label="The cover as a 3D scene. Move the pointer over it to look around."></canvas>
+    <div class="status" id="status"><span id="statusT">Loading the catalogue…</span><div class="bar" id="statusBar" hidden><i id="statusFill"></i></div></div>
+    <div class="drop">Drop an image to step into it</div>
+  </div>
+  <section class="panel">
+    <p class="kicker">Into the sleeve</p>
+    <h1 id="title">&nbsp;</h1>
+    <p class="by" id="by"></p>
+    <p class="facts" id="facts"></p>
+    <div class="play" id="playBox" hidden>
+      <button class="pp" data-action="toggle" aria-label="Play or pause"><svg class="pl" viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 5.2v13.6a.9.9 0 0 0 1.38.76l10.6-6.8a.9.9 0 0 0 0-1.52L8.88 4.44A.9.9 0 0 0 7.5 5.2z"/></svg><svg class="pa" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg></button>
+      <div class="now"><b id="npT">Play the record</b><small id="npS"></small></div>
+      <button class="skip" data-action="next" aria-label="Next song"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5.5h2v13h-2zM5 6.3v11.4a.8.8 0 0 0 1.25.66L14 13.2a1.4 1.4 0 0 0 0-2.4L6.25 5.64A.8.8 0 0 0 5 6.3z"/></svg></button>
+    </div>
+    <div class="controls">
+      <label class="ctl">Depth <input type="range" id="depth" min="0" max="100" value="45"></label>
+      <label class="ctl">Movement <input type="range" id="move" min="0" max="100" value="55"></label>
+      <div class="btns">
+        <button class="chip" data-action="depthmap" aria-pressed="false">Show the depth map</button>
+        <button class="chip" data-action="tilt" id="tiltBtn" hidden>Tilt with phone</button>
+        <button class="chip" data-action="upload">Use your own image</button>
+      </div>
+    </div>
+    <p class="hint">Move the pointer over the picture to look around it. The depth is worked out in your browser, so the first picture takes a moment while the model downloads; after that it's cached.</p>
+    <input type="file" id="file" accept="image/*" hidden>
+  </section>
+</main>
+<nav class="shelf" id="shelf" aria-label="Records"></nav>
+
+<script type="module">
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
+env.allowLocalModels = false;
+
+const API = BASE_URL.replace(/\/+$/, '');
+const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ================= status line ================= */
+function status(text, pct) {
+  $('#status').classList.toggle('hide', !text);
+  if (text) $('#statusT').innerHTML = text;
+  $('#statusBar').hidden = pct == null; if (pct != null) $('#statusFill').style.width = pct + '%';
+}
+
+/* ================= the depth model ================= */
+let estimator = null, loadingModel = null;
+async function getEstimator() {
+  if (estimator) return estimator;
+  if (loadingModel) return loadingModel;
+  const files = {};
+  const progress_callback = p => {
+    if (p.status === 'progress' && p.total) {
+      files[p.file] = [p.loaded, p.total];
+      const [l, t] = Object.values(files).reduce((a, [x, y]) => [a[0] + x, a[1] + y], [0, 0]);
+      status(`Downloading the depth model, ${Math.round(t / 1048576)} MB, once only…`, Math.round(l / t * 100));
+    }
+  };
+  loadingModel = (async () => {
+    const model = 'onnx-community/depth-anything-v2-small';
+    if (navigator.gpu) {
+      try { estimator = await pipeline('depth-estimation', model, { device: 'webgpu', dtype: 'fp16', progress_callback }); return estimator; }
+      catch (e) { console.warn('WebGPU unavailable, falling back', e); }
+    }
+    estimator = await pipeline('depth-estimation', model, { device: 'wasm', dtype: 'q8', progress_callback });
+    return estimator;
+  })();
+  return loadingModel;
+}
+
+/* Turn the model's output into a soft 256×256 depth texture (blurred a little so edges stretch less). */
+function depthCanvas(raw) {
+  const w = raw.width, h = raw.height, ch = raw.channels || 1, src = raw.data;
+  const big = document.createElement('canvas'); big.width = w; big.height = h;
+  const bx = big.getContext('2d'), img = bx.createImageData(w, h);
+  let mn = 255, mx = 0; for (let i = 0; i < w * h; i++) { const v = src[i * ch]; if (v < mn) mn = v; if (v > mx) mx = v; }
+  const span = Math.max(1, mx - mn);
+  for (let i = 0; i < w * h; i++) { const v = (src[i * ch] - mn) / span * 255; img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255; }
+  bx.putImageData(img, 0, 0);
+  const out = document.createElement('canvas'); out.width = out.height = 256;
+  const ox = out.getContext('2d'); ox.filter = 'blur(2px)'; ox.drawImage(big, 0, 0, 256, 256);
+  return out;
+}
+const depthCache = new Map();
+function cachedDepth(key) {
+  if (depthCache.has(key)) return Promise.resolve(depthCache.get(key));
+  try { const d = localStorage.getItem('sleeve-depth:' + key); if (d) return new Promise(r => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = c.height = 256; c.getContext('2d').drawImage(im, 0, 0); depthCache.set(key, c); r(c); }; im.onerror = () => r(null); im.src = d; }); } catch (_) {}
+  return Promise.resolve(null);
+}
+function storeDepth(key, c) { depthCache.set(key, c); try { localStorage.setItem('sleeve-depth:' + key, c.toDataURL('image/png')); } catch (_) {} }
+
+/* ================= WebGL scene ================= */
+const cv = $('#gl'), gl = cv.getContext('webgl2', { antialias: true, premultipliedAlpha: false });
+const N = 220;
+let prog, uni = {}, colorTex, depthTex, indexCount = 0, aspect = 1;
+function initGL() {
+  const vs = `#version 300 es
+  in vec2 aPos; uniform sampler2D uDepth; uniform mat4 uMVP; uniform float uScale, uAspect;
+  out vec2 vUv; out float vD;
+  void main(){ vUv = aPos; float d = texture(uDepth, aPos).r; vD = d;
+    vec3 p = vec3((aPos.x - .5) * uAspect, (.5 - aPos.y), (d - .5) * uScale);
+    gl_Position = uMVP * vec4(p, 1.); }`;
+  const fs = `#version 300 es
+  precision highp float; in vec2 vUv; in float vD; uniform sampler2D uImg; uniform float uShow, uLight;
+  out vec4 o;
+  void main(){ vec3 c = texture(uImg, vUv).rgb; c = mix(c, vec3(vD), uShow);
+    c *= mix(1., .78 + .4 * vD, uLight);
+    vec2 e = smoothstep(vec2(0.), vec2(.012), vUv) * smoothstep(vec2(0.), vec2(.012), 1. - vUv);
+    o = vec4(c, e.x * e.y); }`;
+  const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+  prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  const verts = new Float32Array((N + 1) * (N + 1) * 2); let k = 0;
+  for (let y = 0; y <= N; y++) for (let x = 0; x <= N; x++) { verts[k++] = x / N; verts[k++] = y / N; }
+  const idx = new Uint32Array(N * N * 6); k = 0;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const a = y * (N + 1) + x, b = a + 1, c = a + N + 1, d = c + 1; idx.set([a, c, b, b, c, d], k); k += 6; }
+  indexCount = idx.length;
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+  for (const n of ['uDepth', 'uImg', 'uMVP', 'uScale', 'uAspect', 'uShow', 'uLight']) uni[n] = gl.getUniformLocation(prog, n);
+  colorTex = makeTex(); depthTex = makeTex();
+  gl.uniform1i(uni.uImg, 0); gl.uniform1i(uni.uDepth, 1);
+  gl.enable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  // start flat and grey until a picture arrives
+  const flat = document.createElement('canvas'); flat.width = flat.height = 2; const fx = flat.getContext('2d'); fx.fillStyle = '#808080'; fx.fillRect(0, 0, 2, 2);
+  upload(colorTex, flat); upload(depthTex, flat);
+}
+function makeTex() { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; }
+function upload(tex, src) { gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); }
+
+/* tiny matrix helpers (column-major) */
+const mul = (a, b) => { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; };
+const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov / 2); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
+const trans = (x, y, z) => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1]);
+const rotX = a => { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1]); };
+const rotY = a => { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1]); };
+
+/* ================= interaction ================= */
+const look = { x: 0, y: 0, tx: 0, ty: 0, active: false, last: 0 };
+const view = $('#view');
+cv.addEventListener('pointermove', e => {
+  const r = cv.getBoundingClientRect();
+  look.tx = ((e.clientX - r.left) / r.width - .5) * 2; look.ty = ((e.clientY - r.top) / r.height - .5) * 2;
+  look.active = true; look.last = performance.now();
+});
+cv.addEventListener('pointerleave', () => { look.active = false; });
+let tiltOn = false;
+function onOrient(e) { if (e.gamma == null) return; look.tx = Math.max(-1, Math.min(1, e.gamma / 25)); look.ty = Math.max(-1, Math.min(1, (e.beta - 45) / 25)); look.active = true; look.last = performance.now(); }
+if ('DeviceOrientationEvent' in window && matchMedia('(pointer:coarse)').matches) $('#tiltBtn').hidden = false;
+async function enableTilt(btn) {
+  try { if (typeof DeviceOrientationEvent.requestPermission === 'function' && (await DeviceOrientationEvent.requestPermission()) !== 'granted') return; } catch (_) { return; }
+  tiltOn = !tiltOn; btn.setAttribute('aria-pressed', String(tiltOn));
+  tiltOn ? addEventListener('deviceorientation', onOrient) : removeEventListener('deviceorientation', onOrient);
+}
+
+/* ================= render loop ================= */
+let reveal = 0, revealT0 = 0, showDepth = 0, showTarget = 0;
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2), r = cv.getBoundingClientRect();
+  cv.width = Math.max(1, Math.round(r.width * dpr)); cv.height = Math.max(1, Math.round(r.height * dpr));
+}
+new ResizeObserver(resize).observe(cv);
+function frame(t) {
+  const now = performance.now();
+  if (!look.active || now - look.last > 2500) { look.tx = Math.sin(t / 2600) * .55; look.ty = Math.sin(t / 3700) * .35; }
+  look.x += (look.tx - look.x) * .06; look.y += (look.ty - look.y) * .06;
+  if (revealT0) { const p = Math.min(1, (now - revealT0) / 1800); reveal = 1 - Math.pow(1 - p, 3) * (1 - p * .0); }
+  showDepth += (showTarget - showDepth) * .1;
+  const playing = !audio.paused;
+  const depth = +$('#depth').value / 100, move = +$('#move').value / 100;
+  const breathe = playing ? 1 + Math.sin(t / 900) * .06 : 1;
+  const scale = depth * .9 * reveal * breathe;
+  gl.viewport(0, 0, cv.width, cv.height);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  const asp = cv.width / cv.height;
+  const fit = Math.max(aspect, 1);
+  const model = mul(rotY(look.x * .32 * move), rotX(look.y * .24 * move));
+  const mvp = mul(persp(.62, asp, .1, 20), mul(trans(-look.x * .05 * move, look.y * .04 * move, -1.95 * fit - .1), model));
+  gl.uniformMatrix4fv(uni.uMVP, false, mvp);
+  gl.uniform1f(uni.uScale, scale); gl.uniform1f(uni.uAspect, aspect); gl.uniform1f(uni.uShow, showDepth); gl.uniform1f(uni.uLight, reveal * .8);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, colorTex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, depthTex);
+  gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_INT, 0);
+  requestAnimationFrame(frame);
+}
+
+/* ================= loading a picture ================= */
+let jobId = 0;
+async function stepInto(src, key, crossOrigin) {
+  const job = ++jobId;
+  status('Fetching the picture…');
+  const img = new Image(); if (crossOrigin) img.crossOrigin = 'anonymous';
+  try { await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; }); }
+  catch (_) { if (job === jobId) blocked(); return; }
+  if (job !== jobId) return;
+  aspect = img.naturalWidth / img.naturalHeight || 1;
+  try { upload(colorTex, img); } catch (_) { blocked(); return; }
+  reveal = 0; revealT0 = 0;
+  let d = key ? await cachedDepth(key) : null;
+  if (!d) {
+    try {
+      const est = await getEstimator();
+      if (job !== jobId) return;
+      status('Working out how deep everything is…');
+      const out = await est(src);
+      if (job !== jobId) return;
+      d = depthCanvas(out.depth);
+      if (key) storeDepth(key, d);
+    } catch (e) { console.error(e); if (job === jobId) status(`The depth model couldn't run here (${esc(e.message || e)}).`); return; }
+  }
+  upload(depthTex, d);
+  revealT0 = performance.now(); status('');
+}
+function blocked() {
+  status(`This cover can't be read by the page, because the artwork isn't served with an <b>Access-Control-Allow-Origin</b> header. Add one for your images, or try <b>Use your own image</b> to see the effect now.`);
+}
+
+/* ================= catalogue and records ================= */
+let releases = [], rec = null;
+function mergeReleases(list) {
+  const norm = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const byKey = new Map(), out = [];
+  for (const r of list) {
+    const key = norm(r.title) + '|' + (r.year || '');
+    let m = byKey.get(key);
+    if (!m) { m = { ...r, tracks: [], ids: [], _ids: new Set() }; byKey.set(key, m); out.push(m); }
+    m.ids.push(r.id);
+    for (const t of (r.tracks || [])) { if (m._ids.has(t.id)) continue; m._ids.add(t.id); m.tracks.push({ ...t, artist: t.artist || r.artist }); }
+    for (const k of ['artworkUrl', 'genre', 'year']) if (!m[k] && r[k]) m[k] = r[k];
+  }
+  out.forEach(m => { m.tracks.sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0)); delete m._ids; });
+  return out;
+}
+function choose(r, push) {
+  rec = r; audio.pause(); qi = -1;
+  $('#title').textContent = r.title; $('#by').textContent = r.artist;
+  $('#facts').textContent = [r.year, r.genre, `${r.tracks.length} song${r.tracks.length === 1 ? '' : 's'}`].filter(Boolean).join(', ');
+  $('#ambient').style.backgroundImage = r.artworkUrl ? `url("${r.artworkUrl}")` : '';
+  $('#playBox').hidden = !r.tracks.some(t => !t.gated && t.audioUrl); $('#npT').textContent = 'Play the record'; $('#npS').textContent = '';
+  $$('#shelf button').forEach(b => b.setAttribute('aria-current', String(b.dataset.id === r.ids[0])));
+  document.title = `${r.title}, into the sleeve`;
+  if (push) history.replaceState(null, '', '?r=' + encodeURIComponent(r.ids[0]));
+  if (r.artworkUrl) stepInto(r.artworkUrl, r.ids[0], true); else status('This record has no cover to step into.');
+}
+
+/* ================= music ================= */
+const audio = new Audio(); audio.preload = 'auto';
+let qi = -1;
+function playIdx(i) { const t = rec.tracks[i]; qi = i; audio.src = t.audioUrl; audio.play().catch(() => {}); $('#npT').textContent = t.title; $('#npS').textContent = `${t.trackNumber || i + 1} of ${rec.tracks.length}`; }
+function next() { if (!rec) return; for (let i = qi + 1; i < rec.tracks.length; i++) if (!rec.tracks[i].gated && rec.tracks[i].audioUrl) return playIdx(i); audio.pause(); }
+audio.addEventListener('play', () => document.body.classList.add('playing'));
+audio.addEventListener('pause', () => document.body.classList.remove('playing'));
+audio.addEventListener('ended', next);
+
+/* ================= events ================= */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]'); if (!el) return;
+  const a = el.dataset.action;
+  if (a === 'toggle') { if (qi < 0) next(); else audio.paused ? audio.play() : audio.pause(); }
+  if (a === 'next') next();
+  if (a === 'depthmap') { showTarget = showTarget ? 0 : 1; el.setAttribute('aria-pressed', String(!!showTarget)); }
+  if (a === 'tilt') enableTilt(el);
+  if (a === 'upload') $('#file').click();
+  if (a === 'pick') { const r = releases.find(x => x.ids[0] === el.dataset.id); if (r) choose(r, true); }
+});
+for (const id of ['depth', 'move']) { const el = $('#' + id); const paint = () => el.style.setProperty('--p', el.value + '%'); el.addEventListener('input', paint); paint(); }
+function useFile(f) {
+  if (!f || !f.type.startsWith('image/')) return;
+  const url = URL.createObjectURL(f);
+  $('#title').textContent = f.name.replace(/\.[^.]+$/, ''); $('#by').textContent = 'Your own image'; $('#facts').textContent = ''; $('#playBox').hidden = true;
+  $('#ambient').style.backgroundImage = `url("${url}")`;
+  $$('#shelf button').forEach(b => b.setAttribute('aria-current', 'false'));
+  stepInto(url, null, false);
+}
+$('#file').addEventListener('change', e => useFile(e.target.files[0]));
+view.addEventListener('dragover', e => { e.preventDefault(); view.classList.add('dragging'); });
+view.addEventListener('dragleave', () => view.classList.remove('dragging'));
+view.addEventListener('drop', e => { e.preventDefault(); view.classList.remove('dragging'); useFile(e.dataTransfer.files[0]); });
+
+/* ================= start ================= */
+if (!gl) { view.innerHTML = '<div class="msg"><p><b>This browser can\'t draw 3D scenes.</b> Try a recent Chrome, Edge, Safari or Firefox.</p></div>'; }
+else {
+  initGL(); resize(); requestAnimationFrame(frame);
+  try {
+    const res = await fetch(API + '/catalogue', { cache: 'no-store' });
+    if (!res.ok) throw new Error('The server replied ' + res.status);
+    const data = await res.json();
+    releases = mergeReleases(data.releases || []).filter(r => r.artworkUrl).sort((a, b) => (+b.year || 0) - (+a.year || 0));
+    $('#shelf').innerHTML = releases.map(r => `<button data-action="pick" data-id="${esc(r.ids[0])}" aria-label="${esc(r.title)}"><img src="${esc(r.artworkUrl)}" alt="" loading="lazy"><small>${esc(r.title)}</small></button>`).join('');
+    const key = new URLSearchParams(location.search).get('r');
+    const start = (key && releases.find(r => r.ids.includes(key))) || releases[0];
+    if (start) choose(start, false); else status('No covers found in the catalogue. Try <b>Use your own image</b>.');
+  } catch (e) { status(`The catalogue didn't load (${esc(e.message)}). You can still try <b>Use your own image</b>.`); }
+}
+</script>
+</body>
+</html>
