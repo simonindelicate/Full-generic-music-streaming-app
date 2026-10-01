@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Catalogue toys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121514;--ink:#eef1ef;--muted:#9aa5a0;--line:rgb(238 241 239/.1);--accent:#e9c46a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;background:var(--bg);color:var(--ink);font:400 16px/1.55 'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:860px;margin:0 auto;padding:clamp(32px,8vw,96px) clamp(18px,5vw,40px) 80px}
+h1{margin:0;font:400 clamp(3rem,9vw,5.4rem)/.95 'Instrument Serif',Georgia,serif;letter-spacing:-.02em}
+h1 em{color:var(--accent)}
+.lede{margin:18px 0 48px;color:var(--muted);max-width:52ch}
+h2{margin:40px 0 6px;font:italic 400 1.6rem/1 'Instrument Serif',Georgia,serif;color:var(--muted)}
+ul{list-style:none;margin:0;padding:0}
+li a{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;padding:16px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;transition:padding .25s,background .25s}
+li a:hover{padding-left:12px;background:rgb(255 255 255/.03)}
+li b{font-weight:600}
+li span{grid-column:1;color:var(--muted);font-size:14.5px}
+li i{grid-row:1/3;grid-column:2;align-self:center;font-style:normal;color:var(--accent);opacity:0;transition:opacity .25s}
+li a:hover i{opacity:1}
+</style>
+</head>
+<body>
+<main>
+  <h1>Catalogue <em>toys</em></h1>
+  <p class="lede">Single-file front-ends, each built on the same open catalogue feed. None of them needs anything but the catalogue's address.</p>
+
+  <h2>Players</h2>
+  <ul>
+    <li><a href="salon-player.html"><b>Salon</b><span>The polished one: tinted by each record's artwork, with a full-screen listening room.</span><i>→</i></a></li>
+    <li><a href="records.html"><b>Records</b><span>A page for every record, with a gallery of the whole catalogue.</span><i>→</i></a></li>
+    <li><a href="squelch-player.html"><b>Squelch</b><span>Liquid, gooey and audio-reactive. Deliberately far too much.</span><i>→</i></a></li>
+    <li><a href="squelch-player-mellow.html"><b>Squelch, mellow</b><span>The same, dialled down.</span><i>→</i></a></li>
+    <li><a href="riso-zine-player.html"><b>Riso zine</b><span>Photocopier punk: two-colour risograph covers knocked about by the kick drum.</span><i>→</i></a></li>
+  </ul>
+
+  <h2>Radio</h2>
+  <ul>
+    <li><a href="catalogue-radio.html"><b>Catalogue radio</b><span>A continuous station with programmed segments and an optional AI presenter.</span><i>→</i></a></li>
+    <li><a href="slop-catalogue-radio.html"><b>Catalogue radio, slop edition</b><span>The same station, pointed at a different catalogue.</span><i>→</i></a></li>
+  </ul>
+
+  <h2>Things to make and explore</h2>
+  <ul>
+    <li><a href="mixtape.html"><b>Mixtape</b><span>Make a C60 for someone and send it as a link. It arrives as a tape in a deck.</span><i>→</i></a></li>
+    <li><a href="record-town.html"><b>Record Town</b><span>A pixel-art town where every record is a building. Listen to earn the tolls.</span><i>→</i></a></li>
+    <li><a href="catalogue-charted.html"><b>The Catalogue, charted</b><span>A night-time map explored by lantern, where songs play as you approach them.</span><i>→</i></a></li>
+    <li><a href="into-the-sleeve.html"><b>Into the sleeve</b><span>Each cover turned into a 3D scene by a depth model running in your browser.</span><i>→</i></a></li>
+  </ul>
+</main>
+</body>
+</html>

@@ -71,7 +71,7 @@ body.playing .vinyl .spin{animation-play-state:running}
 @keyframes arrive{from{opacity:0;transform:translateY(40px) rotateX(18deg) rotateY(-24deg) scale(.9)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 .words .kicker{margin:0 0 20px;font:700 13px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
-.words h1{margin:0;font:800 clamp(3.2rem,9vw,9.5rem)/.86 var(--display);letter-spacing:-.035em;overflow-wrap:break-word;hyphens:auto}
+.words h1{margin:0;font:800 clamp(3.2rem,9vw,9.5rem)/.86 var(--display);letter-spacing:-.035em;overflow-wrap:normal;word-break:normal;hyphens:manual}
 .words h1.long{font-size:clamp(2.6rem,6.2vw,6.4rem);line-height:.92}
 .words h1.xlong{font-size:clamp(2.1rem,4.6vw,4.6rem);line-height:.98}
 .words h1 .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.06em}
@@ -282,6 +282,12 @@ function tilt(area, target, strength) {
   area.addEventListener('pointerleave', () => { target.style.setProperty('--ry', '0deg'); target.style.setProperty('--rx', '0deg'); });
 }
 
+
+function fitTitle(el, max, min) {
+  if (!el) return;
+  let size = max; el.style.fontSize = size + 'px';
+  while (size > min && el.scrollWidth > el.clientWidth + 1) { size -= 2; el.style.fontSize = size + 'px'; }
+}
 /* ================= pages ================= */
 let rec = null;
 function recordUrl(r) { return '?r=' + encodeURIComponent(r.ids[0]); }
@@ -340,6 +346,8 @@ function renderRecord(r) {
       <p>${esc(n.text)}</p></article>`).join('')}</section>` : ''}
     ${others.length ? `<section class="more"><div class="sect"><h2>Elsewhere in the catalogue</h2></div><div class="shelf">${others.map(x => `<a href="${recordUrl(x)}"><img src="${esc(x.artworkUrl || '')}" alt="" loading="lazy"><b>${esc(x.title)}</b><small>${esc(x.year || '')}</small></a>`).join('')}</div></section>` : ''}`;
   tilt($('#stage'), $('#sleeve'), 18);
+  const h1 = $('.words h1'), fitH = () => { h1.style.fontSize = ''; const max = parseFloat(getComputedStyle(h1).fontSize); fitTitle(h1, max, 24); };
+  fitH(); addEventListener('resize', fitH); document.fonts && document.fonts.ready.then(fitH);
   setTimeout(() => $$('.intro').forEach(el => el.classList.remove('intro')), 2600);
   const deep = new URLSearchParams(location.search).get('t');
   if (deep) { const i = r.tracks.findIndex(t => t.id === deep); if (i >= 0) setTimeout(() => $$('.row')[i] && $$('.row')[i].scrollIntoView({ block: 'center', behavior: 'smooth' }), 600); }

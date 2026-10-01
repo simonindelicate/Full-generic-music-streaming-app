@@ -36,7 +36,7 @@ canvas#gl{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
 .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
 .drop{position:absolute;inset:0;border-radius:10px;border:2px dashed var(--accent);display:none;place-items:center;font:700 1.2rem var(--sans);background:rgb(10 9 11/.6)}
 .view.dragging .drop{display:grid}
-.panel h1{margin:0;font:800 clamp(2.2rem,4.6vw,4.4rem)/.92 var(--display);letter-spacing:-.03em;overflow-wrap:break-word}
+.panel h1{margin:0;font:800 clamp(2.2rem,4.6vw,4.4rem)/.92 var(--display);letter-spacing:-.03em;overflow-wrap:normal;word-break:normal;hyphens:manual}
 .panel .by{margin:14px 0 0;font-weight:600;font-size:1.15rem}
 .panel .facts{margin:4px 0 0;color:var(--muted)}
 .kicker{margin:0 0 14px;font:700 12px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
@@ -115,6 +115,12 @@ const API = BASE_URL.replace(/\/+$/, '');
 const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+
+function fitTitle(el, max, min) {
+  if (!el) return;
+  let size = max; el.style.fontSize = size + 'px';
+  while (size > min && el.scrollWidth > el.clientWidth + 1) { size -= 2; el.style.fontSize = size + 'px'; }
+}
 /* ================= status line ================= */
 function status(text, pct) {
   $('#status').classList.toggle('hide', !text);
@@ -241,6 +247,7 @@ function resize() {
   cv.width = Math.max(1, Math.round(r.width * dpr)); cv.height = Math.max(1, Math.round(r.height * dpr));
 }
 new ResizeObserver(resize).observe(cv);
+addEventListener('resize', () => fitTitle($('#title'), Math.min(70, innerWidth * .06), 22));
 function frame(t) {
   const now = performance.now();
   if (!look.active || now - look.last > 2500) { look.tx = Math.sin(t / 2600) * .55; look.ty = Math.sin(t / 3700) * .35; }
@@ -270,9 +277,17 @@ let jobId = 0;
 async function stepInto(src, key, crossOrigin) {
   const job = ++jobId;
   status('Fetching the picture…');
-  const img = new Image(); if (crossOrigin) img.crossOrigin = 'anonymous';
-  try { await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; }); }
-  catch (_) { if (job === jobId) blocked(); return; }
+  const tryLoad = url => new Promise((res, rej) => { const im = new Image(); if (crossOrigin) im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = rej; im.src = url; });
+  let img;
+  try { img = await tryLoad(src); }
+  catch (_) {
+    // The site is often reachable under more than one address (a custom domain and its
+    // netlify.app name). If the cover lives under another of them, the same path on this
+    // address is the same file, and needs no cross-origin permission.
+    const alt = sameSitePath(src);
+    try { if (!alt) throw 0; img = await tryLoad(alt); src = alt; }
+    catch (__) { if (job === jobId) blocked(); return; }
+  }
   if (job !== jobId) return;
   aspect = img.naturalWidth / img.naturalHeight || 1;
   try { upload(colorTex, img); } catch (_) { blocked(); return; }
@@ -292,6 +307,11 @@ async function stepInto(src, key, crossOrigin) {
   upload(depthTex, d);
   revealT0 = performance.now(); status('');
 }
+function sameSitePath(src) {
+  try { const u = new URL(src, location.href); if (!crossOriginOk(u)) return location.origin + u.pathname + u.search; } catch (_) {}
+  return null;
+}
+function crossOriginOk(u) { return u.origin === location.origin || location.protocol === 'file:'; }
 function blocked() {
   status(`This cover can't be read by the page, because the artwork isn't served with an <b>Access-Control-Allow-Origin</b> header. Add one for your images, or try <b>Use your own image</b> to see the effect now.`);
 }
@@ -315,6 +335,7 @@ function mergeReleases(list) {
 function choose(r, push) {
   rec = r; audio.pause(); qi = -1;
   $('#title').textContent = r.title; $('#by').textContent = r.artist;
+  fitTitle($('#title'), Math.min(70, innerWidth * .06), 22);
   $('#facts').textContent = [r.year, r.genre, `${r.tracks.length} song${r.tracks.length === 1 ? '' : 's'}`].filter(Boolean).join(', ');
   $('#ambient').style.backgroundImage = r.artworkUrl ? `url("${r.artworkUrl}")` : '';
   $('#playBox').hidden = !r.tracks.some(t => !t.gated && t.audioUrl); $('#npT').textContent = 'Play the record'; $('#npS').textContent = '';
@@ -348,7 +369,7 @@ for (const id of ['depth', 'move']) { const el = $('#' + id); const paint = () =
 function useFile(f) {
   if (!f || !f.type.startsWith('image/')) return;
   const url = URL.createObjectURL(f);
-  $('#title').textContent = f.name.replace(/\.[^.]+$/, ''); $('#by').textContent = 'Your own image'; $('#facts').textContent = ''; $('#playBox').hidden = true;
+  $('#title').textContent = f.name.replace(/\.[^.]+$/, ''); fitTitle($('#title'), Math.min(70, innerWidth * .06), 22); $('#by').textContent = 'Your own image'; $('#facts').textContent = ''; $('#playBox').hidden = true;
   $('#ambient').style.backgroundImage = `url("${url}")`;
   $$('#shelf button').forEach(b => b.setAttribute('aria-current', 'false'));
   stepInto(url, null, false);
