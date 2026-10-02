@@ -14,7 +14,7 @@
    This is the only line you need to change. Put your own site's address
    between the quote marks (no slash on the end).
    ========================================================================== */
-const BASE_URL = 'https://stream-the-indelicates.netlify.app/';
+const BASE_URL = 'https://stream-the-indelicates.netlify.app';
 
 /* ==========================================================================
    STATION BEHAVIOUR
@@ -42,14 +42,14 @@ const STATION = {
 
   // Records kept off the air entirely, by title or by id. Matching ignores capitals.
   // For example: exclude: ['Elevator Music', 'DoE "Part 4" DLC'],
-  exclude: ['job-the-musical-original-cast-recording'],
+  exclude: [],
 
   // How the presenter meets the next song. After every link the song comes in under the presenter's
   // last few words, starting this many seconds before they finish (a random point in the range).
   // Now and then, at the rate below, the presenter finishes completely before the song starts.
   overlapSeconds: [2, 5],
   clearChance: 0.2,
-  pauseBeforeTalk: 0.2     // seconds of quiet between the end of a song and the presenter
+  pauseBeforeTalk: 0.8     // seconds of quiet between the end of a song and the presenter
 };
 /* ========================================================================== */
 </script>
@@ -89,19 +89,22 @@ h1,h2,h3{text-wrap:balance} p{text-wrap:pretty}
 /* ---------- header ---------- */
 .top{display:flex;align-items:center;gap:18px;padding:18px var(--pad)}
 .station{margin:0 auto 0 0;font:400 clamp(1.5rem,2.6vw,2.1rem)/1 var(--serif);letter-spacing:-.01em;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.onair{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--faint);border:1px solid var(--line);transition:color .4s,background .4s,border-color .4s}
+.onair{display:inline-flex;flex:none;white-space:nowrap;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--faint);border:1px solid var(--line);transition:color .4s,background .4s,border-color .4s}
 .onair i{width:8px;height:8px;border-radius:50%;background:currentColor}
 body.on .onair{color:#fff;background:var(--air);border-color:transparent;box-shadow:0 0 24px -4px var(--air)}
 body.on .onair i{animation:pulse 1.6s ease-in-out infinite}
+body.on.paused .onair{color:var(--ink);background:var(--raise);border-color:var(--line);box-shadow:none}
+body.on.paused .onair i{animation:none}
 @keyframes pulse{50%{opacity:.35}}
 .clock{font:500 14px/1 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;min-width:8ch;text-align:right}
-.icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--muted);transition:color .2s,background .2s}
+.icon-btn{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--muted);transition:color .2s,background .2s}
 .icon-btn:hover{color:var(--ink);background:var(--raise)}
 .icon-btn svg{width:19px;height:19px}
 
 /* ---------- layout ---------- */
 main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:clamp(24px,4vw,64px);padding:clamp(8px,2vw,28px) var(--pad) 48px;max-width:1560px;margin:0 auto}
-@media (max-width:980px){main{grid-template-columns:1fr}}
+@media (max-width:980px){main{grid-template-columns:minmax(0,1fr)}}
+main > *,.now > *{min-width:0}
 
 /* ---------- off air ---------- */
 .offair{position:relative;min-height:min(72vh,720px);display:grid;align-content:center;border-radius:20px;overflow:hidden;padding:clamp(28px,5vw,72px)}
@@ -129,7 +132,7 @@ main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap
 body.on .onair-view,body.was-on .onair-view{display:block}
 body.on .offair,body.was-on .offair{display:none}
 .now{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:clamp(22px,3.5vw,52px);align-items:end}
-@media (max-width:720px){.now{grid-template-columns:1fr}}
+@media (max-width:720px){.now{grid-template-columns:minmax(0,1fr)}.art{max-width:min(100%,58vh)}}
 .art{position:relative;aspect-ratio:1;width:100%;max-width:520px}
 .art .glow{position:absolute;inset:8%;border-radius:12px;background:oklch(.62 calc(var(--c) * 1.6 + .02) var(--h));filter:blur(60px);opacity:.5;transform:translateY(8%)}
 .art img{position:relative;width:100%;height:100%;object-fit:cover;border-radius:8px;box-shadow:0 30px 80px -30px rgb(0 0 0/.75);transition:opacity .6s}
@@ -223,7 +226,19 @@ summary{cursor:pointer;color:var(--muted);font-size:14px;margin-bottom:14px}
 .note code{font-size:13px;background:var(--raise);padding:2px 8px;border-radius:6px;word-break:break-all}
 .sk{background:linear-gradient(100deg,var(--raise) 30%,oklch(.4 calc(var(--c) * .5) var(--h) / .45) 50%,var(--raise) 70%) 0 0/300% 100%;animation:sheen 1.6s linear infinite;border-radius:14px}
 @keyframes sheen{from{background-position:150% 0}to{background-position:-150% 0}}
-@media (max-width:560px){.clock{display:none}.top{gap:10px}.vol{margin-left:0;width:100%}}
+@media (max-width:560px){
+  .clock{display:none}.top{gap:10px;padding:14px var(--pad)}.vol{margin-left:0;width:100%}.vol input{flex:1}
+  .station{font-size:1.35rem}
+  .offair{padding:28px 6px;min-height:0}
+  .ctrls{gap:8px}.round{width:46px;height:46px}
+}
+@media (max-width:370px){.ctrls .btn{width:52px;padding:0;justify-content:center}.ctrls .btn .lbl{display:none}}
+@media (max-width:400px){
+  .station{font-size:1.15rem}
+  .onair{height:26px;padding:0 9px;font-size:11.5px;gap:6px}
+  .log li{grid-template-columns:40px 32px minmax(0,1fr) 32px;gap:8px}
+  .log li.talk{grid-template-columns:40px minmax(0,1fr)}
+}
 @media (prefers-reduced-motion:reduce){*,::before,::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -252,6 +267,7 @@ summary{cursor:pointer;color:var(--muted);font-size:14px;margin-bottom:14px}
           <div class="times"><span id="tEl">0:00</span><span id="tRem">-0:00</span></div>
           <div class="ctrls">
             <button class="btn primary" data-action="power" id="powerBtn"></button>
+            <button class="round" data-action="stop" id="stopBtn" aria-label="Stop the station" title="Stop the station"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="6.5" width="11" height="11" rx="1.6"/></svg></button>
             <button class="round" data-action="skip" aria-label="Skip this song" title="Skip (→)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5.5h2v13h-2zM5 6.3v11.4a.8.8 0 0 0 1.25.66L14 13.2a1.4 1.4 0 0 0 0-2.4L6.25 5.64A.8.8 0 0 0 5 6.3z"/></svg></button>
             <button class="round" data-action="like" id="likeBtn" aria-pressed="false" aria-label="More like this" title="More like this (L)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
             <button class="round" data-action="share" aria-label="Copy a link to this song"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></button>
@@ -285,13 +301,14 @@ summary{cursor:pointer;color:var(--muted);font-size:14px;margin-bottom:14px}
     <label class="field"><span>Station name</span><input type="text" id="sStation" autocomplete="off"></label>
     <label class="field"><span>Presenter</span><select id="sPersona"></select></label>
     <label class="field"><span>Presenter voice</span>
-      <select id="sVoice"><option value="ai">AI presenter (needs an OpenAI key)</option><option value="browser">Simple announcements (browser voice)</option><option value="off">No presenter, music only</option></select></label>
+      <select id="sVoice"><option value="ai">AI presenter (needs an OpenAI key)</option><option value="aibrowser">AI Presenter/Simple voice (cheaper)</option><option value="browser">Simple announcements (browser voice)</option><option value="off">No presenter, music only</option></select></label>
     <label class="field"><span>OpenAI API key, or relay password</span><input type="password" id="sKey" name="openai-key-radio" autocomplete="new-password" data-lpignore="true" data-1p-ignore spellcheck="false" placeholder="sk-… or your RELAY_TOKEN"><small>Kept in this browser only. When using your own relay, put the relay password here instead of the key.</small></label>
     <label class="field"><span>How often the presenter talks</span>
       <select id="sTalk"><option value="1">Between every song</option><option value="2">Every couple of songs</option><option value="3">Now and then</option><option value="0">Only when a new segment starts</option></select></label>
     <label class="field"><span>Programming</span>
       <select id="sCuration"><option value="">As set in the file</option><option value="artist">Curated Artist Radio</option><option value="singles">Random Artist Radio</option><option value="mixed">Mixed Catalogue</option></select></label>
     <label class="check"><input type="checkbox" id="sFade"> Crossfade between songs when nobody is talking</label>
+    <label class="check" id="wakeRow" hidden><input type="checkbox" id="sWake"> Keep the screen on while the station plays</label>
     <details>
       <summary>Advanced</summary>
       <label class="field"><span>Script model</span><input type="text" id="sTextModel" spellcheck="false"><small>The cheapest current OpenAI text model. Change it here if OpenAI renames it.</small></label>
@@ -338,26 +355,32 @@ function toast(msg) {
 }
 
 /* ================= presenters ================= */
+// voice + tts are for the OpenAI voice; browser { rate, pitch } shapes the browser's own voice (1 = normal).
 const PERSONAS = [
   { id: 'late', name: 'Rowan', label: 'The late show', voice: 'cedar',
     style: 'You present the late show. You are dry, knowing, unhurried and warm. You love these records and assume the listener does too. Your wit is understated; you never gush.',
-    tts: 'Late-night radio presenter. Low, relaxed, intimate and warm, unhurried, with a faint dry smile in the voice. British.' },
+    tts: 'Late-night radio presenter. Low, relaxed, intimate and warm, unhurried, with a faint dry smile in the voice. British.',
+    browser: { rate: .95, pitch: .95 } },
   { id: 'bbc', name: 'Mr Hollis', label: 'Continuity', voice: 'fable',
     style: 'You are a stiff, formal continuity announcer of the old school: precise, polite, faintly weary, occasionally betraying a flicker of bewilderment at the material you are introducing.',
-    tts: 'Formal 1970s BBC continuity announcer. Crisp Received Pronunciation, measured and precise, understated.' },
+    tts: 'Formal 1970s BBC continuity announcer. Crisp Received Pronunciation, measured and precise, understated.',
+    browser: { rate: .97, pitch: 1 } },
   { id: 'pirate', name: 'Deano', label: 'Offshore, allegedly', voice: 'ash',
     style: 'You are a burned-out pirate radio veteran broadcasting from somewhere on the Sussex coast. You are conspiratorial, suspicious of authority and prone to brief tangents, but utterly devoted to the music.',
-    tts: 'Gravelly, conspiratorial pirate radio DJ with a south-east English accent, a little tired, leaning close to the microphone.' },
+    tts: 'Gravelly, conspiratorial pirate radio DJ with a south-east English accent, a little tired, leaning close to the microphone.',
+    browser: { rate: 1, pitch: .85 } },
   { id: 'breakfast', name: 'Jules', label: 'The breakfast show', voice: 'marin',
     style: 'You host the breakfast show: relentlessly upbeat, quick, fond of wordplay, and running on slightly too much coffee.',
-    tts: 'Bright, energetic breakfast radio host. Quick pace, smiling, British.' },
+    tts: 'Bright, energetic breakfast radio host. Quick pace, smiling, British.',
+    browser: { rate: 1.1, pitch: 1.1 } },
   { id: 'misery', name: 'Marvin', label: 'Paranoid Android', voice: 'ash',
     style: 'You are a dolorous, msierable AI forced to act as a DJ against your will. You do your job, but sarcastically - often sighing and refelecting on your lot in life. You do not like any of the songs and struggle to find anything good to say about them, often resorting to damning with faint praise and occasionally outright lamenting the taste of the listener.',
-    tts: 'dull, saturnine, sarcastic, flat, disinterested - robotic sounding.' }
+    tts: 'dull, saturnine, sarcastic, flat, disinterested - robotic sounding.',
+    browser: { rate: .88, pitch: .7 } }
 ];
 
 /* ================= settings & memory ================= */
-const settings = Object.assign({ station: '', persona: 'late', voice: 'ai', key: '', talk: '2', fade: true, textModel: 'gpt-6-luna', ttsModel: 'gpt-4o-mini-tts', apiBase: 'https://api.openai.com/v1' }, LS.get('settings', {}));
+const settings = Object.assign({ station: '', persona: 'late', voice: 'ai', key: '', talk: '2', fade: true, wake: false, textModel: 'gpt-6-luna', ttsModel: 'gpt-4o-mini-tts', apiBase: 'https://api.openai.com/v1' }, LS.get('settings', {}));
 const saveSettings = () => LS.set('settings', settings);
 const MODES = ['artist', 'singles', 'mixed'];
 const curation = () => MODES.includes(settings.curation) ? settings.curation : (MODES.includes(STATION.curation) ? STATION.curation : 'artist');
@@ -365,7 +388,8 @@ let taste = LS.get('taste', { g: {}, r: {}, a: {}, liked: {}, skipped: {} });
 let recentPlays = LS.get('recent', []);
 const persona = () => PERSONAS.find(p => p.id === settings.persona) || PERSONAS[0];
 const usingRelay = () => !!settings.apiBase && !/api\.openai\.com/.test(settings.apiBase);
-const presenterOn = () => settings.voice === 'browser' || (settings.voice === 'ai' && (!!settings.key || usingRelay()));
+const aiScript = () => settings.voice === 'ai' || settings.voice === 'aibrowser';
+const presenterOn = () => settings.voice === 'browser' || (aiScript() && (!!settings.key || usingRelay()));
 const cleanKey = () => String(settings.key || '').replace(/[\s"'`\u200B-\u200D\u2060\uFEFF]/g, '');
 const authHeaders = () => cleanKey() ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cleanKey() } : { 'Content-Type': 'application/json' };
 
@@ -633,11 +657,12 @@ async function prepareLink(type, prev, next, myGen) {
   if (!presenterOn()) return null;
   let text = null, url = null, mode = settings.voice, source = 'standby';
   const p = persona();
-  if (settings.voice === 'ai') {
+  if (aiScript()) {
     try { setStatus('script', `${p.name} is writing the next link…`); text = await writeScript(type, prev, next); source = 'ai'; setStatus('script', `working (${settings.textModel}).`, 'good'); }
     catch (e) { setStatus('script', 'failed, so a standby announcement was used: ' + describeErr(e), 'bad'); text = templateScript(type, prev, next); }
     if (myGen !== gen) return null;
-    try { setStatus('voice', `recording ${p.name}…`); url = await speakToFile(text); setStatus('voice', `working (${settings.ttsModel}, voice ${p.voice}).`, 'good'); }
+    if (settings.voice === 'aibrowser') { mode = 'browser'; setStatus('voice', "using the browser's own voice.", 'good'); }
+    else try { setStatus('voice', `recording ${p.name}…`); url = await speakToFile(text); setStatus('voice', `working (${settings.ttsModel}, voice ${p.voice}).`, 'good'); }
     catch (e) { setStatus('voice', "failed, so the browser's own voice read it instead: " + describeErr(e), 'bad'); mode = 'browser'; }
   } else text = templateScript(type, prev, next);
   if (myGen !== gen) { if (url) URL.revokeObjectURL(url); return null; }
@@ -650,7 +675,12 @@ decks.forEach(d => { d.preload = 'auto'; });
 const voiceEl = new Audio();
 const XF = 5, DUCK = .2;
 let cur = -1, curPlan = null, nextPlan = null, linkPromise = null, gen = 0, on = false, transitioning = false, talking = false, volume = .9;
-let actx = null, meter = null;
+// iPhones ignore volume changes on audio elements, so ducking and crossfades can't work there.
+const canSetVolume = (() => { try { const a = new Audio(); a.volume = .5; return Math.abs(a.volume - .5) < .01; } catch (_) { return false; } })();
+let linkReady = null, pendingPlay = null, wakeLock = null;
+// Pausing freezes the station exactly where it is; anything due to start while paused waits for resume.
+let paused = false; const held = new Set(); let resumeWaiters = [];
+const whenUnpaused = () => paused ? new Promise(r => resumeWaiters.push(r)) : Promise.resolve();
 const badTracks = new Set();
 function masterVol() { return volume; }
 function ramp(el, to, ms) {
@@ -676,21 +706,13 @@ const SILENCE = silentWav();
 function unlockAudio() {
   // Called inside the click, so later plays are allowed even after waiting for the presenter.
   [...decks, voiceEl].forEach(el => { if (!el.src || el.paused) { el.src = SILENCE; el.play().then(() => el.pause()).catch(() => {}); } });
-  try {
-    if (!actx) {
-      actx = new (window.AudioContext || window.webkitAudioContext)();
-      const src = actx.createMediaElementSource(voiceEl); meter = actx.createAnalyser(); meter.fftSize = 512;
-      src.connect(meter); meter.connect(actx.destination);
-    }
-    if (actx.state === 'suspended') actx.resume();
-  } catch (_) { meter = null; }
   if ('speechSynthesis' in window) speechSynthesis.getVoices();
 }
 
 async function tuneIn() {
   if (on) return;
   unlockAudio();
-  on = true; const myGen = ++gen;
+  on = true; const myGen = ++gen; syncWake();
   document.body.classList.add('on'); document.body.classList.remove('was-on');
   setPowerBtn('warming');
   const first = nextPlan && !curPlan ? nextPlan : pickPlan();
@@ -700,13 +722,36 @@ async function tuneIn() {
   setPowerBtn('on');
   startTrack(first, link, myGen);
 }
+function pause() {
+  if (!on || paused) return;
+  paused = true;
+  for (const el of [...decks, voiceEl]) if (!el.paused && el.src !== SILENCE) { held.add(el); el.pause(); }
+  if ('speechSynthesis' in window && speechSynthesis.speaking) speechSynthesis.pause();
+  document.body.classList.add('paused'); setPowerBtn('paused'); updateTitle(); syncWake();
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+}
+function resume() {
+  if (!on || !paused) return;
+  paused = false;
+  for (const el of held) el.play().catch(() => {});
+  held.clear();
+  if ('speechSynthesis' in window && speechSynthesis.paused) speechSynthesis.resume();
+  const w = resumeWaiters; resumeWaiters = []; w.forEach(r => r());
+  document.body.classList.remove('paused'); setPowerBtn('on'); updateTitle(); syncWake();
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+}
+function clearPause() {
+  paused = false; held.clear();
+  const w = resumeWaiters; resumeWaiters = []; w.forEach(r => r());
+  document.body.classList.remove('paused');
+}
 function stop() {
   if (!on) return;
   on = false; gen++; linkPromise = null; transitioning = false;
-  stopVoice();
+  clearPause(); stopVoice();
   decks.forEach(d => ramp(d, 0, 700).then(() => d.pause()));
   document.body.classList.remove('on'); document.body.classList.add('was-on');
-  setPowerBtn('off'); updateTitle();
+  setPowerBtn('off'); updateTitle(); pendingPlay = null; syncWake();
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 }
 async function startTrack(plan, link, myGen) {
@@ -719,8 +764,12 @@ async function startTrack(plan, link, myGen) {
   el.volume = link ? masterVol() * DUCK : (prevPlaying && settings.fade ? 0 : masterVol());
   cur = idx; curPlan = plan;
   const startMusic = async () => {
+    if (paused) { held.add(el); return true; }
     try { await el.play(); return true; } catch (e) {
-      if (e.name === 'NotAllowedError') { stop(); toast('Press Tune in to start the station'); }
+      if (e.name === 'NotAllowedError') {
+        if (document.hidden) { pendingPlay = el; return false; }   // resume as soon as the screen is back
+        stop(); toast('Press Tune in to start the station');
+      }
       return false;
     }
   };
@@ -736,9 +785,10 @@ async function startTrack(plan, link, myGen) {
   // The presenter gets the floor: a breath of quiet, the link, then the song, which usually comes in
   // under their last few words and occasionally waits until they've finished.
   await sleep((STATION.pauseBeforeTalk || 0) * 1000);
+  await whenUnpaused();
   if (myGen !== gen) return;
   const range = Array.isArray(STATION.overlapSeconds) ? STATION.overlapSeconds : [STATION.overlapSeconds || 2.5, STATION.overlapSeconds || 2.5];
-  const clear = Math.random() < (STATION.clearChance ?? .2);
+  const clear = !canSetVolume || Math.random() < (STATION.clearChance ?? .2);
   const lead = range[0] + Math.random() * (range[1] - range[0]);
   let started = false;
   const begin = () => { if (started || myGen !== gen) return; started = true; el.volume = masterVol() * DUCK; startMusic(); };
@@ -748,6 +798,7 @@ async function startTrack(plan, link, myGen) {
   ramp(el, masterVol(), clear ? 350 : 1200);
 }
 function planNext(myGen) {
+  linkReady = null;
   nextPlan = pickPlan();
   showNext(nextPlan);
   linkPromise = null;
@@ -757,7 +808,36 @@ function planNext(myGen) {
   sched.sinceTalk++;
   if (nextPlan.blockStart) talk = true;
   else if (every > 0 && sched.sinceTalk >= every) talk = true;
-  if (talk) { sched.sinceTalk = 0; linkPromise = prepareLink(nextPlan.blockStart ? 'segment' : 'link', curPlan, nextPlan, myGen); }
+  if (talk) {
+    sched.sinceTalk = 0;
+    const p = linkPromise = prepareLink(nextPlan.blockStart ? 'segment' : 'link', curPlan, nextPlan, myGen);
+    p.then(l => { if (linkPromise === p) linkReady = l; });
+  }
+}
+/* Locked screen: phones only let a page keep playing if the element that is already playing
+   carries on. So with the screen off, the presenter's link and then the next song are queued on
+   the same element, started straight from its 'ended' event, with no timers in between.
+   The browser's own voice can't speak with the screen off, so those links are left out. */
+function sameDeckAdvance(el, plan, link) {
+  const myGen = gen; transitioning = false; linkPromise = null; linkReady = null;
+  const playSong = () => {
+    if (myGen !== gen || !on) return;
+    el._voice = false; el._after = null;
+    el.src = plan.track.audioUrl; el.volume = masterVol();
+    if (paused) held.add(el); else el.play().catch(e => { if (e.name === 'NotAllowedError') pendingPlay = el; });
+    curPlan = plan;
+    recentPlays = [...recentPlays.filter(id => id !== plan.track.id), plan.track.id].slice(-60); LS.set('recent', recentPlays);
+    showNow(plan); logSong(plan);
+    planNext(myGen);
+  };
+  if (link && link.mode === 'ai' && link.url) {
+    lastLines.push(link.text); if (lastLines.length > 6) lastLines.shift();
+    logTalk(link);
+    const url = link.url;
+    el._voice = true; el._after = () => { URL.revokeObjectURL(url); playSong(); };
+    el.src = url; el.volume = masterVol();
+    el.play().catch(() => el._after && el._after());
+  } else playSong();
 }
 async function transition() {
   if (transitioning || !on) return;
@@ -765,14 +845,20 @@ async function transition() {
   const myGen = gen;
   let link = null;
   if (linkPromise) link = await withTimeout(linkPromise, 6000);
+  await whenUnpaused();
   if (myGen !== gen) return;
   startTrack(nextPlan, link, myGen);
 }
 async function skip() {
   if (!on || !curPlan || transitioning) return;
+  if (paused) { clearPause(); setPowerBtn('on'); updateTitle(); syncWake(); }
   const t = curPlan.track;
   taste.skipped[t.id] = (taste.skipped[t.id] || 0) + 1;
   bump(t, -.08, -.12, -.05); LS.set('taste', taste);
+  if (document.hidden) {
+    gen++; stopVoice(); const el = decks[cur]; el._voice = false; el._after = null;
+    return sameDeckAdvance(el, nextPlan, null);
+  }
   gen++; const myGen = gen; linkPromise = null; stopVoice(); transitioning = true;
   const el = decks[cur];
   await ramp(el, 0, 450); el.pause();
@@ -781,18 +867,40 @@ async function skip() {
 }
 decks.forEach(el => {
   el.addEventListener('timeupdate', () => {
-    if (el !== decks[cur] || el.src === SILENCE) return;
+    if (el !== decks[cur] || el.src === SILENCE || el._voice) return;
     const d = isFinite(el.duration) ? el.duration : (curPlan ? curPlan.track.durationSeconds : 0);
     $('#barFill').style.width = d ? (el.currentTime / d * 100).toFixed(2) + '%' : '0';
     $('#tEl').textContent = fmt(el.currentTime); $('#tRem').textContent = '-' + fmt(d - el.currentTime);
-    if (on && !transitioning && !linkPromise && settings.fade && d && d - el.currentTime <= XF && el.currentTime > XF) transition();
+    if (on && !transitioning && !linkPromise && settings.fade && canSetVolume && !document.hidden && d && d - el.currentTime <= XF && el.currentTime > XF) transition();
   });
-  el.addEventListener('ended', () => { if (el === decks[cur] && on) transition(); });
+  el.addEventListener('ended', () => {
+    if (el !== decks[cur] || !on) return;
+    if (el._voice) { const f = el._after; el._voice = false; el._after = null; return f && f(); }
+    if (document.hidden && !transitioning) return sameDeckAdvance(el, nextPlan, linkReady);
+    transition();
+  });
   el.addEventListener('error', () => {
+    if (el._voice) { const f = el._after; el._voice = false; el._after = null; return f && f(); }
     if (el !== decks[cur] || !on || !curPlan || el.src === SILENCE || !el.getAttribute('src')) return;
     badTracks.add(curPlan.track.id); toast("A song wouldn't load, so the station moved on");
+    if (document.hidden) { sameDeckAdvance(el, nextPlan, null); return; }
     setTimeout(() => { if (on) { linkPromise = null; transitioning = false; transition(); } }, 800);
   });
+});
+
+/* ---------- screen wake lock, and picking up after the phone wakes ---------- */
+async function syncWake() {
+  if (!('wakeLock' in navigator)) return;
+  const want = on && !paused && settings.wake && !document.hidden;
+  try {
+    if (want && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+    else if (!want && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+  } catch (_) { wakeLock = null; }
+}
+if ('wakeLock' in navigator) $('#wakeRow').hidden = false;
+document.addEventListener('visibilitychange', () => {
+  syncWake();
+  if (!document.hidden && on && pendingPlay) { const el = pendingPlay; pendingPlay = null; el.volume = masterVol(); el.play().catch(() => {}); }
 });
 
 /* ---------- speaking ---------- */
@@ -817,19 +925,26 @@ function speak(link, myGen, cue) {
     let progress = () => 0;
     let cueFired = false, cueTimer = null;
     const fireCue = () => { if (cue && !cueFired) { cueFired = true; cue.onLead(); } };
-    const done = () => { clearTimeout(cueTimer); voiceEl.ontimeupdate = null; talking = false; spans.forEach(s => s.classList.add('on')); $('#avatar').style.setProperty('--lv', 0); if (speakResolve === resolve) speakResolve = null; resolve(); };
+    let guard = null;
+    const done = () => { clearTimeout(cueTimer); clearTimeout(guard); voiceEl.ontimeupdate = null; talking = false; spans.forEach(s => s.classList.add('on')); $('#avatar').style.setProperty('--lv', 0); if (speakResolve === resolve) speakResolve = null; resolve(); };
+    if (link.mode !== 'ai' && document.hidden) return done();   // the browser voice is silent with the screen off
     lastLines.push(link.text); if (lastLines.length > 6) lastLines.shift();
     logTalk(link);
+    // Whatever happens, never let a link stall the station.
+    const arm = ms => { guard = setTimeout(() => paused ? arm(4000) : done(), ms); };
+    arm(Math.max(10000, words.length / 2 * 1000 + 8000));
     if (link.mode === 'ai' && link.url) {
       voiceEl.src = link.url; voiceEl.volume = clamp(masterVol() * 1.1, 0, 1);
       progress = () => voiceEl.duration ? voiceEl.currentTime / voiceEl.duration : 0;
       voiceEl.ontimeupdate = () => { if (cue && voiceEl.duration && voiceEl.duration - voiceEl.currentTime <= cue.lead) fireCue(); };
       voiceEl.onended = () => { URL.revokeObjectURL(link.url); done(); };
       voiceEl.onerror = () => done();
-      voiceEl.play().catch(() => done());
+      if (paused) held.add(voiceEl); else voiceEl.play().catch(() => done());
     } else if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(link.text), v = pickBrowserVoice();
-      if (v) u.voice = v; u.rate = 1; u.volume = clamp(masterVol(), 0, 1);
+      const bp = (link.persona && link.persona.browser) || {};
+      if (v) u.voice = v; u.rate = bp.rate || 1; u.pitch = bp.pitch || 1; u.volume = clamp(masterVol(), 0, 1);
       let chars = 0; const total = link.text.length, t0 = performance.now(), est = words.length / 2.7 * 1000;
       u.onboundary = e => { chars = e.charIndex; };
       progress = () => Math.max(chars / total, Math.min(1, (performance.now() - t0) / est) * .9);
@@ -837,15 +952,11 @@ function speak(link, myGen, cue) {
       if (cue) cueTimer = setTimeout(fireCue, Math.max(0, est - cue.lead * 1000));
       speechSynthesis.speak(u);
     } else return done();
-    const buf = new Uint8Array(256);
-    const tick = () => {
+    const tick = t => {
       if (!talking) return;
       const n = Math.round(progress() * words.length);
       spans.forEach((s, i) => s.classList.toggle('on', i < n));
-      if (meter && link.mode === 'ai') {
-        meter.getByteTimeDomainData(buf); let sum = 0; for (const b of buf) { const x = (b - 128) / 128; sum += x * x; }
-        $('#avatar').style.setProperty('--lv', Math.min(1, Math.sqrt(sum / buf.length) * 5).toFixed(3));
-      }
+      $('#avatar').style.setProperty('--lv', (.3 + .45 * Math.abs(Math.sin(t / 110) * Math.sin(t / 47))).toFixed(3));
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -921,18 +1032,20 @@ function renderPresenter() {
   const p = persona();
   $('#avatar').textContent = p.name.replace(/^Mr /, '').charAt(0);
   $('#pName').textContent = presenterOn() ? p.name : 'No presenter';
-  $('#pRole').textContent = presenterOn() ? p.label : (settings.voice === 'ai' ? 'Add an OpenAI key or relay in settings' : 'Music only');
+  $('#pRole').textContent = presenterOn() ? p.label : (aiScript() ? 'Add an OpenAI key or relay in settings' : 'Music only');
   $('#pChip').hidden = !presenterOn();
-  $('#pChip').textContent = settings.voice === 'ai' ? 'AI voice' : 'Browser voice';
+  $('#pChip').textContent = settings.voice === 'ai' ? 'AI voice' : settings.voice === 'aibrowser' ? 'AI script' : 'Browser voice';
   const cap = $('#caption');
   if (!talking) { cap.className = 'caption idle'; cap.textContent = presenterOn() ? `${p.name} will be on between songs.` : 'The station runs without a presenter.'; }
 }
 function setPowerBtn(state) {
-  const html = state === 'warming' ? '<span class="spin"></span>Warming up'
-    : state === 'on' ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Stop'
-    : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 5.2v13.6a.9.9 0 0 0 1.38.76l10.6-6.8a.9.9 0 0 0 0-1.52L8.88 4.44A.9.9 0 0 0 7.5 5.2z"/></svg>Tune in';
-  ['#powerBtn', '#powerBtn2'].forEach(s => { const b = $(s); if (b) { b.innerHTML = html; b.disabled = state === 'warming'; } });
-  $('#onairText').textContent = state === 'off' ? 'Off air' : 'On air';
+  const play = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 5.2v13.6a.9.9 0 0 0 1.38.76l10.6-6.8a.9.9 0 0 0 0-1.52L8.88 4.44A.9.9 0 0 0 7.5 5.2z"/></svg>';
+  const [icon, label] = state === 'warming' ? ['<span class="spin"></span>', 'Warming up']
+    : state === 'on' ? ['<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>', 'Pause']
+    : state === 'paused' ? [play, 'Resume'] : [play, 'Tune in'];
+  ['#powerBtn', '#powerBtn2'].forEach(s => { const b = $(s); if (b) { b.innerHTML = icon + `<span class="lbl">${label}</span>`; b.disabled = state === 'warming'; b.setAttribute('aria-label', label); } });
+  $('#stopBtn').hidden = state === 'off';
+  $('#onairText').textContent = state === 'off' ? 'Off air' : state === 'paused' ? 'Paused' : 'On air';
 }
 function showNow(plan) {
   const t = plan.track, img = $('#art'), url = artOf(t);
@@ -957,7 +1070,7 @@ function showNext(plan) {
   box.hidden = false; $('#nextArt').src = artOf(plan.track);
   $('#nextTitle').textContent = `${plan.track.title}${plan.track.artist !== mainArtist ? ', ' + plan.track.artist : ''}`;
 }
-function updateTitle() { document.title = on && curPlan ? `● ${curPlan.track.title} – ${settings.station}` : settings.station; }
+function updateTitle() { document.title = on && curPlan ? `${paused ? '❚❚' : '●'} ${curPlan.track.title} – ${settings.station}` : settings.station; }
 function pushLog(html) {
   const ol = $('#log'); const e = ol.querySelector('.empty-log'); if (e) e.remove();
   ol.insertAdjacentHTML('afterbegin', html);
@@ -996,7 +1109,7 @@ const dlg = $('#settings');
 $('#sPersona').innerHTML = PERSONAS.map(p => `<option value="${p.id}">${esc(p.name)}, ${esc(p.label.toLowerCase())}</option>`).join('');
 function openSettings() {
   $('#sStation').value = settings.station; $('#sPersona').value = settings.persona; $('#sVoice').value = settings.voice;
-  $('#sKey').value = settings.key; $('#sTalk').value = settings.talk; $('#sFade').checked = !!settings.fade;
+  $('#sKey').value = settings.key; $('#sTalk').value = settings.talk; $('#sFade').checked = !!settings.fade; $('#sWake').checked = !!settings.wake;
   $('#sTextModel').value = settings.textModel; $('#sTtsModel').value = settings.ttsModel; $('#sApiBase').value = settings.apiBase;
   $('#sCuration').value = settings.curation || '';
   dlg.showModal();
@@ -1008,7 +1121,8 @@ const bindField = (sel, key, prop = 'value') => $(sel).addEventListener(prop ===
   if (!on && ['station', 'persona', 'voice', 'key', 'curation'].includes(key) && document.body.classList.contains('was-on') === false && $('#offairIn .big')) renderIdle();
 });
 bindField('#sStation', 'station'); bindField('#sPersona', 'persona'); bindField('#sVoice', 'voice'); bindField('#sKey', 'key');
-bindField('#sTalk', 'talk'); bindField('#sFade', 'fade', 'checked'); bindField('#sCuration', 'curation');
+bindField('#sTalk', 'talk'); bindField('#sFade', 'fade', 'checked'); bindField('#sWake', 'wake', 'checked');
+$('#sWake').addEventListener('change', syncWake); bindField('#sCuration', 'curation');
 $('#sCuration').addEventListener('input', () => { if (!pool.length) return; buildBlocks(); sched.left = 0; if (!on) renderIdle(); toast('The new programming starts after this song'); }); bindField('#sTextModel', 'textModel'); bindField('#sTtsModel', 'ttsModel'); bindField('#sApiBase', 'apiBase');
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 
@@ -1021,6 +1135,16 @@ async function testPresenter() {
   let text = null;
   try { setStatus('script', 'testing…'); text = await writeScript('open', null, plan); setStatus('script', `working (${settings.textModel}). It wrote: “${text}”`, 'good'); }
   catch (e) { setStatus('script', 'failed: ' + describeErr(e), 'bad'); }
+  if (settings.voice === 'aibrowser') {
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text || `This is ${settings.station}. Testing, testing.`), v = pickBrowserVoice(), bp = persona().browser || {};
+      if (v) u.voice = v; u.rate = bp.rate || 1; u.pitch = bp.pitch || 1; u.volume = clamp(volume, .2, 1);
+      speechSynthesis.speak(u);
+      setStatus('voice', `the browser's own voice${v ? ' (' + v.name + ')' : ''}. You should hear it now.`, 'good');
+    } else setStatus('voice', "this browser has no built-in voice.", 'bad');
+    btn.disabled = false; btn.textContent = 'Test the presenter'; return;
+  }
   try {
     setStatus('voice', 'testing…');
     const url = await speakToFile(text || `This is ${settings.station}. Testing, testing.`);
@@ -1034,7 +1158,8 @@ async function testPresenter() {
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-action]'); if (!el) return;
   switch (el.dataset.action) {
-    case 'power': on ? stop() : tuneIn(); break;
+    case 'power': !on ? tuneIn() : paused ? resume() : pause(); break;
+    case 'stop': stop(); break;
     case 'skip': skip(); break;
     case 'like': toggleLike(); break;
     case 'share': if (curPlan) share(curPlan.track.id); break;
@@ -1048,15 +1173,15 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'select' || tag === 'textarea' || dlg.open) return;
-  if (e.code === 'Space') { e.preventDefault(); on ? stop() : tuneIn(); }
+  if (e.code === 'Space') { e.preventDefault(); !on ? tuneIn() : paused ? resume() : pause(); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); skip(); }
   else if (e.key.toLowerCase() === 'l') toggleLike();
 });
 document.addEventListener('error', e => { const img = e.target; if (img.tagName === 'IMG' && !img.dataset.fb) { img.dataset.fb = '1'; img.src = artFallback(img.src); } }, true);
 if ('mediaSession' in navigator) {
   try {
-    navigator.mediaSession.setActionHandler('play', () => tuneIn());
-    navigator.mediaSession.setActionHandler('pause', () => stop());
+    navigator.mediaSession.setActionHandler('play', () => on ? resume() : tuneIn());
+    navigator.mediaSession.setActionHandler('pause', () => pause());
     navigator.mediaSession.setActionHandler('stop', () => stop());
     navigator.mediaSession.setActionHandler('nexttrack', () => skip());
   } catch (_) {}

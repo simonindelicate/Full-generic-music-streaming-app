@@ -76,7 +76,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 /* touch controls */
 .pad{position:fixed;z-index:5;bottom:18px;display:none;touch-action:none;user-select:none;-webkit-user-select:none}
-@media (pointer:coarse){.pad{display:block}.walkman{bottom:auto;top:54px}}
+@media (pointer:coarse){.pad{display:block}.walkman{bottom:auto;top:54px;transform:translate(-50%,-260%)}}
+@media (pointer:coarse) and (orientation:landscape){.walkman{top:auto;bottom:10px;width:max(260px,min(480px,calc(100% - 400px)));transform:translate(-50%,160%)}}
 .dpad{left:18px;width:150px;height:150px}
 .dpad button{position:absolute;width:50px;height:50px;background:rgb(26 28 44/.75);border:3px solid #f4f4f4;color:#f4f4f4;font-weight:700;font-size:20px}
 .dpad .u{left:50px;top:0}.dpad .d{left:50px;bottom:0}.dpad .l{left:0;top:50px}.dpad .r{right:0;top:50px}

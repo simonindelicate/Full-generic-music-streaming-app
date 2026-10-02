@@ -48,7 +48,8 @@ img{display:block;max-width:100%}
 .dymo.red{background:var(--red)}
 .dymo.small{font-size:.8rem;letter-spacing:.16em;padding:.4em .7em}
 header.top{padding:clamp(18px,4vw,40px) clamp(16px,4vw,48px) 8px;display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px}
-header.top p{margin:0;color:#dfe9e4;font:600 1.5rem/1.1 var(--hand)}
+header.top p{margin:0;color:#dfe9e4;font:600 1.5rem/1.1 var(--hand);overflow-wrap:anywhere;min-width:0}
+@media (max-width:560px){header.top p{font-size:1.2rem}.gift{padding:22px 20px 24px}.player-deck{padding:16px 14px 14px}.bay{padding:10px}.keys{gap:6px}.jcard{padding:20px 18px 22px}}
 
 /* paper panels */
 .paper{background:var(--paper);border-radius:4px;box-shadow:0 1px 0 rgb(0 0 0/.08),0 14px 30px -12px rgb(0 0 0/.55);position:relative}
@@ -132,7 +133,7 @@ header.top p{margin:0;color:#dfe9e4;font:600 1.5rem/1.1 var(--hand)}
 .share{margin-top:16px;padding:14px;border-radius:6px;background:#fff9e6;border:1.5px dashed #cdb97a}
 .share input{width:100%;height:40px;padding:0 10px;border:1px solid #d7c79a;border-radius:5px;background:#fff;font:13px ui-monospace,Menlo,monospace}
 .share p{margin:8px 0 0;font-size:13px;color:var(--pencil)}
-.tray{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:5;display:none;align-items:center;gap:12px;padding:10px 16px;border-radius:999px;background:#141414;color:#fff;box-shadow:0 10px 30px rgb(0 0 0/.4);font-weight:600;font-size:14px}
+.tray{white-space:nowrap;position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:5;display:none;align-items:center;gap:12px;padding:10px 16px;border-radius:999px;background:#141414;color:#fff;box-shadow:0 10px 30px rgb(0 0 0/.4);font-weight:600;font-size:14px}
 @media (max-width:920px){.tray{display:flex}}
 .tray b{font-variant-numeric:tabular-nums}
 
@@ -145,9 +146,11 @@ header.top p{margin:0;color:#dfe9e4;font:600 1.5rem/1.1 var(--hand)}
 
 /* ---------- player ---------- */
 .play{max-width:1180px;margin:0 auto;padding:10px clamp(16px,4vw,48px) 70px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:clamp(20px,3.5vw,48px);align-items:start}
-@media (max-width:900px){.play{grid-template-columns:1fr}}
+@media (max-width:900px){.play{grid-template-columns:minmax(0,1fr)}}
+.play > *{min-width:0}
 .gift{padding:26px 28px 30px;rotate:-.8deg}
-.gift .for{margin:0;font:700 clamp(2.6rem,6vw,4rem)/.95 var(--hand);color:var(--ink)}
+.gift .for{margin:0;font:700 clamp(2.6rem,6vw,4rem)/.95 var(--hand);color:var(--ink);overflow-wrap:anywhere}
+.gift .from,.sticky{overflow-wrap:anywhere}
 .gift .from{margin:6px 0 0;font:600 1.7rem/1.1 var(--hand);color:var(--pencil)}
 .sticky{margin:22px 0 0;padding:18px 20px 22px;background:#fbe68a;box-shadow:0 10px 20px -10px rgb(0 0 0/.45);rotate:1.4deg;font:500 1.7rem/1.25 var(--hand);color:#2b2a1a;white-space:pre-wrap;max-width:520px}
 .player-deck{margin-top:26px;padding:22px 22px 18px;background:linear-gradient(#cfcac0,#b9b3a7);border-radius:12px;box-shadow:inset 0 1px 0 rgb(255 255 255/.6),0 16px 30px -12px rgb(0 0 0/.6)}
@@ -360,7 +363,7 @@ function paintCassette(svgId, { shell, title, side, to }) {
   svg.querySelector('.c-stripe').setAttribute('fill', sh.stripe);
   const stripeText = sh.stripe === '#f4efe2' || sh.stripe === '#f5c542' ? '#1d1d1f' : '#fff';
   svg.querySelectorAll('.c-stext').forEach(t => t.setAttribute('fill', stripeText));
-  let t = String(title || '').trim(); if (t.length > 26) t = t.slice(0, 25) + '…';
+  let t = String(title || '').trim(); if (t.length > 22) t = t.slice(0, 21).trimEnd() + '…';
   svg.querySelector('.c-title').textContent = t;
   svg.querySelector('.c-side').textContent = side || 'A';
   svg.querySelector('.c-to').textContent = to ? ('FOR ' + String(to).toUpperCase()).slice(0, 30) : '';

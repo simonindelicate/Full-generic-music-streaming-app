@@ -43,15 +43,17 @@ h1,h2,h3{text-wrap:balance} p{text-wrap:pretty}
 
 /* ---------- top ---------- */
 .top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px var(--pad)}
-.home{font:700 13px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;text-decoration:none;color:var(--muted);display:inline-flex;gap:10px;align-items:center}
+[hidden]{display:none!important}
+.home{font:700 13px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;text-decoration:none;color:var(--muted);display:inline-flex;gap:10px;align-items:center;min-width:0;white-space:nowrap}
+.home span{overflow:hidden;text-overflow:ellipsis}
 .home:hover{color:var(--ink)}
 .home svg{width:16px;height:16px}
-.pill{height:38px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:rgb(255 255 255/.04);backdrop-filter:blur(10px);display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.pill{flex:none;white-space:nowrap;height:38px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:rgb(255 255 255/.04);backdrop-filter:blur(10px);display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
 .pill:hover{background:rgb(255 255 255/.1)}
 .pill svg{width:16px;height:16px}
 
 /* ---------- hero ---------- */
-.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:clamp(30px,6vw,100px);align-items:center;padding:clamp(10px,4vh,50px) var(--pad) clamp(60px,10vh,120px);min-height:min(88vh,980px)}
+.hero{overflow-x:hidden;overflow-x:clip;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:clamp(30px,6vw,100px);align-items:center;padding:clamp(10px,4vh,50px) var(--pad) clamp(60px,10vh,120px);min-height:min(88vh,980px)}
 @media (max-width:900px){.hero{grid-template-columns:1fr;min-height:0}}
 .stage{position:relative;width:min(100%,560px);aspect-ratio:1;perspective:1400px;justify-self:center}
 .vinyl{position:absolute;inset:3%;border-radius:50%;z-index:0;transition:transform 1.1s var(--ease);
@@ -133,9 +135,9 @@ body.playing .row.now .eq{display:inline-flex}
 
 /* ---------- gallery (no record chosen) ---------- */
 .gallery{padding:10px var(--pad) 120px;max-width:1600px;margin:0 auto}
-.gallery h1{margin:0 0 40px;font:800 clamp(3.4rem,11vw,11rem)/.85 var(--display);letter-spacing:-.04em}
+.gallery h1{margin:0 0 40px;font:800 clamp(3.4rem,11vw,11rem)/.85 var(--display);letter-spacing:-.04em;overflow-wrap:normal}
 .gallery h1 em{font-style:normal;color:var(--accent)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(140px,40vw,250px),1fr));gap:clamp(22px,3vw,44px) clamp(16px,2.5vw,34px)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(128px,38vw,250px),1fr));gap:clamp(22px,3vw,44px) clamp(16px,2.5vw,34px)}
 .card{text-decoration:none;perspective:900px;display:block}
 .card .cov{border-radius:6px;overflow:hidden;box-shadow:0 26px 50px -22px rgb(0 0 0/.9);transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .4s var(--ease);position:relative}
 .card .cov img{width:100%;aspect-ratio:1;object-fit:cover}
@@ -180,6 +182,7 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radiu
   .stage{animation:recede linear both;animation-timeline:scroll(root);animation-range:0 80vh}
   @keyframes recede{to{transform:translateY(60px) scale(.92);opacity:.5}}
 }
+@media (max-width:480px){.pill{width:38px;padding:0;justify-content:center}.pill .lbl{display:none}.grid{gap:26px 14px}.top{padding:16px var(--pad)}}
 @media (prefers-reduced-motion:reduce){*,::before,::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -187,7 +190,7 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radiu
 <div class="ambient" id="ambient"></div><div class="shade"></div><div class="grain"></div>
 <header class="top">
   <a class="home" id="home" href="?"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span id="homeName">All records</span></a>
-  <button class="pill" data-action="share-page" id="sharePage" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>Share this record</button>
+  <button class="pill" data-action="share-page" id="sharePage" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg><span class="lbl">Share this record</span></button>
 </header>
 <main id="main"><div class="msg"><p>Loading…</p></div></main>
 
@@ -305,6 +308,8 @@ function renderGallery() {
   $('#main').innerHTML = `<section class="gallery"><h1>${esc(name)}<em>.</em></h1><div class="grid">${releases.map(r => `
     <a class="card" href="${recordUrl(r)}"><div class="cov"><img src="${esc(r.artworkUrl || '')}" alt="" loading="lazy" decoding="async"></div><b>${esc(r.title)}</b><small>${esc(r.artist)}${r.year ? ', ' + esc(r.year) : ''}</small></a>`).join('')}</div></section>`;
   $$('.card').forEach(c => tilt(c, c.querySelector('.cov'), 16));
+  const h1 = $('.gallery h1'), fitG = () => { h1.style.fontSize = ''; fitTitle(h1, parseFloat(getComputedStyle(h1).fontSize), 28); };
+  fitG(); addEventListener('resize', fitG); document.fonts && document.fonts.ready.then(fitG);
 }
 function renderRecord(r) {
   rec = r;

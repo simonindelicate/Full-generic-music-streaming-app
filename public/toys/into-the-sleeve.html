@@ -101,7 +101,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
         <button class="chip" data-action="upload">Use your own image</button>
       </div>
     </div>
-    <p class="hint">Move the pointer over the picture to look around it. The depth is worked out in your browser, so the first picture takes a moment while the model downloads; after that it's cached.</p>
+    <p class="hint" id="hint">Move the pointer over the picture to look around it. The depth is worked out in your browser, so the first picture takes a moment while the model downloads; after that it's cached.</p>
     <input type="file" id="file" accept="image/*" hidden>
   </section>
 </main>
@@ -116,11 +116,13 @@ const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s)
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 
+function titleMax() { return innerWidth < 900 ? Math.min(46, innerWidth * .11) : Math.min(70, innerWidth * .06); }
 function fitTitle(el, max, min) {
   if (!el) return;
   let size = max; el.style.fontSize = size + 'px';
   while (size > min && el.scrollWidth > el.clientWidth + 1) { size -= 2; el.style.fontSize = size + 'px'; }
 }
+if (matchMedia('(pointer:coarse)').matches) $('#hint').textContent = "Drag across the picture to look around it, or tilt your phone. The depth is worked out on your phone, so the first picture takes a moment while the model downloads; after that it's kept.";
 /* ================= status line ================= */
 function status(text, pct) {
   $('#status').classList.toggle('hide', !text);
@@ -247,7 +249,7 @@ function resize() {
   cv.width = Math.max(1, Math.round(r.width * dpr)); cv.height = Math.max(1, Math.round(r.height * dpr));
 }
 new ResizeObserver(resize).observe(cv);
-addEventListener('resize', () => fitTitle($('#title'), Math.min(70, innerWidth * .06), 22));
+addEventListener('resize', () => fitTitle($('#title'), titleMax(), 22));
 function frame(t) {
   const now = performance.now();
   if (!look.active || now - look.last > 2500) { look.tx = Math.sin(t / 2600) * .55; look.ty = Math.sin(t / 3700) * .35; }
@@ -335,7 +337,7 @@ function mergeReleases(list) {
 function choose(r, push) {
   rec = r; audio.pause(); qi = -1;
   $('#title').textContent = r.title; $('#by').textContent = r.artist;
-  fitTitle($('#title'), Math.min(70, innerWidth * .06), 22);
+  fitTitle($('#title'), titleMax(), 22);
   $('#facts').textContent = [r.year, r.genre, `${r.tracks.length} song${r.tracks.length === 1 ? '' : 's'}`].filter(Boolean).join(', ');
   $('#ambient').style.backgroundImage = r.artworkUrl ? `url("${r.artworkUrl}")` : '';
   $('#playBox').hidden = !r.tracks.some(t => !t.gated && t.audioUrl); $('#npT').textContent = 'Play the record'; $('#npS').textContent = '';
@@ -369,7 +371,7 @@ for (const id of ['depth', 'move']) { const el = $('#' + id); const paint = () =
 function useFile(f) {
   if (!f || !f.type.startsWith('image/')) return;
   const url = URL.createObjectURL(f);
-  $('#title').textContent = f.name.replace(/\.[^.]+$/, ''); fitTitle($('#title'), Math.min(70, innerWidth * .06), 22); $('#by').textContent = 'Your own image'; $('#facts').textContent = ''; $('#playBox').hidden = true;
+  $('#title').textContent = f.name.replace(/\.[^.]+$/, ''); fitTitle($('#title'), titleMax(), 22); $('#by').textContent = 'Your own image'; $('#facts').textContent = ''; $('#playBox').hidden = true;
   $('#ambient').style.backgroundImage = `url("${url}")`;
   $$('#shelf button').forEach(b => b.setAttribute('aria-current', 'false'));
   stepInto(url, null, false);

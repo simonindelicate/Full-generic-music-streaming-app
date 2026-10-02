@@ -60,10 +60,13 @@ img{display:block;max-width:100%}
 #reg.hot{rotate:45deg;scale:1.5}
 @media (pointer:coarse){#reg{display:none}}
 
-.app{position:relative;z-index:1;max-width:1480px;margin:0 auto;padding:clamp(16px,4vw,52px) clamp(14px,4vw,60px) calc(var(--player-h) + 110px)}
+.app{position:relative;z-index:1;overflow-x:hidden;overflow-x:clip;max-width:1480px;margin:0 auto;padding:clamp(16px,4vw,52px) clamp(14px,4vw,60px) calc(var(--player-h) + 110px)}
 
 /* ---------- ransom-note type ---------- */
-.ransom{margin:0;line-height:1.08;font-size:clamp(2.5rem,9vw,7.6rem);word-break:break-word}
+.ransom{margin:0;line-height:1.08;font-size:clamp(2.5rem,9vw,7.6rem);overflow-wrap:normal;min-width:0}
+.rw{display:inline-block;white-space:nowrap}
+@media (max-width:560px){.head-top{flex-direction:column;gap:12px}.head-top > div:not(.logo){width:100%}.logo{width:76px}}
+.head-top > div:not(.logo){min-width:0;flex:1}
 .rs{display:inline-block;padding:.03em .1em .01em;margin:0 .02em .08em;line-height:1;transform:translateY(var(--y)) rotate(var(--r));
   box-shadow:.03em .05em 0 rgb(0 0 0/.22);clip-path:polygon(2% 3%,99% 0,100% 95%,1% 100%);animation:slap .7s var(--slam) backwards;animation-delay:calc(var(--i) * 40ms)}
 .rs.sp{box-shadow:none;background:none;width:.3em;padding:0}
@@ -374,13 +377,24 @@ const svgBack = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 
 /* ransom-note lettering: every character cut from a different "magazine" */
 function ransom(text, seed) {
-  return [...String(text)].map((c, i) => {
-    if (c === ' ') return '<span class="rs sp" aria-hidden="true"> </span>';
+  // Each word is kept together so lines only break between words; fitRansom() shrinks long words to fit.
+  let i = -1;
+  return String(text).split(' ').map(word => `<span class="rw">${[...word].map(c => { i++; return letter(c, i); }).join('')}</span>`).join('<span class="rs sp" aria-hidden="true"> </span>');
+  function letter(c, i) {
     const h = hash(seed + ':' + i + c);
     const st = h % 6, rot = (h >> 3) % 15 - 7, y = (h >> 8) % 9 - 4, w = 50 + (h >> 12) % 101, ink = RANSOM_INKS[(h >> 5) % RANSOM_INKS.length];
     return `<span class="rs s${st}" aria-hidden="true" style="--r:${rot}deg;--y:${y}px;--w:${w};--ink:var(--${ink});--i:${i}">${esc(c)}</span>`;
-  }).join('');
+  }
 }
+function fitRansom() {
+  document.querySelectorAll('.ransom').forEach(h => {
+    h.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(h).fontSize);
+    while (size > 20 && h.scrollWidth > h.clientWidth + 1) { size -= 2; h.style.fontSize = size + 'px'; }
+  });
+}
+addEventListener('resize', fitRansom);
+document.fonts && document.fonts.ready.then(fitRansom);
 /* risograph plate pair: two halftoned ink layers, overprinted and slightly out of register */
 function riso(url, seed, live) {
   const [a, b] = pairFor(seed), u = esc(url || artFallback(seed));
@@ -425,7 +439,7 @@ function updateScan(t) {
 /* ---------------- title / bands ---------------- */
 function setTitle(name) {
   const h = $('#title'); h.setAttribute('aria-label', name); document.title = name;
-  h.innerHTML = ransom(name, 'title');
+  h.innerHTML = ransom(name, 'title'); requestAnimationFrame(fitRansom);
 }
 const bands = [...document.querySelectorAll('.band-in')];
 const bandState = bands.map((_, i) => ({ x: 0, w: 1, dir: i % 2 ? 1 : -1 }));
@@ -484,6 +498,7 @@ function matchTrack(t, q) {
   return [t.title, t.genre, t.release.title, t.release.artist, t.release.genre].some(v => String(v || '').toLowerCase().includes(q));
 }
 function render() {
+  requestAnimationFrame(fitRansom);
   if (!state.loaded) return;
   document.querySelectorAll('.stamp-btn').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === (state.view === 'tracks' ? 'tracks' : 'albums'))));
   const q = state.query.trim().toLowerCase(), main = $('#main');
