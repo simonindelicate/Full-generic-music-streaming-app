@@ -359,14 +359,21 @@ function catalogueBase() {
 }
 // Carries a chosen ?catalogue= along to this page's own links.
 const CAT_QS = (() => { const c = new URLSearchParams(location.search).get('catalogue'); return c ? 'catalogue=' + encodeURIComponent(c) : ''; })();
-// A station.json beside this page (made with ?setup) overrides the STATION block above. It belongs
-// to this site's own catalogue, so it's ignored when the page is pointed at another one.
+// The site's owner can change the STATION block above without editing this file: open the page
+// with ?setup on the end. On a site with the full backend the choices are saved straight to its
+// site settings (not to the catalogue); on a plain static site they're downloaded as station.json
+// to put beside this page. Either is ignored when the page is pointed at another catalogue.
 const SETUP = new URLSearchParams(location.search).has('setup');
 const STATION_KEYS = ['curation', 'mainArtist', 'exclude', 'overlapSeconds', 'clearChance', 'pauseBeforeTalk'];
-const stationFile = CAT_QS ? Promise.resolve() : fetch('station.json', { cache: 'no-store' })
-  .then(r => r.ok ? r.json() : null)
-  .then(j => { if (j && typeof j === 'object') for (const k of STATION_KEYS) if (k in j) STATION[k] = j[k]; })
-  .catch(() => {});
+const SETTINGS_URL = API + '/.netlify/functions/siteSettings';
+let hasBackend = false;
+const applyStation = j => { if (j && typeof j === 'object' && !Array.isArray(j)) for (const k of STATION_KEYS) if (k in j) STATION[k] = j[k]; };
+const getJSON = url => fetch(url, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
+const stationFile = CAT_QS ? Promise.resolve() : (async () => {
+  const site = await getJSON(SETTINGS_URL);
+  if (site && typeof site === 'object' && !Array.isArray(site)) { hasBackend = true; if (site.radioStation) return applyStation(site.radioStation); }
+  applyStation(await getJSON('station.json'));
+})();
 const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
 const root = document.documentElement;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -472,15 +479,8 @@ async function load() {
     if (!data || !Array.isArray(data.releases)) throw new Error('The reply had no releases in it');
     instance = data.instance || {};
     releases = mergeReleases(absolutise(data.releases));
-    pool = [];
     await stationFile;
-    const banned = new Set((STATION.exclude || []).map(x => String(x).trim().toLowerCase()).filter(Boolean));
-    const isBanned = r => [r.title, r.id, ...(r.ids || [])].some(x => x != null && banned.has(String(x).trim().toLowerCase()));
-    for (const r of releases) for (const t of r.tracks) { t.release = r; if (!t.gated && t.audioUrl && !isBanned(r)) pool.push(t); }
-    if (!pool.length) throw new Error('There are no free songs to play');
-    const counts = {}; pool.forEach(t => counts[t.artist] = (counts[t.artist] || 0) + 1);
-    mainArtist = (STATION.mainArtist && counts[STATION.mainArtist]) ? STATION.mainArtist : Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-    buildBlocks();
+    buildPool();
     if (!settings.station || settings.stationFor !== API) { settings.station = (instance.name || 'Catalogue') + ' Radio'; settings.stationFor = API; }
     renderIdle();
     if (SETUP) openSetup();
@@ -488,6 +488,16 @@ async function load() {
     console.error(e);
     $('#main').innerHTML = `<div class="note" style="grid-column:1/-1"><h2>The station can't find its records</h2><p>The catalogue at <code>${esc(API)}/catalogue</code> didn't load. Check the <code>BASE_URL</code> line at the top of this file and your connection.</p><button class="btn primary" onclick="location.reload()">Try again</button><p style="font-size:12.5px;color:var(--faint)">${esc(e.message)}</p></div>`;
   }
+}
+function buildPool() {
+    pool = [];
+    const banned = new Set((STATION.exclude || []).map(x => String(x).trim().toLowerCase()).filter(Boolean));
+    const isBanned = r => [r.title, r.id, ...(r.ids || [])].some(x => x != null && banned.has(String(x).trim().toLowerCase()));
+    for (const r of releases) for (const t of r.tracks) { t.release = r; if (!t.gated && t.audioUrl && !isBanned(r)) pool.push(t); }
+    if (!pool.length) throw new Error('There are no free songs to play');
+    const counts = {}; pool.forEach(t => counts[t.artist] = (counts[t.artist] || 0) + 1);
+    mainArtist = (STATION.mainArtist && counts[STATION.mainArtist]) ? STATION.mainArtist : Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    buildBlocks();
 }
 
 /* ================= programming: segments ================= */
@@ -1252,16 +1262,35 @@ function openSetup() {
   const recs = releases.slice().sort((a, b) => String(a.title).localeCompare(b.title));
   d.innerHTML = `<div class="sheet-in">
     <div class="sheet-top"><h2>Station setup</h2><button class="icon-btn" data-setup="close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <p class="setup-note">These choices are saved as a small file, <code>station.json</code>. Put it in the same folder as this page and the station follows it for everyone who listens. Listeners never see this panel.</p>
+    <p class="setup-note">${hasBackend ? 'These choices are saved to your site, and the station follows them for everyone who listens.' : 'This site has no settings to save to, so these choices are downloaded as a small file, <code>station.json</code>. Put it in the same folder as this page and the station follows it for everyone who listens.'} Listeners never see this panel.</p>
     <label class="field"><span>Programming</span><select id="uCuration">${[['artist', 'Curated Artist Radio'], ['singles', 'Random Artist Radio'], ['mixed', 'Mixed Catalogue']].map(([v, l]) => `<option value="${v}"${(STATION.curation || 'artist') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
     <label class="field"><span>The act the station is about</span><select id="uMain"><option value="">Whoever has the most songs</option>${artists.map(a => `<option${STATION.mainArtist === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select></label>
     <div class="field"><span>Keep off the air</span><ul class="setup-recs">${recs.map(r => `<li><label class="check"><input type="checkbox" value="${esc(r.title)}"${isOff(r) ? ' checked' : ''}><span>${esc(r.title)} <small>${esc(r.artist)}${r.year ? ', ' + esc(r.year) : ''}</small></span></label></li>`).join('')}</ul></div>
-    <button class="btn primary" data-setup="save" style="height:46px">Download station.json</button>
+    ${hasBackend ? `<label class="field" id="uPassRow"${adminToken() ? ' hidden' : ''}><span>Your admin password</span><input type="password" id="uPass" autocomplete="current-password"></label>` : ''}
+    <button class="btn primary" data-setup="save" style="height:46px">${hasBackend ? 'Save' : 'Download station.json'}</button>
   </div>`;
   d.showModal();
 }
-function saveSetup(d) {
+// The same token the site's admin pages keep for the session.
+const adminToken = () => { try { return sessionStorage.getItem('admin-token') || ''; } catch (_) { return ''; } };
+async function saveSetup(d) {
   const out = { curation: d.querySelector('#uCuration').value, mainArtist: d.querySelector('#uMain').value, exclude: [...d.querySelectorAll('.setup-recs input:checked')].map(i => i.value) };
+  if (!d.querySelector('.setup-recs input:not(:checked)')) return toast('That would leave nothing to play');
+  if (hasBackend) {
+    const btn = d.querySelector('[data-setup="save"]'), pass = d.querySelector('#uPass');
+    const token = (pass && pass.value.trim()) || adminToken();
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const r = await fetch(SETTINGS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token }, body: JSON.stringify({ radioStation: out }) });
+      if (r.status === 401) { d.querySelector('#uPassRow').hidden = false; pass.focus(); try { sessionStorage.removeItem('admin-token'); } catch (_) {} throw new Error("That password wasn't right"); }
+      if (!r.ok) throw new Error('The site replied ' + r.status);
+      try { if (token) sessionStorage.setItem('admin-token', token); } catch (_) {}
+      applyStation(out); buildPool(); if (!on) renderIdle();
+      d.close(); toast(on ? 'Saved. The new choices start after this song' : 'Saved');
+    } catch (e) { toast(e.message || "It didn't save"); }
+    finally { btn.disabled = false; btn.textContent = 'Save'; }
+    return;
+  }
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2) + '\n'], { type: 'application/json' }));
   a.download = 'station.json'; document.body.appendChild(a); a.click(); a.remove();
   toast('Put station.json in the same folder as this page');
