@@ -168,6 +168,21 @@ async function fetchSourceFeed(sourceUrl, { requireImportEnabled = true } = {}) 
     );
   }
 
+  // A static catalogue (such as one made with make.html) gives its files relative
+  // to the site, so make every address whole before anything is fetched.
+  const whole = (u) => {
+    if (!u || typeof u !== 'string') return u;
+    try { return new URL(u, `${origin}/`).href; } catch { return u; }
+  };
+  for (const release of feed.releases || []) {
+    release.artworkUrl = whole(release.artworkUrl);
+    for (const track of release.tracks || []) {
+      track.audioUrl = whole(track.audioUrl);
+      track.importAudioUrl = whole(track.importAudioUrl);
+      track.artworkUrl = whole(track.artworkUrl);
+    }
+  }
+
   return feed;
 }
 
@@ -289,7 +304,7 @@ exports.handler = async (event) => {
 
     try {
       // ── Audio: fetch source URL → stream into R2 (no local disk) ──────────
-      let mp3Url = sourceTrack.importAudioUrl || null;
+      let mp3Url = sourceTrack.importAudioUrl || (!sourceTrack.gated && sourceTrack.audioUrl) || null;
       if (mp3Url) {
         const audioExt = extFromUrl(mp3Url);
         const audioKey = `imports/audio/${slugify(release.artist)}/${slugify(release.title)}/${uid}-${slugify(sourceTrack.title)}${audioExt}`;
