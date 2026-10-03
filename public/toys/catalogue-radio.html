@@ -43,10 +43,10 @@ const STATION = {
   // most songs in the catalogue.
   mainArtist: '',
 
-  // Records or songs kept off the air entirely, by title or by id. Matching ignores capitals.
+  // Records kept off the air entirely, by title or by id. Matching ignores capitals.
   // For example: exclude: ['Elevator Music', 'DoE "Part 4" DLC'],
-  // The catalogue can carry its own list too (instance.radioExclude, set in the site's admin
-  // settings), and any record or song marked radio: false is left out; all three are combined.
+  // A station.json file beside this page can set any of these instead, so this file can stay
+  // as it is. Open the page with ?setup on the end to choose and download one.
   exclude: [],
 
   // How the presenter meets the next song. After every link the song comes in under the presenter's
@@ -207,6 +207,11 @@ dialog.sheet::backdrop{background:rgb(6 6 8/.55);backdrop-filter:blur(6px)}
 .sheet-in{padding:22px clamp(22px,4vw,36px) 40px}
 .sheet-in h2{margin:0;font:400 2.2rem/1 var(--serif)}
 .sheet-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.setup-note{margin:-6px 0 22px;color:var(--muted);font-size:14.5px;line-height:1.55}
+.setup-recs{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.setup-recs .check{margin:0;padding:6px 0}
+.setup-recs span{line-height:1.3}
+.setup-recs small{display:block;margin-top:2px;color:var(--faint)}
 .field{display:block;margin:0 0 20px}
 .field > span{display:block;font-size:13px;color:var(--muted);margin-bottom:7px}
 .field input[type=text],.field input[type=password],.field select{width:100%;height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--raise);outline:none}
@@ -354,6 +359,14 @@ function catalogueBase() {
 }
 // Carries a chosen ?catalogue= along to this page's own links.
 const CAT_QS = (() => { const c = new URLSearchParams(location.search).get('catalogue'); return c ? 'catalogue=' + encodeURIComponent(c) : ''; })();
+// A station.json beside this page (made with ?setup) overrides the STATION block above. It belongs
+// to this site's own catalogue, so it's ignored when the page is pointed at another one.
+const SETUP = new URLSearchParams(location.search).has('setup');
+const STATION_KEYS = ['curation', 'mainArtist', 'exclude', 'overlapSeconds', 'clearChance', 'pauseBeforeTalk'];
+const stationFile = CAT_QS ? Promise.resolve() : fetch('station.json', { cache: 'no-store' })
+  .then(r => r.ok ? r.json() : null)
+  .then(j => { if (j && typeof j === 'object') for (const k of STATION_KEYS) if (k in j) STATION[k] = j[k]; })
+  .catch(() => {});
 const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
 const root = document.documentElement;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -460,19 +473,17 @@ async function load() {
     instance = data.instance || {};
     releases = mergeReleases(absolutise(data.releases));
     pool = [];
-    const listed = [].concat(STATION.exclude || [], Array.isArray(instance.radioExclude) ? instance.radioExclude : String(instance.radioExclude || '').split('\n'));
-    const banned = new Set(listed.map(x => String(x).trim().toLowerCase()).filter(Boolean));
-    const named = (...xs) => xs.some(x => x != null && banned.has(String(x).trim().toLowerCase()));
-    const offAir = new Set(data.releases.filter(r => r.radio === false).map(r => r.id));
-    const isBanned = r => offAir.has(r.id) || (r.ids || []).some(id => offAir.has(id)) || named(r.title, r.id, ...(r.ids || []));
-    const songBanned = t => t.radio === false || named(t.title, t.id);
-    for (const r of releases) for (const t of r.tracks) { t.release = r; if (!t.gated && t.audioUrl && !isBanned(r) && !songBanned(t)) pool.push(t); }
+    await stationFile;
+    const banned = new Set((STATION.exclude || []).map(x => String(x).trim().toLowerCase()).filter(Boolean));
+    const isBanned = r => [r.title, r.id, ...(r.ids || [])].some(x => x != null && banned.has(String(x).trim().toLowerCase()));
+    for (const r of releases) for (const t of r.tracks) { t.release = r; if (!t.gated && t.audioUrl && !isBanned(r)) pool.push(t); }
     if (!pool.length) throw new Error('There are no free songs to play');
     const counts = {}; pool.forEach(t => counts[t.artist] = (counts[t.artist] || 0) + 1);
     mainArtist = (STATION.mainArtist && counts[STATION.mainArtist]) ? STATION.mainArtist : Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
     buildBlocks();
     if (!settings.station || settings.stationFor !== API) { settings.station = (instance.name || 'Catalogue') + ' Radio'; settings.stationFor = API; }
     renderIdle();
+    if (SETUP) openSetup();
   } catch (e) {
     console.error(e);
     $('#main').innerHTML = `<div class="note" style="grid-column:1/-1"><h2>The station can't find its records</h2><p>The catalogue at <code>${esc(API)}/catalogue</code> didn't load. Check the <code>BASE_URL</code> line at the top of this file and your connection.</p><button class="btn primary" onclick="location.reload()">Try again</button><p style="font-size:12.5px;color:var(--faint)">${esc(e.message)}</p></div>`;
@@ -1194,7 +1205,7 @@ const bindField = (sel, key, prop = 'value') => $(sel).addEventListener(prop ===
   if (!on && ['station', 'persona', 'voice', 'key', 'curation'].includes(key) && document.body.classList.contains('was-on') === false && $('#offairIn .big')) renderIdle();
 });
 bindField('#sStation', 'station'); bindField('#sPersona', 'persona'); bindField('#sVoice', 'voice'); bindField('#sKey', 'key');
-bindField('#sTalk', 'talk'); bindField('#sFade', 'fade', 'checked'); bindField('#sWake', 'awake', 'checked'); $('#sWake').addEventListener('change', () => syncWake());
+bindField('#sTalk', 'talk'); bindField('#sFade', 'fade', 'checked'); bindField('#sWake', 'awake', 'checked');
 $('#sWake').addEventListener('change', syncWake); bindField('#sCuration', 'curation');
 $('#sCuration').addEventListener('input', () => { if (!pool.length) return; buildBlocks(); sched.left = 0; if (!on) renderIdle(); toast('The new programming starts after this song'); }); bindField('#sTextModel', 'textModel'); bindField('#sTtsModel', 'ttsModel'); bindField('#sApiBase', 'apiBase');
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
@@ -1225,6 +1236,35 @@ async function testPresenter() {
     const a = new Audio(url); a.volume = clamp(volume, .2, 1); a.onended = () => URL.revokeObjectURL(url); a.play().catch(() => {});
   } catch (e) { setStatus('voice', 'failed: ' + describeErr(e), 'bad'); }
   btn.disabled = false; btn.textContent = 'Test the presenter';
+}
+
+/* ---------- station setup (?setup): makes station.json for whoever runs the site ---------- */
+function openSetup() {
+  let d = $('#setup');
+  if (!d) {
+    d = document.createElement('dialog'); d.className = 'sheet'; d.id = 'setup'; d.setAttribute('aria-label', 'Station setup');
+    document.body.appendChild(d);
+    d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-setup="close"]')) d.close(); if (e.target.closest('[data-setup="save"]')) saveSetup(d); });
+  }
+  const off = new Set((STATION.exclude || []).map(x => String(x).trim().toLowerCase()));
+  const isOff = r => [r.title, r.id, ...(r.ids || [])].some(x => x != null && off.has(String(x).trim().toLowerCase()));
+  const artists = [...new Set(releases.map(r => r.artist).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const recs = releases.slice().sort((a, b) => String(a.title).localeCompare(b.title));
+  d.innerHTML = `<div class="sheet-in">
+    <div class="sheet-top"><h2>Station setup</h2><button class="icon-btn" data-setup="close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="setup-note">These choices are saved as a small file, <code>station.json</code>. Put it in the same folder as this page and the station follows it for everyone who listens. Listeners never see this panel.</p>
+    <label class="field"><span>Programming</span><select id="uCuration">${[['artist', 'Curated Artist Radio'], ['singles', 'Random Artist Radio'], ['mixed', 'Mixed Catalogue']].map(([v, l]) => `<option value="${v}"${(STATION.curation || 'artist') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="field"><span>The act the station is about</span><select id="uMain"><option value="">Whoever has the most songs</option>${artists.map(a => `<option${STATION.mainArtist === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select></label>
+    <div class="field"><span>Keep off the air</span><ul class="setup-recs">${recs.map(r => `<li><label class="check"><input type="checkbox" value="${esc(r.title)}"${isOff(r) ? ' checked' : ''}><span>${esc(r.title)} <small>${esc(r.artist)}${r.year ? ', ' + esc(r.year) : ''}</small></span></label></li>`).join('')}</ul></div>
+    <button class="btn primary" data-setup="save" style="height:46px">Download station.json</button>
+  </div>`;
+  d.showModal();
+}
+function saveSetup(d) {
+  const out = { curation: d.querySelector('#uCuration').value, mainArtist: d.querySelector('#uMain').value, exclude: [...d.querySelectorAll('.setup-recs input:checked')].map(i => i.value) };
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2) + '\n'], { type: 'application/json' }));
+  a.download = 'station.json'; document.body.appendChild(a); a.click(); a.remove();
+  toast('Put station.json in the same folder as this page');
 }
 
 /* ---------- events ---------- */

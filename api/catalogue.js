@@ -38,13 +38,6 @@ function slugify(value = '') {
     .replace(/^-+|-+$/g, '');
 }
 
-function radioExcludeList(value) {
-  const list = (Array.isArray(value) ? value : String(value || '').split('\n'))
-    .map((x) => String(x).trim())
-    .filter(Boolean);
-  return list.length ? list : undefined;
-}
-
 function buildFeed(tracks, settings, feedUrl, importEnabled) {
   const byRelease = new Map();
 
@@ -119,8 +112,6 @@ function buildFeed(tracks, settings, feedUrl, importEnabled) {
       url: config.appBaseUrl,
       feedUrl,
       logoUrl: settings.logoUrl || undefined,
-      // Records or songs (by title or id) that radio front-ends should keep off the air.
-      radioExclude: radioExcludeList(settings.radioExclude),
     },
     releaseCount: releases.length,
     releases,
