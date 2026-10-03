@@ -43,8 +43,10 @@ const STATION = {
   // most songs in the catalogue.
   mainArtist: '',
 
-  // Records kept off the air entirely, by title or by id. Matching ignores capitals.
+  // Records or songs kept off the air entirely, by title or by id. Matching ignores capitals.
   // For example: exclude: ['Elevator Music', 'DoE "Part 4" DLC'],
+  // The catalogue can carry its own list too (instance.radioExclude, set in the site's admin
+  // settings), and any record or song marked radio: false is left out; all three are combined.
   exclude: [],
 
   // How the presenter meets the next song. After every link the song comes in under the presenter's
@@ -311,7 +313,7 @@ summary{cursor:pointer;color:var(--muted);font-size:14px;margin-bottom:14px}
     <label class="field"><span>Programming</span>
       <select id="sCuration"><option value="">As set in the file</option><option value="artist">Curated Artist Radio</option><option value="singles">Random Artist Radio</option><option value="mixed">Mixed Catalogue</option></select></label>
     <label class="check"><input type="checkbox" id="sFade"> Crossfade between songs when nobody is talking</label>
-    <label class="check" id="wakeRow" hidden><input type="checkbox" id="sWake"> Keep the screen on while the station plays</label>
+    <label class="check" id="wakeRow"><input type="checkbox" id="sWake"> Keep the phone awake while the station plays (best for the car)</label>
     <details>
       <summary>Advanced</summary>
       <label class="field"><span>Script model</span><input type="text" id="sTextModel" spellcheck="false"><small>The cheapest current OpenAI text model. Change it here if OpenAI renames it.</small></label>
@@ -406,7 +408,7 @@ const PERSONAS = [
 ];
 
 /* ================= settings & memory ================= */
-const settings = Object.assign({ station: '', persona: 'late', voice: 'ai', key: '', talk: '2', fade: true, wake: false, textModel: 'gpt-6-luna', ttsModel: 'gpt-4o-mini-tts', apiBase: 'https://api.openai.com/v1' }, LS.get('settings', {}));
+const settings = Object.assign({ station: '', persona: 'late', voice: 'ai', key: '', talk: '2', fade: true, awake: true, textModel: 'gpt-6-luna', ttsModel: 'gpt-4o-mini-tts', apiBase: 'https://api.openai.com/v1' }, LS.get('settings', {}));
 const saveSettings = () => LS.set('settings', settings);
 const MODES = ['artist', 'singles', 'mixed'];
 const curation = () => MODES.includes(settings.curation) ? settings.curation : (MODES.includes(STATION.curation) ? STATION.curation : 'artist');
@@ -458,9 +460,13 @@ async function load() {
     instance = data.instance || {};
     releases = mergeReleases(absolutise(data.releases));
     pool = [];
-    const banned = new Set((STATION.exclude || []).map(x => String(x).trim().toLowerCase()));
-    const isBanned = r => banned.has(String(r.title || '').trim().toLowerCase()) || banned.has(String(r.id || '').trim().toLowerCase());
-    for (const r of releases) for (const t of r.tracks) { t.release = r; if (!t.gated && t.audioUrl && !isBanned(r)) pool.push(t); }
+    const listed = [].concat(STATION.exclude || [], Array.isArray(instance.radioExclude) ? instance.radioExclude : String(instance.radioExclude || '').split('\n'));
+    const banned = new Set(listed.map(x => String(x).trim().toLowerCase()).filter(Boolean));
+    const named = (...xs) => xs.some(x => x != null && banned.has(String(x).trim().toLowerCase()));
+    const offAir = new Set(data.releases.filter(r => r.radio === false).map(r => r.id));
+    const isBanned = r => offAir.has(r.id) || (r.ids || []).some(id => offAir.has(id)) || named(r.title, r.id, ...(r.ids || []));
+    const songBanned = t => t.radio === false || named(t.title, t.id);
+    for (const r of releases) for (const t of r.tracks) { t.release = r; if (!t.gated && t.audioUrl && !isBanned(r) && !songBanned(t)) pool.push(t); }
     if (!pool.length) throw new Error('There are no free songs to play');
     const counts = {}; pool.forEach(t => counts[t.artist] = (counts[t.artist] || 0) + 1);
     mainArtist = (STATION.mainArtist && counts[STATION.mainArtist]) ? STATION.mainArtist : Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
@@ -785,6 +791,10 @@ async function startTrack(plan, link, myGen) {
   transitioning = false;
   const idx = cur < 0 ? 0 : 1 - cur, el = decks[idx], prevEl = cur < 0 ? null : decks[cur];
   const prevPlaying = prevEl && !prevEl.paused && prevEl.src !== SILENCE;
+  // With the screen off, a phone will only keep going on the element that is already playing,
+  // and any gap (the pause before the presenter, say) lets it put the page to sleep. So carry on
+  // on that same element, with no timers in the way.
+  if (document.hidden && prevEl && prevEl.src !== SILENCE) { clearInterval(prevEl._ramp); return sameDeckAdvance(prevEl, plan, link && link.mode === 'ai' ? link : null); }
   clearInterval(el._ramp);
   el.src = plan.track.audioUrl;
   el.volume = link ? masterVol() * DUCK : (prevPlaying && settings.fade ? 0 : masterVol());
@@ -915,17 +925,54 @@ decks.forEach(el => {
 });
 
 /* ---------- screen wake lock, and picking up after the phone wakes ---------- */
-async function syncWake() {
-  if (!('wakeLock' in navigator)) return;
-  const want = on && !paused && settings.wake && !document.hidden;
-  try {
-    if (want && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
-    else if (!want && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
-  } catch (_) { wakeLock = null; }
+/* The screen is kept on while the station plays: with the page in view every part of the
+   station works, where a locked phone only lets the song already playing carry on.
+   Browsers without the Wake Lock API (and ones that refuse it) get the old trick of a tiny
+   silent video playing on a loop, which phones also treat as a reason not to sleep. */
+const AWAKE_VIDEO = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMrbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAlV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAAAAABAAAAAAHNbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABeG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAThzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PLIAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAApAAAAKQAAAABhzdHRzAAAAAAAAAAEAAAACAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAACAAAAAQAAABxzdHN6AAAAAAAAAAAAAAACAAAChgAAAAoAAAAUc3RjbwAAAAAAAAABAAADWwAAAGJ1ZHRhAAAAWm1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAALWlsc3QAAAAlqXRvbwAAAB1kYXRhAAAAAQAAAABMYXZmNjAuMTYuMTAwAAAACGZyZWUAAAKYbWRhdAAAAnAGBf//bNxF6b3m2Ui3lizYINkj7u94MjY0IC0gY29yZSAxNjQgcjMxMDggMzFlMTlmOSAtIEguMjY0L01QRUctNCBBVkMgY29kZWMgLSBDb3B5bGVmdCAyMDAzLTIwMjMgLSBodHRwOi8vd3d3LnZpZGVvbGFuLm9yZy94MjY0Lmh0bWwgLSBvcHRpb25zOiBjYWJhYz0wIHJlZj0zIGRlYmxvY2s9MTowOjAgYW5hbHlzZT0weDE6MHgxMTEgbWU9aGV4IHN1Ym1lPTcgcHN5PTEgcHN5X3JkPTEuMDA6MC4wMCBtaXhlZF9yZWY9MSBtZV9yYW5nZT0xNiBjaHJvbWFfbWU9MSB0cmVsbGlzPTEgOHg4ZGN0PTAgY3FtPTAgZGVhZHpvbmU9MjEsMTEgZmFzdF9wc2tpcD0xIGNocm9tYV9xcF9vZmZzZXQ9LTIgdGhyZWFkcz0xIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MCB3ZWlnaHRwPTAga2V5aW50PTI1MCBrZXlpbnRfbWluPTEgc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD00MCByYz1jcmYgbWJ0cmVlPTEgY3JmPTIzLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjAwAIAAAAAOZYiEBb///w9FAAFPf4AAAAAGQZo4CvqA';
+let awakeVideo = null;
+function videoAwake(want) {
+  if (want && !awakeVideo) {
+    awakeVideo = document.createElement('video');
+    Object.assign(awakeVideo, { muted: true, loop: true, playsInline: true, src: AWAKE_VIDEO });
+    awakeVideo.setAttribute('playsinline', ''); awakeVideo.setAttribute('muted', ''); awakeVideo.setAttribute('aria-hidden', 'true');
+    awakeVideo.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:.01;pointer-events:none';
+    document.body.appendChild(awakeVideo);
+  }
+  if (!awakeVideo) return;
+  if (want) awakeVideo.play().catch(() => {}); else awakeVideo.pause();
 }
-if ('wakeLock' in navigator) $('#wakeRow').hidden = false;
+let wakeBusy = false;
+async function syncWake() {
+  const want = on && !paused && settings.awake && !document.hidden;
+  if (!('wakeLock' in navigator)) return videoAwake(want);
+  if (wakeBusy) return; wakeBusy = true;
+  try {
+    if (want && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      videoAwake(false);
+      // The browser drops the lock now and then (battery saver, a phone call); take it back.
+      wakeLock.addEventListener('release', () => { wakeLock = null; setTimeout(syncWake, 500); });
+    } else if (!want && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+  } catch (_) { wakeLock = null; videoAwake(want); }
+  finally { wakeBusy = false; }
+  if (!want) videoAwake(false);
+}
 document.addEventListener('visibilitychange', () => {
   syncWake();
+  // The screen went off in the middle of a hand-over (waiting for the presenter, or the quiet
+  // before a link). Rather than wait there and be put to sleep, go straight to the next song
+  // on the element that's still sounding.
+  if (document.hidden && on && !paused && curPlan && !talking) {
+    const el = decks[cur];
+    if (el && el.paused && el.src !== SILENCE && pendingPlay !== el && !held.has(el)) {
+      const carrier = decks.find(d => !d.paused && d.src !== SILENCE) || el;
+      gen++; transitioning = false; stopVoice(); clearInterval(carrier._ramp);
+      if (carrier !== el) { el.pause(); cur = decks.indexOf(carrier); carrier._voice = false; carrier._after = null; carrier.src = curPlan.track.audioUrl; }
+      carrier.volume = masterVol();
+      carrier.play().catch(e => { if (e.name === 'NotAllowedError') pendingPlay = carrier; });
+    }
+  }
   if (!document.hidden && on && pendingPlay) { const el = pendingPlay; pendingPlay = null; el.volume = masterVol(); el.play().catch(() => {}); }
 });
 
@@ -1135,7 +1182,7 @@ const dlg = $('#settings');
 $('#sPersona').innerHTML = PERSONAS.map(p => `<option value="${p.id}">${esc(p.name)}, ${esc(p.label.toLowerCase())}</option>`).join('');
 function openSettings() {
   $('#sStation').value = settings.station; $('#sPersona').value = settings.persona; $('#sVoice').value = settings.voice;
-  $('#sKey').value = settings.key; $('#sTalk').value = settings.talk; $('#sFade').checked = !!settings.fade; $('#sWake').checked = !!settings.wake;
+  $('#sKey').value = settings.key; $('#sTalk').value = settings.talk; $('#sFade').checked = !!settings.fade; $('#sWake').checked = !!settings.awake;
   $('#sTextModel').value = settings.textModel; $('#sTtsModel').value = settings.ttsModel; $('#sApiBase').value = settings.apiBase;
   $('#sCuration').value = settings.curation || '';
   dlg.showModal();
@@ -1147,7 +1194,7 @@ const bindField = (sel, key, prop = 'value') => $(sel).addEventListener(prop ===
   if (!on && ['station', 'persona', 'voice', 'key', 'curation'].includes(key) && document.body.classList.contains('was-on') === false && $('#offairIn .big')) renderIdle();
 });
 bindField('#sStation', 'station'); bindField('#sPersona', 'persona'); bindField('#sVoice', 'voice'); bindField('#sKey', 'key');
-bindField('#sTalk', 'talk'); bindField('#sFade', 'fade', 'checked'); bindField('#sWake', 'wake', 'checked');
+bindField('#sTalk', 'talk'); bindField('#sFade', 'fade', 'checked'); bindField('#sWake', 'awake', 'checked'); $('#sWake').addEventListener('change', () => syncWake());
 $('#sWake').addEventListener('change', syncWake); bindField('#sCuration', 'curation');
 $('#sCuration').addEventListener('input', () => { if (!pool.length) return; buildBlocks(); sched.left = 0; if (!on) renderIdle(); toast('The new programming starts after this song'); }); bindField('#sTextModel', 'textModel'); bindField('#sTtsModel', 'ttsModel'); bindField('#sApiBase', 'apiBase');
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
