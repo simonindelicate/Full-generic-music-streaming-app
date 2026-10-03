@@ -110,6 +110,8 @@ label.f small{color:var(--faint)}
 .how li b{font-weight:600}
 .how li span{grid-column:2;color:var(--muted);font-size:14.5px}
 .how code{font:inherit;color:var(--ink);overflow-wrap:anywhere}
+.finish{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.finish .in{flex:1 1 220px;height:46px}
 .later{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:14.5px}
 .later p{margin:0 0 10px}
 .later details{margin-top:12px}
@@ -141,7 +143,7 @@ label.f small{color:var(--faint)}
     <div class="fields">
       <label class="f">Your name, band name or label<input class="in big" id="name" autocomplete="off" placeholder="e.g. The Lonely Crowd"></label>
       <label class="f">A line about you <small>(optional)</small><input class="in" id="about" autocomplete="off" placeholder="e.g. Four-piece from Hastings, making records since 2009."></label>
-      <label class="f">Your site's address, once you have one <small>(optional: it makes shared links show your cover)</small><input class="in" id="address" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"></label>
+      <label class="f">Your site's address, if it already has one <small>(if not, you'll be asked for it once it's online)</small><input class="in" id="address" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"></label>
     </div>
   </section>
 
@@ -958,21 +960,38 @@ the next, so links people have shared keep working.
 }
 function showDone(fname, size, count, big, hasAddress) {
   const d = $('#done'); d.hidden = false;
-  d.innerHTML = `<h3>Your website is ready.</h3>
-    <p>It's downloading now as <b>${esc(fname)}</b> (${mb(size)}). If it didn't start, <a href="${lastZip}" download="${esc(fname)}">download it here</a>.</p>
+  const elsewhere = `<details><summary>Rather put it somewhere else?</summary><ul>
+        <li><b>Cloudflare Pages</b> sets no limit on how much people listen on its free plan. Make a free account, create a Pages project and choose to upload your files, then give it this zip.${big ? ` <i>${big} of your files ${big === 1 ? 'is' : 'are'} over the 25 MB it allows for each one, though.</i>` : ''}</li>
+        <li><b>GitHub Pages</b>, or any ordinary web space you already have: unzip the file and upload everything inside it, just as it is.</li>
+      </ul></details>`;
+  const got = `<p>It's downloading now as <b>${esc(fname)}</b> (${mb(size)}). If it didn't start, <a href="${lastZip}" download="${esc(fname)}">download it here</a>.</p>`;
+  const later = `<p><b>To add more music later</b>, keep this zip safe. Come back here (your site has its own copy of this page at <code>/make.html</code>), drop the zip in first, then your new songs, and upload the new zip in the same way. Links people have shared keep working.</p>`;
+  if (!hasAddress) {
+    // First time: the site can't know its own address until it's online, and the catalogue
+    // needs full addresses, so there's a second, quick step once it has one.
+    d.innerHTML = `<h3>Nearly there.</h3>${got}
     <ol class="how">
       <li><b>Open Netlify Drop</b><span>It's free, and you don't need an account to start. <a class="btn primary" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
       <li><b>Drag <code>${esc(fname)}</code> onto that page</b><span>From your downloads, straight onto the dotted box. There's no need to unzip it.</span></li>
-      <li><b>That's it: you have a website</b><span>A few seconds later you'll be given its address. Make a free account when Netlify offers, or the site will be taken down after a while. You can choose a nicer address in its settings, or use a domain of your own.</span></li>
+      <li><b>Make a free account when Netlify offers</b><span>Otherwise the site is taken down after a while. You can choose a nicer address in its settings now, or use a domain of your own.</span></li>
+      <li><b>Paste your site's address here</b><span>This finishes it: your music's catalogue has to give the full address of every song, so other players and sites can find them. <form class="finish" id="finish" novalidate><input class="in" name="addr" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"><button class="btn primary">Finish my site</button></form></span></li>
     </ol>
-    <div class="later">
-      ${hasAddress ? '' : `<p><b>Once you have your address</b>, type it into step 1 above and make the site again. Then, when people share your songs, the link will show your cover.</p>`}
-      <p><b>To add more music later</b>, keep this zip safe. Come back here (your site has its own copy of this page at <code>/make.html</code>), drop the zip in first, then your new songs, and upload the new zip on your site's Deploys page on Netlify. Links people have shared keep working.</p>
-      <details><summary>Rather put it somewhere else?</summary><ul>
-        <li><b>Cloudflare Pages</b> sets no limit on how much people listen on its free plan. Make a free account, create a Pages project and choose to upload your files, then give it this zip.${big ? ` <i>${big} of your files ${big === 1 ? 'is' : 'are'} over the 25 MB it allows for each one, though.</i>` : ''}</li>
-        <li><b>GitHub Pages</b>, or any ordinary web space you already have: unzip the file and upload everything inside it, just as it is.</li>
-      </ul></details>
-    </div>`;
+    <div class="later">${elsewhere}</div>`;
+    $('#finish').addEventListener('submit', e => {
+      e.preventDefault();
+      let v = e.target.addr.value.trim().replace(/\/+$/, '');
+      if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+      if (!/^https?:\/\/[^\s\/]+\.[^\s\/]+/i.test(v)) { e.target.addr.classList.add('bad'); e.target.addr.focus(); return toast("That doesn't look like a web address"); }
+      $('#address').value = v; $('#make').click();
+    });
+  } else {
+    d.innerHTML = `<h3>Your website is ready.</h3>${got}
+    <ol class="how">
+      <li><b>If your site is already on Netlify</b><span>Open it on Netlify, go to <b>Deploys</b>, and drag <code>${esc(fname)}</code> onto the box there. A few seconds later the new version is live.</span></li>
+      <li><b>If it isn't online yet</b><span>Drag the zip onto Netlify Drop instead, and make a free account when it offers. <a class="btn" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
+    </ol>
+    <div class="later">${later}${elsewhere}</div>`;
+  }
   d.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
