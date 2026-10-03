@@ -10,9 +10,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <script>
 /* ==========================================================================
-   ▼▼▼  YOUR SITE ADDRESS GOES HERE  ▼▼▼
+   ▼▼▼  WHICH CATALOGUE  ▼▼▼
+   Leave BASE_URL empty to use the catalogue of the site this page is served
+   from, which is the usual case. Put another site's address between the
+   quote marks (no slash on the end) to point this page at that catalogue.
+   Visitors can also try any other catalogue by adding
+   ?catalogue=https://that-site to the page's address.
    ========================================================================== */
-const BASE_URL = 'https://stream-the-indelicates.netlify.app';
+const BASE_URL = '';
 /* ========================================================================== */
 </script>
 <style>
@@ -133,7 +138,16 @@ canvas#world{position:fixed;inset:0;width:100%;height:100%;display:block;touch-a
 <script>
 (() => {
 'use strict';
-const API = BASE_URL.replace(/\/+$/, '');
+const API = catalogueBase();
+// Where the catalogue lives: ?catalogue=… in the address, then BASE_URL, then this site.
+function catalogueBase() {
+  let q = new URLSearchParams(location.search).get('catalogue');
+  try { if (q) { const u = new URL(q); q = /^https?:$/.test(u.protocol) ? u.origin + u.pathname : ''; } } catch (_) { q = ''; }
+  const base = q || (typeof BASE_URL === 'string' ? BASE_URL : '') || (/^https?:$/.test(location.protocol) ? location.origin : '');
+  return String(base).trim().replace(/\/+$/, '').replace(/\/catalogue$/, '');
+}
+// Carries a chosen ?catalogue= along to this page's own links.
+const CAT_QS = (() => { const c = new URLSearchParams(location.search).get('catalogue'); return c ? 'catalogue=' + encodeURIComponent(c) : ''; })();
 const $ = s => document.querySelector(s);
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('charted:' + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },

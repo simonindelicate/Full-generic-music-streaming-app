@@ -24,12 +24,21 @@ li b{font-weight:600}
 li span{grid-column:1;color:var(--muted);font-size:14.5px}
 li i{grid-row:1/3;grid-column:2;align-self:center;font-style:normal;color:var(--accent);opacity:0;transition:opacity .25s}
 li a:hover i{opacity:1}
+.switch{margin-top:56px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:14.5px}
+.switch p{margin:0 0 12px}
+.switch form{display:flex;flex-wrap:wrap;gap:10px}
+.switch input{flex:1 1 220px;min-width:0;height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:rgb(255 255 255/.04);color:var(--ink);font:inherit}
+.switch input:focus{outline:none;border-color:var(--accent)}
+.switch button{height:42px;padding:0 18px;border-radius:10px;border:0;background:var(--accent);color:#1b1503;font:600 14.5px 'Geist',system-ui,sans-serif;cursor:pointer}
+.switch a,.now a{color:var(--accent)}
+.now{margin:0 0 18px;padding:12px 14px;border-radius:10px;background:rgb(233 196 106/.1);color:var(--ink);font-size:14.5px;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
 <main>
   <h1>Catalogue <em>toys</em></h1>
   <p class="lede">Single-file front-ends, each built on the same open catalogue feed. None of them needs anything but the catalogue's address.</p>
+  <p class="now" id="now" hidden></p>
 
   <h2>Players</h2>
   <ul>
@@ -43,7 +52,6 @@ li a:hover i{opacity:1}
   <h2>Radio</h2>
   <ul>
     <li><a href="catalogue-radio.html"><b>Catalogue radio</b><span>A continuous station with programmed segments and an optional AI presenter.</span><i>→</i></a></li>
-    <li><a href="slop-catalogue-radio.html"><b>Catalogue radio, slop edition</b><span>The same station, pointed at a different catalogue.</span><i>→</i></a></li>
   </ul>
 
   <h2>Things to make and explore</h2>
@@ -53,6 +61,29 @@ li a:hover i{opacity:1}
     <li><a href="catalogue-charted.html"><b>The Catalogue, charted</b><span>A night-time map explored by lantern, where songs play as you approach them.</span><i>→</i></a></li>
     <li><a href="into-the-sleeve.html"><b>Into the sleeve</b><span>Each cover turned into a 3D scene by a depth model running in your browser.</span><i>→</i></a></li>
   </ul>
+  <section class="switch">
+    <p>The toys use this site's catalogue. To try them with another one, give its site address.</p>
+    <form id="switch" novalidate><input type="text" inputmode="url" name="catalogue" placeholder="https://another-site.netlify.app" aria-label="Another catalogue's site address" autocomplete="off" spellcheck="false"><button>Use that catalogue</button></form>
+  </section>
 </main>
+<script>
+// A chosen catalogue is passed along to every toy as ?catalogue=…
+const cat = new URLSearchParams(location.search).get('catalogue');
+if (cat) {
+  document.querySelectorAll('main ul a').forEach(a => a.href = a.getAttribute('href') + '?catalogue=' + encodeURIComponent(cat));
+  const now = document.getElementById('now');
+  now.hidden = false;
+  now.innerHTML = 'Showing the catalogue at <b></b>. <a href="?">Back to this site\'s catalogue</a>.';
+  now.querySelector('b').textContent = cat;
+  document.querySelector('#switch input').value = cat;
+}
+document.getElementById('switch').addEventListener('submit', e => {
+  e.preventDefault();
+  let v = e.target.catalogue.value.trim().replace(/\/+$/, '').replace(/\/catalogue$/, '');
+  if (!v) { location.search = ''; return; }
+  if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+  location.search = '?catalogue=' + encodeURIComponent(v);
+});
+</script>
 </body>
 </html>

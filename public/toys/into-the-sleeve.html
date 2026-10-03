@@ -10,9 +10,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300..800&family=Syne:wght@500..800&display=swap" rel="stylesheet">
 <script>
 /* ==========================================================================
-   ▼▼▼  YOUR SITE ADDRESS GOES HERE  ▼▼▼
+   ▼▼▼  WHICH CATALOGUE  ▼▼▼
+   Leave BASE_URL empty to use the catalogue of the site this page is served
+   from, which is the usual case. Put another site's address between the
+   quote marks (no slash on the end) to point this page at that catalogue.
+   Visitors can also try any other catalogue by adding
+   ?catalogue=https://that-site to the page's address.
    ========================================================================== */
-const BASE_URL = 'https://stream-the-indelicates.netlify.app';
+const BASE_URL = '';
 /* ========================================================================== */
 </script>
 <style>
@@ -111,7 +116,16 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
 env.allowLocalModels = false;
 
-const API = BASE_URL.replace(/\/+$/, '');
+const API = catalogueBase();
+// Where the catalogue lives: ?catalogue=… in the address, then BASE_URL, then this site.
+function catalogueBase() {
+  let q = new URLSearchParams(location.search).get('catalogue');
+  try { if (q) { const u = new URL(q); q = /^https?:$/.test(u.protocol) ? u.origin + u.pathname : ''; } } catch (_) { q = ''; }
+  const base = q || (typeof BASE_URL === 'string' ? BASE_URL : '') || (/^https?:$/.test(location.protocol) ? location.origin : '');
+  return String(base).trim().replace(/\/+$/, '').replace(/\/catalogue$/, '');
+}
+// Carries a chosen ?catalogue= along to this page's own links.
+const CAT_QS = (() => { const c = new URLSearchParams(location.search).get('catalogue'); return c ? 'catalogue=' + encodeURIComponent(c) : ''; })();
 const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -343,8 +357,8 @@ function choose(r, push) {
   $('#playBox').hidden = !r.tracks.some(t => !t.gated && t.audioUrl); $('#npT').textContent = 'Play the record'; $('#npS').textContent = '';
   $$('#shelf button').forEach(b => b.setAttribute('aria-current', String(b.dataset.id === r.ids[0])));
   document.title = `${r.title}, into the sleeve`;
-  if (push) history.replaceState(null, '', '?r=' + encodeURIComponent(r.ids[0]));
-  if (r.artworkUrl) stepInto(r.artworkUrl, r.ids[0], true); else status('This record has no cover to step into.');
+  if (push) history.replaceState(null, '', '?r=' + encodeURIComponent(r.ids[0]) + (CAT_QS ? '&' + CAT_QS : ''));
+  if (r.artworkUrl) stepInto(r.artworkUrl, API + '|' + r.ids[0], true); else status('This record has no cover to step into.');
 }
 
 /* ================= music ================= */
