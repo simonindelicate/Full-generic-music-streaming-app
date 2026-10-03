@@ -255,12 +255,26 @@ header.top p{margin:0;color:#dfe9e4;font:600 1.5rem/1.1 var(--hand);overflow-wra
 (() => {
 'use strict';
 const API = catalogueBase();
+// A catalogue may give its files relative to itself (a home-made one does), so make every address whole.
+function absolutise(list) {
+  let base; try { base = new URL(API + '/', location.href).href; } catch (_) { return list || []; }
+  const fix = u => { if (!u || typeof u !== 'string') return u; try { return new URL(u, base).href; } catch (_) { return u; } };
+  for (const r of list || []) {
+    if (r.artworkUrl) r.artworkUrl = fix(r.artworkUrl);
+    if (r.buyUrl) r.buyUrl = fix(r.buyUrl);
+    for (const t of r.tracks || []) { if (t.audioUrl) t.audioUrl = fix(t.audioUrl); if (t.artworkUrl) t.artworkUrl = fix(t.artworkUrl); }
+  }
+  return list || [];
+}
 // Where the catalogue lives: ?catalogue=… in the address, then BASE_URL, then this site.
 function catalogueBase() {
   let q = new URLSearchParams(location.search).get('catalogue');
   try { if (q) { const u = new URL(q); q = /^https?:$/.test(u.protocol) ? u.origin + u.pathname : ''; } } catch (_) { q = ''; }
   const base = q || (typeof BASE_URL === 'string' ? BASE_URL : '') || (/^https?:$/.test(location.protocol) ? location.origin : '');
-  return String(base).trim().replace(/\/+$/, '').replace(/\/catalogue$/, '');
+  let b = String(base).trim().replace(/\/+$/, '').replace(/\/catalogue$/, '');
+  // A relative address (such as '..' in a home-made site) is taken from where this page lives.
+  if (b && !/^[a-z][a-z0-9+.-]*:/i.test(b) && /^https?:$/.test(location.protocol)) b = new URL(b + '/', location.href).href.replace(/\/+$/, '');
+  return b;
 }
 // Carries a chosen ?catalogue= along to this page's own links.
 const CAT_QS = (() => { const c = new URLSearchParams(location.search).get('catalogue'); return c ? 'catalogue=' + encodeURIComponent(c) : ''; })();
@@ -313,7 +327,7 @@ async function loadCatalogue() {
   const res = await fetch(API + '/catalogue', { cache: 'no-store' });
   if (!res.ok) throw new Error('The server replied ' + res.status);
   const data = await res.json();
-  releases = mergeReleases(data.releases || []).sort((a, b) => (+b.year || 0) - (+a.year || 0));
+  releases = mergeReleases(absolutise(data.releases)).sort((a, b) => (+b.year || 0) - (+a.year || 0));
   for (const r of releases) for (const t of r.tracks) { t.release = r; trackMap.set(t.id, t); }
   return data.instance || {};
 }

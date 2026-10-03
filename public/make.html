@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Make your own music site</title>
+<meta name="description" content="Turn a folder of songs into a website of your own, with a page for every record and free streaming, ready to put online in a minute.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121514;--panel:#191d1b;--ink:#eef1ef;--muted:#9aa5a0;--faint:#6d7772;--line:rgb(238 241 239/.1);--line2:rgb(238 241 239/.18);--accent:#e9c46a;--accent-ink:#1b1503;--bad:#ef8a73;--serif:'Instrument Serif',Georgia,serif;--ease:cubic-bezier(.2,.8,.2,1)}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100dvh;background:var(--bg);color:var(--ink);font:400 16px/1.55 'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(1200px 600px at 85% -10%,rgb(233 196 106/.09),transparent 60%),radial-gradient(900px 500px at -10% 110%,rgb(120 190 160/.06),transparent 60%)}
+main{position:relative;max-width:900px;margin:0 auto;padding:clamp(32px,8vw,96px) clamp(16px,5vw,40px) 120px}
+a{color:var(--accent)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+h1{margin:0;font:400 clamp(2.9rem,9vw,5.6rem)/.95 var(--serif);letter-spacing:-.02em}
+h1 em{color:var(--accent)}
+.lede{margin:22px 0 0;color:var(--muted);max-width:58ch;font-size:clamp(16px,1.8vw,18px)}
+.step{margin-top:clamp(56px,9vw,88px)}
+.step>header{display:flex;align-items:baseline;gap:16px;margin-bottom:18px}
+.step>header b{font:italic 400 clamp(2.6rem,6vw,3.4rem)/1 var(--serif);color:var(--accent);min-width:.9em}
+.step>header h2{margin:0;font:400 clamp(1.7rem,4vw,2.3rem)/1.05 var(--serif)}
+.step>header p{margin:4px 0 0;color:var(--muted);font-size:15px}
+.fields{display:grid;gap:14px}
+label.f{display:grid;gap:6px;font-size:14.5px;color:var(--muted)}
+label.f small{color:var(--faint)}
+.in{width:100%;min-width:0;height:48px;padding:0 15px;border-radius:12px;border:1px solid var(--line2);background:rgb(255 255 255/.035);color:var(--ink);transition:border-color .2s,background .2s}
+.in:focus{outline:none;border-color:var(--accent);background:rgb(255 255 255/.06)}
+.in.big{height:58px;font:400 1.6rem var(--serif)}
+.in.bad{border-color:var(--bad)}
+.drop{position:relative;display:grid;place-items:center;text-align:center;gap:14px;padding:clamp(34px,7vw,64px) 20px;border-radius:22px;border:1.5px dashed var(--line2);background:rgb(255 255 255/.02);transition:border-color .25s,background .25s,transform .35s var(--ease)}
+.drop.over{border-color:var(--accent);background:rgb(233 196 106/.07);transform:scale(1.01)}
+.drop .disc{width:74px;height:74px;border-radius:50%;background:radial-gradient(circle,var(--accent) 0 9%,#0c0e0d 10% 13%,#222826 14% 100%);box-shadow:inset 0 0 0 1px rgb(255 255 255/.08),0 10px 30px -10px #000;animation:spin 6s linear infinite paused}
+.drop.over .disc,.drop.busy .disc{animation-play-state:running}
+@keyframes spin{to{transform:rotate(360deg)}}
+.drop strong{font:400 clamp(1.5rem,4vw,2rem)/1.1 var(--serif)}
+.drop p{margin:0;color:var(--muted);font-size:14.5px;max-width:48ch}
+.btns{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.btn{height:44px;padding:0 18px;border-radius:999px;border:1px solid var(--line2);background:rgb(255 255 255/.04);font-weight:600;font-size:14.5px;display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);transition:border-color .2s,background .2s}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.huge{height:60px;padding:0 30px;font-size:17px;box-shadow:0 18px 40px -16px var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.again{margin-top:16px;font-size:14px;color:var(--muted)}
+.again summary{cursor:pointer;width:max-content;max-width:100%}
+.again summary:hover{color:var(--ink)}
+.again .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.again .row .in{flex:1 1 240px;height:44px}
+.status{min-height:1.5em;margin:14px 0 0;color:var(--muted);font-size:14.5px;text-align:center}
+.status.bad{color:var(--bad)}
+/* records */
+#records{display:grid;gap:22px;margin-top:26px}
+.rec{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px 22px;padding:20px;border-radius:20px;background:var(--panel);border:1px solid var(--line);animation:rise .5s var(--ease) both}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+.cov{position:relative;width:150px;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#0c0e0d;cursor:pointer;box-shadow:0 14px 30px -14px #000;border:0;padding:0}
+.cov img{width:100%;height:100%;object-fit:cover;display:block}
+.cov span{position:absolute;inset:auto 0 0;padding:22px 8px 8px;font-size:12.5px;font-weight:600;text-align:center;background:linear-gradient(transparent,rgb(0 0 0/.75));opacity:0;transition:opacity .2s}
+.cov:hover span,.cov:focus-visible span,.cov.over span{opacity:1}
+.cov.made::after{content:"+";position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgb(0 0 0/.55);color:#fff;font:600 18px/1 system-ui;transition:opacity .2s}
+.cov.made:hover::after{opacity:0}
+.cov.over{outline:2px solid var(--accent)}
+.rmeta{display:grid;gap:10px;align-content:start;min-width:0}
+.rmeta .two{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:10px}
+.rmeta .in{height:42px;font-size:15px}
+.rmeta .in.big{height:52px;font-size:1.5rem}
+.mini{display:grid;gap:4px;font-size:12.5px;color:var(--faint)}
+.songs{grid-column:1/-1;list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.song{display:grid;grid-template-columns:22px 26px minmax(0,1fr) auto 36px 36px;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);background:var(--panel)}
+.song.dragging{position:relative;z-index:2;box-shadow:0 10px 30px -8px #000;border-radius:10px;background:#232826}
+.grip{cursor:grab;touch-action:none;color:var(--faint);display:grid;place-items:center;height:36px;user-select:none;-webkit-user-select:none}
+.grip svg{width:14px;height:14px}
+.song .n{color:var(--faint);font-variant-numeric:tabular-nums;font-size:14px}
+.song .ttl{display:grid;gap:1px;min-width:0}
+.song input{width:100%;min-width:0;height:36px;padding:0 8px;margin-left:-8px;border-radius:8px;border:1px solid transparent;background:transparent;font-size:15px}
+.song input:hover{border-color:var(--line)}
+.song input:focus{outline:none;border-color:var(--accent);background:rgb(255 255 255/.04)}
+.song .note{font-size:12px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.song .note.bad{color:var(--bad)}
+.song .d{font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ib{position:relative;width:36px;height:36px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;color:var(--muted);transition:background .2s,color .2s}
+.ib:hover,.ib:focus-within{background:rgb(255 255 255/.06);color:var(--ink)}
+.ib svg{width:17px;height:17px}
+.ib.on{color:var(--accent)}
+.ib select{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;font-size:16px}
+.rfoot{grid-column:1/-1;display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--faint)}
+.link{border:0;background:none;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;font-size:13.5px}
+.link:hover{color:var(--bad)}
+.summary{margin:26px 0 0;color:var(--muted);font-size:15px}
+.go{display:flex;flex-wrap:wrap;align-items:center;gap:16px 22px;margin-top:22px}
+/* progress */
+.prog{margin-top:22px;padding:22px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
+.bar{height:6px;border-radius:9px;background:rgb(255 255 255/.08);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:9px;transition:width .3s}
+.prog p{margin:12px 0 0;color:var(--muted);font-size:14.5px;overflow-wrap:anywhere}
+/* done */
+.done{margin-top:22px;padding:clamp(20px,4vw,34px);border-radius:22px;background:linear-gradient(160deg,rgb(233 196 106/.12),rgb(233 196 106/.02) 60%),var(--panel);border:1px solid rgb(233 196 106/.25);animation:rise .6s var(--ease) both}
+.done h3{margin:0 0 6px;font:400 clamp(1.8rem,5vw,2.6rem)/1.05 var(--serif)}
+.done>p{margin:0 0 20px;color:var(--muted)}
+.how{counter-reset:s;list-style:none;margin:0 0 22px;padding:0;display:grid;gap:16px}
+.how li{counter-increment:s;display:grid;grid-template-columns:38px minmax(0,1fr);gap:4px 14px}
+.how li::before{content:counter(s);grid-row:1/3;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-weight:700}
+.how li b{font-weight:600}
+.how li span{grid-column:2;color:var(--muted);font-size:14.5px}
+.how code{font:inherit;color:var(--ink);overflow-wrap:anywhere}
+.finish{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.finish .in{flex:1 1 220px;height:46px}
+.later{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:14.5px}
+.later p{margin:0 0 10px}
+.later details{margin-top:12px}
+.later summary{cursor:pointer;color:var(--ink)}
+.later ul{margin:10px 0 0;padding-left:20px}
+.later li{margin:6px 0}
+.toast{position:fixed;left:50%;bottom:22px;z-index:9;transform:translate(-50%,90px);transition:transform .4s var(--ease);background:var(--ink);color:#111;padding:10px 18px;border-radius:999px;font-weight:600;font-size:14px;max-width:calc(100vw - 32px);text-align:center}
+.toast:not(.show){opacity:0;visibility:hidden;transition:transform .4s var(--ease),opacity .3s,visibility 0s .4s}
+.toast.show{transform:translate(-50%,0)}
+@media (max-width:620px){
+  .rec{grid-template-columns:96px minmax(0,1fr);padding:16px;gap:14px}
+  .cov{width:96px}
+  .rmeta .two{grid-template-columns:minmax(0,1fr) 74px}
+  .song{grid-template-columns:20px 22px minmax(0,1fr) auto 34px 34px;gap:6px}
+  .ib{width:34px;height:34px}
+  .rmeta .in,.song input{font-size:16px}
+}
+@media (max-width:380px){.rec{grid-template-columns:minmax(0,1fr)}.cov{width:120px}}
+@media (prefers-reduced-motion:reduce){*,::before,::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Your music, on a site of <em>your own.</em></h1>
+  <p class="lede">Drop your songs in and this page turns them into a small website that belongs to you: a page for every record, free listening for anyone who visits, and the radio, the mixtape maker and the other toys, all running from your own files. There are no accounts or subscriptions here, and nothing leaves your computer until you put it online yourself.</p>
+
+  <section class="step">
+    <header><b>1</b><div><h2>Who's it by?</h2><p>The name visitors will see at the top of your site.</p></div></header>
+    <div class="fields">
+      <label class="f">Your name, band name or label<input class="in big" id="name" autocomplete="off" placeholder="e.g. The Lonely Crowd"></label>
+      <label class="f">A line about you <small>(optional)</small><input class="in" id="about" autocomplete="off" placeholder="e.g. Four-piece from Hastings, making records since 2009."></label>
+      <label class="f">Your site's address, if it already has one <small>(if not, you'll be asked for it once it's online)</small><input class="in" id="address" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"></label>
+    </div>
+  </section>
+
+  <section class="step">
+    <header><b>2</b><div><h2>Your music</h2><p>Each folder becomes a record. Songs on their own become one record you can name.</p></div></header>
+    <div class="drop" id="drop">
+      <div class="disc" aria-hidden="true"></div>
+      <strong>Drop songs, or whole folders of them, here</strong>
+      <p>MP3, WAV, FLAC, AIFF or M4A. Put a picture in the folder and it becomes the cover. Anything that isn't an MP3 or M4A is turned into a good-quality MP3 for you.</p>
+      <div class="btns">
+        <button class="btn primary" id="pickFiles" type="button">Choose songs</button>
+        <button class="btn" id="pickFolder" type="button">Choose a folder</button>
+      </div>
+      <input type="file" id="files" multiple accept="audio/*,image/*,.mp3,.wav,.flac,.aif,.aiff,.m4a,.zip,.json" hidden>
+      <input type="file" id="folder" webkitdirectory multiple hidden>
+    </div>
+    <p class="status" id="status" role="status"></p>
+    <details class="again" id="again">
+      <summary>Made your site here before? Start from it</summary>
+      <p>Drop your site's zip file or folder onto the box above, then add your new songs. If you've lost the file, give the address instead and everything will be fetched from the site (that can take a while).</p>
+      <form class="row" id="fetchForm" novalidate><input class="in" name="addr" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"><button class="btn">Fetch my site</button></form>
+    </details>
+    <div id="records"></div>
+  </section>
+
+  <section class="step" id="makeStep" hidden>
+    <header><b>3</b><div><h2>Make the site</h2><p>Everything happens here in your browser. Songs that need converting take a few seconds each.</p></div></header>
+    <p class="summary" id="summary"></p>
+    <div class="go"><button class="btn primary huge" id="make" type="button">Make my website</button></div>
+    <div class="prog" id="prog" hidden><div class="bar"><i id="bar"></i></div><p id="progText">Getting ready…</p></div>
+    <div class="done" id="done" hidden></div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+<script>
+'use strict';
+/* ==========================================================================
+   Make your own music site.
+   Everything runs in the browser. The result is a zip holding a complete
+   static website: the catalogue feed (so every toy works with it), a page
+   for every record, share pages for every song, and the music itself.
+   ========================================================================== */
+
+// The pages copied into every site. They're fetched from beside this page, or from the public repository.
+const TOYS = ['index.html', 'records.html', 'catalogue-radio.html', 'salon-player.html', 'squelch-player.html', 'squelch-player-mellow.html', 'riso-zine-player.html', 'mixtape.html', 'record-town.html', 'catalogue-charted.html', 'into-the-sleeve.html'];
+const UPSTREAM = 'https://raw.githubusercontent.com/simonindelicate/Full-generic-music-streaming-app/main/public/';
+// The MP3 encoder, loaded only if something needs converting.
+const LAME_URLS = ['https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js', 'https://unpkg.com/lamejs@1.2.1/lame.min.js'];
+const MAX_FILE = 24.5 * 1024 * 1024; // keeps every file inside the 25 MB limit some free hosts set
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const slug = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'untitled';
+const rid = () => Math.random().toString(36).slice(2, 10);
+const fmt = s => { s = Math.round(s || 0); return s ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : ''; };
+const mb = b => b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(b / 1e6)) + ' MB';
+const ext = p => (String(p).match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
+const AUDIO = /^(mp3|wav|wave|flac|aif|aiff|aifc|m4a|aac|ogg|oga|opus)$/;
+const KEEP = /^(mp3|m4a)$/; // played everywhere already, so copied as they are
+const IMAGE = /^(jpe?g|png|webp|gif)$/;
+const toast = (m, ms = 2600) => { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), ms); };
+const status = (m, bad) => { const s = $('#status'); s.textContent = m || ''; s.classList.toggle('bad', !!bad); };
+
+/* ---------- state ---------- */
+const S = { records: [] };
+// record: { id?, title, artist, year, genre, buyUrl, cover: {blob, url, path?} | null, tracks: [] }
+// track:  { id, title, dur, file, path?, kind: 'keep'|'convert'|'missing', ext }
+
+/* ---------- getting files in ---------- */
+async function entriesFromDrop(dt) {
+  const roots = [...(dt.items || [])].map(i => i.kind === 'file' && i.webkitGetAsEntry ? i.webkitGetAsEntry() : null).filter(Boolean);
+  if (!roots.length) return [...dt.files].map(f => ({ file: f, path: f.name }));
+  const out = [];
+  const walk = async (entry, prefix) => {
+    if (entry.isFile) { const f = await new Promise((res, rej) => entry.file(res, rej)); out.push({ file: f, path: prefix + f.name }); return; }
+    if (!entry.isDirectory) return;
+    const reader = entry.createReader();
+    for (;;) { const batch = await new Promise((res, rej) => reader.readEntries(res, rej)); if (!batch.length) break; for (const e of batch) await walk(e, prefix + entry.name + '/'); }
+  };
+  for (const r of roots) await walk(r, '');
+  return out;
+}
+const fromInput = input => [...input.files].map(f => ({ file: f, path: f.webkitRelativePath || f.name }));
+
+let busy = false;
+async function intake(list) {
+  if (busy) return toast('Still busy with the last lot, one moment');
+  busy = true; $('#drop').classList.add('busy');
+  try {
+    list = list.filter(x => !/(^|\/)(\.|__MACOSX\/)/.test(x.path));
+    // Zips are opened (a site made here earlier, usually).
+    for (const z of list.filter(x => ext(x.path) === 'zip')) {
+      status('Opening ' + z.file.name + '…');
+      const inner = await unzip(z.file);
+      const dir = z.path.replace(/\.zip$/i, '') + '/';
+      list = list.filter(x => x !== z).concat(inner.map(e => ({ file: e.file, path: dir + e.path })));
+    }
+    // A site made here before: its catalogue.json says what everything is.
+    const cat = list.find(x => /(^|\/)catalogue\.json$/i.test(x.path));
+    if (cat) {
+      const root = cat.path.slice(0, cat.path.length - 'catalogue.json'.length);
+      const byPath = new Map(list.map(x => [x.path, x.file]));
+      let feed; try { feed = JSON.parse(await cat.file.text()); } catch (_) { throw new Error("That folder's catalogue.json couldn't be read"); }
+      const n = await loadExisting(feed, async p => byPath.get(root + p) || null, null);
+      const SITE = /^(index\.html|make\.html|catalogue(\.json)?|readme\.txt|_headers|_redirects)$/i;
+      list = list.filter(x => { if (!x.path.startsWith(root)) return true; const r = x.path.slice(root.length); return !(SITE.test(r) || /^(music|toys|s)\//.test(r)); });
+      toast(`Opened your site: ${n} record${n === 1 ? '' : 's'}`);
+    }
+    const songs = list.filter(x => AUDIO.test(ext(x.path)));
+    if (songs.length) await addSongs(songs, list.filter(x => IMAGE.test(ext(x.path))));
+    else if (!cat) {
+      const imgs = list.filter(x => IMAGE.test(ext(x.path)));
+      if (imgs.length && S.records.length === 1) await setCover(S.records[0], imgs[0].file);
+      else status(list.length ? "There weren't any songs in that. Try MP3, WAV, FLAC, AIFF or M4A files." : '', true);
+    }
+    if (songs.length || cat) status('');
+    render();
+  } catch (e) {
+    console.error(e); status(e.message || String(e), true);
+  } finally { busy = false; $('#drop').classList.remove('busy'); }
+}
+
+/* ---------- reading tags ---------- */
+const latin1 = (u, a, b) => { let s = ''; for (let i = a; i < b; i++) s += String.fromCharCode(u[i]); return s; };
+const clean = s => String(s || '').replace(/\0+$/g, '').split('\0')[0].trim();
+const ss32 = (u, p) => (u[p] & 127) << 21 | (u[p + 1] & 127) << 14 | (u[p + 2] & 127) << 7 | (u[p + 3] & 127);
+const be32 = (u, p) => (u[p] << 24 >>> 0) + (u[p + 1] << 16 | u[p + 2] << 8 | u[p + 3]);
+const le32 = (u, p) => (u[p] | u[p + 1] << 8 | u[p + 2] << 16) + (u[p + 3] << 24 >>> 0);
+const bytes = async (f, a, b) => new Uint8Array(await f.slice(a, b).arrayBuffer());
+
+function textOf(d) {
+  const enc = d[0], body = d.subarray(1);
+  if (enc === 0) return clean(latin1(body, 0, body.length));
+  if (enc === 3) return clean(new TextDecoder('utf-8').decode(body));
+  if (enc === 1) { const le = !(body[0] === 0xfe && body[1] === 0xff); return clean(new TextDecoder(le ? 'utf-16le' : 'utf-16be').decode(body.subarray(body[0] === 0xff || body[0] === 0xfe ? 2 : 0))); }
+  return clean(new TextDecoder('utf-16be').decode(body));
+}
+function pictureOf(d, v2) { // APIC (v2.3/2.4) or PIC (v2.2)
+  const enc = d[0]; let p = 1, mime = 'image/jpeg';
+  if (v2) { mime = /png/i.test(latin1(d, 1, 4)) ? 'image/png' : 'image/jpeg'; p = 4; }
+  else { while (p < d.length && d[p]) p++; const m = latin1(d, 1, p).toLowerCase(); if (m.includes('png')) mime = 'image/png'; p++; }
+  p++; // picture type
+  if (enc === 1 || enc === 2) { while (p + 1 < d.length && (d[p] || d[p + 1])) p += 2; p += 2; } else { while (p < d.length && d[p]) p++; p++; }
+  return p < d.length ? new Blob([d.slice(p)], { type: mime }) : null;
+}
+async function readID3(f, at = 0) {
+  const h = await bytes(f, at, at + 10);
+  if (latin1(h, 0, 3) !== 'ID3') return null;
+  const ver = h[3], size = ss32(h, 6), u = await bytes(f, at + 10, at + 10 + size);
+  let p = 0; const m = {};
+  if (h[5] & 0x40 && ver >= 3) p += ver === 4 ? ss32(u, 0) : be32(u, 0) + 4;
+  const map = { TIT2: 'title', TT2: 'title', TPE1: 'artist', TP1: 'artist', TPE2: 'albumArtist', TP2: 'albumArtist', TALB: 'album', TAL: 'album', TRCK: 'track', TRK: 'track', TYER: 'year', TYE: 'year', TDRC: 'year', TCON: 'genre', TCO: 'genre' };
+  while (p + (ver === 2 ? 6 : 10) <= u.length) {
+    const id = latin1(u, p, p + (ver === 2 ? 3 : 4));
+    if (!/^[A-Z0-9]{3,4}$/.test(id)) break;
+    const sz = ver === 2 ? (u[p + 3] << 16 | u[p + 4] << 8 | u[p + 5]) : ver === 4 ? ss32(u, p + 4) : be32(u, p + 4);
+    const hd = ver === 2 ? 6 : 10;
+    if (sz <= 0 || p + hd + sz > u.length) break;
+    const d = u.subarray(p + hd, p + hd + sz);
+    if (map[id] && !m[map[id]]) m[map[id]] = textOf(d);
+    else if ((id === 'APIC' || id === 'PIC') && !m.picture) m.picture = pictureOf(d, id === 'PIC');
+    p += hd + sz;
+  }
+  return m;
+}
+async function readFLAC(f) {
+  const m = {}; let p = 4;
+  if (latin1(await bytes(f, 0, 4), 0, 4) !== 'fLaC') return m;
+  for (let guard = 0; guard < 64; guard++) {
+    const h = await bytes(f, p, p + 4); if (h.length < 4) break;
+    const last = h[0] & 128, type = h[0] & 127, len = h[1] << 16 | h[2] << 8 | h[3];
+    if (type === 0) { const d = await bytes(f, p + 4, p + 22); const rate = (d[10] << 12 | d[11] << 4 | d[12] >> 4); const total = (d[13] & 15) * 2 ** 32 + be32(d, 14); if (rate) m.dur = total / rate; }
+    if (type === 4) {
+      const d = await bytes(f, p + 4, p + 4 + len), td = new TextDecoder();
+      let q = 4 + le32(d, 0); const n = le32(d, q); q += 4;
+      for (let i = 0; i < n && q < d.length; i++) {
+        const l = le32(d, q); const kv = td.decode(d.subarray(q + 4, q + 4 + l)); q += 4 + l;
+        const k = kv.slice(0, kv.indexOf('=')).toUpperCase(), v = kv.slice(kv.indexOf('=') + 1).trim();
+        const key = { TITLE: 'title', ARTIST: 'artist', ALBUMARTIST: 'albumArtist', 'ALBUM ARTIST': 'albumArtist', ALBUM: 'album', TRACKNUMBER: 'track', DATE: 'year', YEAR: 'year', GENRE: 'genre' }[k];
+        if (key && !m[key]) m[key] = v;
+      }
+    }
+    if (type === 6 && !m.picture) {
+      const d = await bytes(f, p + 4, p + 4 + len); let q = 4;
+      const ml = be32(d, q); const mime = latin1(d, q + 4, q + 4 + ml); q += 4 + ml;
+      q += 4 + be32(d, q); q += 16; const dl = be32(d, q); q += 4;
+      m.picture = new Blob([d.slice(q, q + dl)], { type: mime || 'image/jpeg' });
+    }
+    p += 4 + len; if (last) break;
+  }
+  return m;
+}
+async function chunks(f, start, end, le) { // RIFF / AIFF chunk walker
+  const out = []; let p = start;
+  while (p + 8 <= end && out.length < 200) {
+    const h = await bytes(f, p, p + 8); const id = latin1(h, 0, 4), size = le ? le32(h, 4) : be32(h, 4);
+    out.push({ id, at: p + 8, size }); p += 8 + size + (size & 1);
+  }
+  return out;
+}
+async function readWAV(f) {
+  const m = {}; const h = await bytes(f, 0, 12);
+  if (latin1(h, 0, 4) !== 'RIFF') return m;
+  let rate = 0, bpsec = 0;
+  for (const c of await chunks(f, 12, f.size, true)) {
+    if (c.id === 'fmt ') { const d = await bytes(f, c.at, c.at + 16); rate = le32(d, 4); bpsec = le32(d, 8); }
+    if (c.id === 'data' && bpsec) m.dur = c.size / bpsec;
+    if (c.id === 'LIST') {
+      const d = await bytes(f, c.at, c.at + Math.min(c.size, 1 << 20));
+      if (latin1(d, 0, 4) !== 'INFO') continue;
+      let q = 4; while (q + 8 <= d.length) { const id = latin1(d, q, q + 4), l = le32(d, q + 4); const v = clean(new TextDecoder().decode(d.subarray(q + 8, q + 8 + l)));
+        const key = { INAM: 'title', IART: 'artist', IPRD: 'album', ICRD: 'year', IPRT: 'track', ITRK: 'track', IGNR: 'genre' }[id]; if (key && v && !m[key]) m[key] = v; q += 8 + l + (l & 1); }
+    }
+    if (c.id === 'id3 ' || c.id === 'ID3 ') Object.assign(m, Object.fromEntries(Object.entries(await readID3(f, c.at) || {}).filter(([k]) => !m[k])));
+  }
+  return m;
+}
+async function readAIFF(f) {
+  const m = {}; const h = await bytes(f, 0, 12);
+  if (latin1(h, 0, 4) !== 'FORM') return m;
+  for (const c of await chunks(f, 12, f.size, false)) {
+    if (c.id === 'COMM') { const d = await bytes(f, c.at, c.at + 18); const frames = be32(d, 2); const rate = ext80(d, 8); if (rate) m.dur = frames / rate; }
+    if (c.id === 'NAME') m.title = clean(latin1(await bytes(f, c.at, c.at + c.size), 0, c.size));
+    if (c.id === 'ID3 ' || c.id === 'id3 ') Object.assign(m, await readID3(f, c.at) || {});
+  }
+  return m;
+}
+function ext80(d, p) { // 80-bit IEEE extended, as AIFF writes its sample rate
+  const e = ((d[p] & 127) << 8 | d[p + 1]) - 16383; const hi = be32(d, p + 2);
+  return Math.round(hi * Math.pow(2, e - 31));
+}
+async function readMP4(f) {
+  const m = {};
+  let moov = null;
+  for (let p = 0, guard = 0; p + 8 <= f.size && guard < 100; guard++) { // atoms count their own header in their size
+    const h = await bytes(f, p, p + 16); let size = be32(h, 0), hd = 8;
+    if (size === 1) { size = be32(h, 8) * 2 ** 32 + be32(h, 12); hd = 16; } else if (size === 0) size = f.size - p;
+    if (size < 8) break;
+    if (latin1(h, 4, 8) === 'moov') { moov = { at: p + hd, size: size - hd }; break; }
+    p += size;
+  }
+  if (!moov || moov.size > 64 << 20) return m;
+  const u = await bytes(f, moov.at, moov.at + moov.size);
+  const kids = (a, b) => { const o = []; let p = a; while (p + 8 <= b) { const s = be32(u, p); if (s < 8) break; o.push({ id: latin1(u, p + 4, p + 8), a: p + 8, b: p + s }); p += s; } return o; };
+  const find = (list, id) => list.find(c => c.id === id);
+  const mvhd = find(kids(0, u.length), 'mvhd'); if (mvhd) { const v = u[mvhd.a]; const ts = v ? be32(u, mvhd.a + 20) : be32(u, mvhd.a + 12); const du = v ? be32(u, mvhd.a + 28) : be32(u, mvhd.a + 16); if (ts) m.dur = du / ts; }
+  const udta = find(kids(0, u.length), 'udta'); if (!udta) return m;
+  const meta = find(kids(udta.a, udta.b), 'meta'); if (!meta) return m;
+  const ilst = find(kids(meta.a + 4, meta.b), 'ilst'); if (!ilst) return m;
+  const keys = { '\xa9nam': 'title', '\xa9ART': 'artist', aART: 'albumArtist', '\xa9alb': 'album', '\xa9day': 'year', '\xa9gen': 'genre' };
+  for (const it of kids(ilst.a, ilst.b)) {
+    const data = find(kids(it.a, it.b), 'data'); if (!data) continue;
+    const v = u.subarray(data.a + 8, data.b), type = be32(u, data.a) & 0xffffff;
+    if (keys[it.id]) m[keys[it.id]] = clean(new TextDecoder().decode(v));
+    else if (it.id === 'trkn' && v.length >= 4) m.track = String(v[2] << 8 | v[3]);
+    else if (it.id === 'covr' && !m.picture) m.picture = new Blob([v.slice()], { type: type === 14 ? 'image/png' : 'image/jpeg' });
+  }
+  return m;
+}
+async function readTags(file, path) {
+  const e = ext(path); let m = {};
+  try {
+    if (e === 'mp3') m = await readID3(file) || {};
+    else if (e === 'flac') m = await readFLAC(file);
+    else if (e === 'wav' || e === 'wave') m = await readWAV(file);
+    else if (/^aif/.test(e)) m = await readAIFF(file);
+    else if (e === 'm4a' || e === 'aac') m = await readMP4(file);
+  } catch (err) { console.warn('tags', path, err); }
+  // The file name fills any gaps: "03 - Song name.wav"
+  const base = path.split('/').pop().replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim();
+  const nm = base.match(/^(?:\d{1,2}[-.])?(\d{1,3})(?:\s*[-–—.)]\s*|\s+)(.+)$/);
+  if (!m.title) m.title = nm ? nm[2].trim() : base;
+  m.n = parseInt(m.track) || (nm ? parseInt(nm[1]) : 0) || 0;
+  m.year = (String(m.year || '').match(/\b(1[89]\d\d|20\d\d)\b/) || [, ''])[1];
+  if (m.genre) m.genre = m.genre.replace(/^\(\d+\)/, '').trim(); if (/^\d+$/.test(m.genre || '')) m.genre = '';
+  if (!m.dur) m.dur = await durationOf(file);
+  return m;
+}
+function durationOf(file) {
+  return new Promise(res => {
+    const a = new Audio(), u = URL.createObjectURL(file); let t;
+    const end = d => { clearTimeout(t); URL.revokeObjectURL(u); a.removeAttribute('src'); res(isFinite(d) ? d : 0); };
+    a.preload = 'metadata'; a.onloadedmetadata = () => end(a.duration); a.onerror = () => end(0); t = setTimeout(() => end(0), 6000); a.src = u;
+  });
+}
+
+/* ---------- turning files into records ---------- */
+async function addSongs(songs, images) {
+  const metas = [];
+  for (let i = 0; i < songs.length; i++) { status(`Reading ${i + 1} of ${songs.length}: ${songs[i].file.name}`); metas.push({ ...songs[i], m: await readTags(songs[i].file, songs[i].path) }); }
+  const dirOf = p => p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '';
+  // A folder is one record unless its songs say they're from different albums.
+  const albumsIn = new Map();
+  for (const s of metas) { const d = dirOf(s.path); if (!albumsIn.has(d)) albumsIn.set(d, new Set()); if (s.m.album) albumsIn.get(d).add(s.m.album.toLowerCase()); }
+  const groups = new Map();
+  for (const s of metas) {
+    const d = dirOf(s.path), albums = albumsIn.get(d);
+    const key = d && albums.size <= 1 ? 'd:' + d : s.m.album ? 'a:' + s.m.album.toLowerCase() : 'd:' + d; // loose songs go by their album tags
+    if (!groups.has(key)) groups.set(key, []); groups.get(key).push(s);
+  }
+  for (const [key, list] of groups) {
+    list.sort((a, b) => (a.m.n || 999) - (b.m.n || 999) || a.path.localeCompare(b.path, undefined, { numeric: true }));
+    const dir = dirOf(list[0].path), m0 = list[0].m;
+    const title = list.map(s => s.m.album).find(Boolean) || (dir ? dir.split('/').pop() : list.length === 1 ? m0.title : ''); // a lone song is a single
+    const common = k => { const v = list.map(s => s.m[k]).filter(Boolean); return v.length && v.every(x => x === v[0]) ? v[0] : ''; };
+    const artist = common('albumArtist') || common('artist');
+    // Songs from the same record dropped later join it.
+    let rec = title && S.records.find(r => r.title.toLowerCase() === title.toLowerCase());
+    if (!rec) { rec = { title, artist, year: common('year') || '', genre: common('genre') || '', buyUrl: '', cover: null, tracks: [] }; S.records.unshift(rec); }
+    for (const s of list) {
+      const e = ext(s.path);
+      rec.tracks.push({ id: rid(), title: s.m.title, dur: s.m.dur || 0, file: s.file, ext: e, kind: KEEP.test(e) ? 'keep' : 'convert', name: s.file.name });
+    }
+    if (!rec.cover) {
+      const pic = list.map(s => s.m.picture).find(Boolean);
+      const here = images.filter(i => dirOf(i.path) === dir);
+      const pick = here.find(i => /cover|front|folder|artwork|sleeve/i.test(i.path)) || here[0];
+      try { if (pick) await setCover(rec, pick.file, true); else if (pic) await setCover(rec, pic, true); } catch (_) {}
+    }
+  }
+}
+async function setCover(rec, blob, quiet) {
+  try { const bm = await createImageBitmap(blob); bm.close && bm.close(); }
+  catch (_) { if (!quiet) toast("That picture couldn't be opened. Try a JPEG or PNG."); return; }
+  if (rec.cover && rec.cover.url) URL.revokeObjectURL(rec.cover.url);
+  rec.cover = { blob, url: URL.createObjectURL(blob) };
+}
+
+/* ---------- a site made here before ---------- */
+async function loadExisting(feed, getFile, base) {
+  const inst = feed.instance || {};
+  if (!$('#name').value && inst.name) $('#name').value = inst.name;
+  if (!$('#about').value && inst.description) $('#about').value = inst.description;
+  if (!$('#address').value && inst.url) $('#address').value = inst.url;
+  const own = String(inst.url || base || '').replace(/\/+$/, '');
+  const rel = u => { // a site path for a file of this site's own, or null
+    if (!u) return null;
+    if (!/^[a-z]+:/i.test(u)) return decodeURI(u.replace(/^\.?\//, ''));
+    if (own && u.startsWith(own + '/')) return decodeURI(u.slice(own.length + 1));
+    return null;
+  };
+  let n = 0, missing = 0, locked = 0;
+  const rels = feed.releases || [];
+  for (let i = 0; i < rels.length; i++) {
+    const r = rels[i];
+    if (S.records.some(x => x.id && x.id === r.id)) continue;
+    const rec = { id: r.id, title: r.title || '', artist: r.artist || '', year: r.year ? String(r.year) : '', genre: r.genre || '', buyUrl: r.buyUrl || '', cover: null, tracks: [] };
+    status(`Gathering ${r.title || 'a record'} (${i + 1} of ${rels.length})…`);
+    const cp = rel(r.artworkUrl), cf = await getFile(cp || r.artworkUrl).catch(() => null);
+    if (cf) { rec.cover = { blob: cf, url: URL.createObjectURL(cf), path: cp || null }; }
+    for (const t of (r.tracks || []).slice().sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0))) {
+      if (!t.audioUrl) { locked++; continue; }
+      const ap = rel(t.audioUrl), af = await getFile(ap || t.audioUrl).catch(() => null);
+      const e = ext((ap || new URL(t.audioUrl, 'https://x.invalid/').pathname));
+      if (!af) missing++;
+      rec.tracks.push({ id: t.id || rid(), title: t.title || '', dur: t.durationSeconds || 0, file: af, path: af && ap ? ap : null, ext: e, kind: !af ? 'missing' : KEEP.test(e) ? 'keep' : 'convert', name: (ap || '').split('/').pop() });
+    }
+    if (rec.tracks.length) { S.records.push(rec); n++; }
+  }
+  if (missing) toast(`${missing} song${missing === 1 ? "'s" : "s'"} files weren't there. They're marked below.`, 4200);
+  if (locked) toast(`${locked} locked song${locked === 1 ? ' was' : 's were'} left out, as their music isn't public.`, 4200);
+  return n;
+}
+$('#fetchForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  let v = e.target.addr.value.trim().replace(/\/+$/, '').replace(/\/catalogue(\.json)?$/, '');
+  if (!v) return;
+  if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+  if (busy) return; busy = true; $('#drop').classList.add('busy');
+  try {
+    status('Fetching ' + v + '…');
+    let feed = null;
+    for (const p of ['/catalogue.json', '/catalogue']) { try { const r = await fetch(v + p, { cache: 'no-store' }); if (r.ok) { feed = await r.json(); break; } } catch (_) {} }
+    if (!feed || !Array.isArray(feed.releases)) throw new Error("That site's catalogue couldn't be read. If you made it here, drop its zip file onto the box instead.");
+    const getFile = async u => { if (!u) return null; const r = await fetch(new URL(u, v + '/').href); if (!r.ok) throw new Error(r.status); const b = await r.blob(); return new File([b], u.split('/').pop().split('?')[0], { type: b.type }); };
+    const n = await loadExisting(feed, getFile, v);
+    status(''); toast(`Fetched ${n} record${n === 1 ? '' : 's'}`); render();
+  } catch (err) { status(err.message || String(err), true); }
+  finally { busy = false; $('#drop').classList.remove('busy'); }
+});
+
+/* ---------- the review ---------- */
+const ICON = {
+  grip: '<svg viewBox="0 0 14 14" fill="currentColor"><circle cx="4" cy="3" r="1.3"/><circle cx="10" cy="3" r="1.3"/><circle cx="4" cy="7" r="1.3"/><circle cx="10" cy="7" r="1.3"/><circle cx="4" cy="11" r="1.3"/><circle cx="10" cy="11" r="1.3"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>',
+  more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>'
+};
+const artistOf = r => r.artist || $('#name').value.trim();
+let preview = null, previewing = null;
+
+function render() {
+  const box = $('#records');
+  box.innerHTML = S.records.map((r, i) => `
+    <article class="rec" data-r="${i}">
+      <button class="cov${r.cover && !r.cover.made ? '' : ' made'}" data-act="cover" type="button" aria-label="Change the cover of ${esc(r.title || 'this record')}"><img src="${r.cover ? r.cover.url : madeCover(r, 300)}" alt=""><span>${r.cover && !r.cover.made ? 'Change picture' : 'Add a picture'}</span></button>
+      <div class="rmeta">
+        <input class="in big" data-f="title" value="${esc(r.title)}" placeholder="Name this record" aria-label="Record title" autocomplete="off">
+        <div class="two">
+          <input class="in" data-f="artist" value="${esc(r.artist)}" placeholder="${esc($('#name').value.trim() || 'Your name')}" aria-label="Who it's by" autocomplete="off">
+          <input class="in" data-f="year" value="${esc(r.year)}" placeholder="Year" aria-label="Year" inputmode="numeric" maxlength="4" autocomplete="off">
+        </div>
+        <label class="mini">Where people can buy it <span>(optional, a web address)</span><input class="in" data-f="buyUrl" value="${esc(r.buyUrl)}" placeholder="https://" inputmode="url" spellcheck="false" autocomplete="off"></label>
+      </div>
+      <ol class="songs">${r.tracks.map((t, j) => songRow(r, t, j)).join('')}</ol>
+      <div class="rfoot"><span>${r.tracks.length} song${r.tracks.length === 1 ? '' : 's'}${r.tracks.some(t => t.dur) ? ', ' + fmt(r.tracks.reduce((s, t) => s + (t.dur || 0), 0)) : ''}</span><button class="link" data-act="delrec" type="button">Remove this record</button></div>
+    </article>`).join('');
+  $('#makeStep').hidden = !S.records.length;
+  summarise();
+}
+function songRow(r, t, j) {
+  const note = t.kind === 'missing' ? '<span class="note bad">Its file is missing, so it will be left out</span>' : t.kind === 'convert' ? `<span class="note">${esc(t.ext.toUpperCase())}, will become an MP3</span>` : '';
+  const others = S.records.filter(x => x !== r);
+  return `<li class="song" data-t="${j}">
+    <span class="grip" data-act="grip" aria-hidden="true">${ICON.grip}</span>
+    <span class="n">${String(j + 1).padStart(2, '0')}</span>
+    <span class="ttl"><input data-tf="title" value="${esc(t.title)}" placeholder="Name this song" aria-label="Song title" autocomplete="off">${note}</span>
+    <span class="d">${fmt(t.dur)}</span>
+    <button class="ib${previewing === t ? ' on' : ''}" data-act="play" type="button" aria-label="${previewing === t ? 'Stop' : 'Listen'}" ${t.file ? '' : 'disabled'}>${previewing === t ? ICON.stop : ICON.play}</button>
+    <span class="ib" title="Move or remove">${ICON.more}<select data-act="move" aria-label="Move or remove this song">
+      <option value="">Move or remove…</option>
+      ${j > 0 ? '<option value="up">Move up</option>' : ''}${j < r.tracks.length - 1 ? '<option value="down">Move down</option>' : ''}
+      ${others.map(x => `<option value="to:${S.records.indexOf(x)}">Move to ${esc(x.title || 'the untitled record')}</option>`).join('')}
+      ${r.tracks.length > 1 ? '<option value="single">Make it a single of its own</option>' : ''}
+      <option value="del">Remove this song</option>
+    </select></span>
+  </li>`;
+}
+function summarise() {
+  const songs = S.records.reduce((s, r) => s + r.tracks.filter(t => t.file).length, 0);
+  const bytes = S.records.reduce((s, r) => s + r.tracks.reduce((q, t) => q + (!t.file ? 0 : t.kind === 'convert' ? (t.dur || 240) * 32000 : t.file.size), 0), 0);
+  const conv = S.records.reduce((s, r) => s + r.tracks.filter(t => t.kind === 'convert').length, 0);
+  $('#summary').textContent = `${S.records.length} record${S.records.length === 1 ? '' : 's'}, ${songs} song${songs === 1 ? '' : 's'}, about ${mb(bytes)} altogether.` + (conv ? ` ${conv} will be converted to MP3, which takes a few seconds each.` : '');
+}
+const recOf = el => S.records[+el.closest('.rec').dataset.r];
+
+$('#records').addEventListener('input', e => {
+  const el = e.target, r = recOf(el);
+  if (el.dataset.f) { r[el.dataset.f] = el.value; el.classList.remove('bad'); if (r.cover && r.cover.made && (el.dataset.f === 'title' || el.dataset.f === 'artist')) r.cover = null; if (!r.cover && (el.dataset.f === 'title' || el.dataset.f === 'artist')) refreshMade(el.closest('.rec'), r); }
+  if (el.dataset.tf) { r.tracks[+el.closest('.song').dataset.t].title = el.value; el.classList.remove('bad'); }
+});
+$('#name').addEventListener('input', () => { $('#name').classList.remove('bad'); document.querySelectorAll('[data-f="artist"]').forEach(i => i.placeholder = $('#name').value.trim() || 'Your name'); document.querySelectorAll('.rec').forEach(el => { const r = S.records[+el.dataset.r]; if ((!r.cover || r.cover.made) && !r.artist) { if (r.cover) r.cover = null; refreshMade(el, r); } }); });
+let madeT;
+function refreshMade(el, r) { clearTimeout(madeT); madeT = setTimeout(() => { const img = el.querySelector('.cov img'); if (img && !r.cover) img.src = madeCover(r, 300); }, 250); }
+
+$('#records').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const r = recOf(b), act = b.dataset.act;
+  if (act === 'cover') { pickCover(r); }
+  if (act === 'delrec') { if (confirm(`Remove ${r.title || 'this record'} and its ${r.tracks.length} song${r.tracks.length === 1 ? '' : 's'}?`)) { stopPreview(); S.records.splice(S.records.indexOf(r), 1); render(); } }
+  if (act === 'play') {
+    const t = r.tracks[+b.closest('.song').dataset.t];
+    if (previewing === t) return stopPreview();
+    stopPreview(); if (!t.file) return;
+    preview = new Audio(URL.createObjectURL(t.file)); previewing = t;
+    preview.play().catch(() => { toast("This browser can't play that file, but it will still be converted."); stopPreview(); });
+    preview.onended = stopPreview; render();
+  }
+});
+function stopPreview() { if (preview) { preview.pause(); URL.revokeObjectURL(preview.src); } preview = null; if (previewing) { previewing = null; render(); } }
+$('#records').addEventListener('change', e => {
+  const sel = e.target.closest('select[data-act="move"]'); if (!sel) return;
+  const r = recOf(sel), j = +sel.closest('.song').dataset.t, v = sel.value, t = r.tracks[j];
+  if (!v) return;
+  if (v === 'up' || v === 'down') { const k = v === 'up' ? j - 1 : j + 1; r.tracks.splice(j, 1); r.tracks.splice(k, 0, t); }
+  else if (v === 'del') { if (previewing === t) stopPreview(); r.tracks.splice(j, 1); }
+  else if (v === 'single') { r.tracks.splice(j, 1); S.records.splice(S.records.indexOf(r) + 1, 0, { title: t.title, artist: r.artist, year: r.year, genre: r.genre, buyUrl: '', cover: r.cover ? { blob: r.cover.blob, url: URL.createObjectURL(r.cover.blob) } : null, tracks: [t] }); }
+  else if (v.startsWith('to:')) { r.tracks.splice(j, 1); S.records[+v.slice(3)].tracks.push(t); }
+  if (!r.tracks.length) S.records.splice(S.records.indexOf(r), 1);
+  render();
+});
+function pickCover(r) {
+  const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*';
+  i.onchange = async () => { if (i.files[0]) { await setCover(r, i.files[0]); render(); } };
+  i.click();
+}
+// Dragging a picture onto a cover sets it; dragging songs elsewhere goes to the main drop.
+$('#records').addEventListener('dragover', e => { const c = e.target.closest('.cov'); if (c) { e.preventDefault(); e.stopPropagation(); c.classList.add('over'); } });
+$('#records').addEventListener('dragleave', e => { const c = e.target.closest('.cov'); if (c) c.classList.remove('over'); });
+$('#records').addEventListener('drop', async e => {
+  const c = e.target.closest('.cov'); if (!c) return;
+  e.preventDefault(); e.stopPropagation(); c.classList.remove('over');
+  const f = [...e.dataTransfer.files].find(f => IMAGE.test(ext(f.name)) || /^image\//.test(f.type));
+  if (f) { await setCover(recOf(c), f); render(); } else toast('Drop a picture onto the cover');
+});
+
+// Reordering songs by their handle (mouse or finger).
+let drag = null;
+$('#records').addEventListener('pointerdown', e => {
+  const g = e.target.closest('[data-act="grip"]'); if (!g) return;
+  e.preventDefault();
+  const li = g.closest('.song'), ol = li.parentElement;
+  drag = { r: recOf(li), li, ol, y0: e.clientY, from: +li.dataset.t, to: +li.dataset.t, h: li.getBoundingClientRect().height };
+  li.classList.add('dragging');
+});
+addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dy = e.clientY - drag.y0; drag.li.style.transform = `translateY(${dy}px)`;
+  const n = drag.r.tracks.length, to = Math.max(0, Math.min(n - 1, drag.from + Math.round(dy / drag.h)));
+  if (to !== drag.to) { drag.to = to; [...drag.ol.children].forEach((el, k) => { if (el === drag.li) return; let s = 0; if (drag.from < to && k > drag.from && k <= to) s = -1; if (drag.from > to && k < drag.from && k >= to) s = 1; el.style.transform = s ? `translateY(${s * drag.h}px)` : ''; el.style.transition = 'transform .2s'; }); }
+});
+addEventListener('pointerup', () => {
+  if (!drag) return; const { r, from, to } = drag; drag = null;
+  if (from !== to) { const [t] = r.tracks.splice(from, 1); r.tracks.splice(to, 0, t); }
+  render();
+});
+
+/* ---------- covers made for records without a picture ---------- */
+const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
+function madeCover(r, size) {
+  const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d');
+  const h = hash((r.title || '') + '|' + artistOf(r)) % 360, k = size / 1000;
+  const bg = g.createLinearGradient(0, 0, size, size); bg.addColorStop(0, `hsl(${h} 38% 16%)`); bg.addColorStop(1, `hsl(${(h + 50) % 360} 46% 30%)`);
+  g.fillStyle = bg; g.fillRect(0, 0, size, size);
+  g.globalAlpha = .9; g.fillStyle = `hsl(${(h + 180) % 360} 70% 62%)`; g.beginPath(); g.arc(size * .72, size * .3, size * .2, 0, Math.PI * 2); g.fill();
+  g.globalAlpha = .18; g.fillStyle = '#fff'; for (let i = 0; i < 9; i++) g.fillRect(0, size * (.52 + i * .012), size, 1.2 * k);
+  g.globalAlpha = 1; g.fillStyle = '#f4efe6';
+  g.font = `600 ${34 * k}px Geist, system-ui, sans-serif`; g.fillText((artistOf(r) || '').toUpperCase().slice(0, 40), 70 * k, 110 * k);
+  let fs = 150 * k; const words = String(r.title || 'Untitled').split(/\s+/); let lines;
+  for (;;) { g.font = `400 ${fs}px "Instrument Serif", Georgia, serif`; lines = []; let line = ''; for (const w of words) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > 860 * k && line) { lines.push(line); line = w; } else line = t; } lines.push(line); if ((lines.length * fs * 1.0 < 520 * k && lines.every(l => g.measureText(l).width <= 860 * k)) || fs < 40 * k) break; fs *= .9; }
+  lines.forEach((l, i) => g.fillText(l, 70 * k, 930 * k - (lines.length - 1 - i) * fs * 1.0));
+  return c.toDataURL('image/jpeg', .9);
+}
+async function jpeg(blob, max = 1400) {
+  const bm = await createImageBitmap(blob);
+  const s = Math.min(1, max / Math.max(bm.width, bm.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bm.width * s); c.height = Math.round(bm.height * s);
+  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(bm, 0, 0, c.width, c.height); bm.close && bm.close();
+  return new Promise(res => c.toBlob(res, 'image/jpeg', .88));
+}
+
+/* ---------- converting to MP3 ---------- */
+async function decode(file, e) {
+  let buf = null;
+  if (/^aif/.test(e)) { try { buf = await decodeAIFF(file); } catch (_) {} }
+  if (!buf) { const ctx = new OfflineAudioContext(2, 44100, 44100); buf = await ctx.decodeAudioData(await file.arrayBuffer()); }
+  if (buf.sampleRate !== 44100 && buf.sampleRate !== 48000) { // resample anything unusual
+    const len = Math.ceil(buf.length * 44100 / buf.sampleRate), off = new OfflineAudioContext(Math.min(2, buf.numberOfChannels), len, 44100);
+    const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start(); buf = await off.startRendering();
+  }
+  return buf;
+}
+async function decodeAIFF(file) {
+  let comm, ssnd, aifc = false;
+  const h = await bytes(file, 0, 12); if (latin1(h, 0, 4) !== 'FORM') throw 0; aifc = latin1(h, 8, 12) === 'AIFC';
+  for (const c of await chunks(file, 12, file.size, false)) { if (c.id === 'COMM') comm = c; if (c.id === 'SSND') ssnd = c; }
+  const d = await bytes(file, comm.at, comm.at + comm.size);
+  const ch = d[0] << 8 | d[1], frames = be32(d, 2), bits = d[6] << 8 | d[7], rate = ext80(d, 8);
+  const comp = aifc ? latin1(d, 18, 22) : 'NONE'; const little = comp === 'sowt';
+  if (!little && comp !== 'NONE' && comp !== 'twos') throw 0;
+  const off = be32(await bytes(file, ssnd.at, ssnd.at + 4), 0);
+  const raw = new DataView(await file.slice(ssnd.at + 8 + off, ssnd.at + 8 + off + frames * ch * (bits >> 3)).arrayBuffer());
+  const out = new AudioBuffer({ numberOfChannels: Math.min(2, ch), length: frames, sampleRate: rate });
+  const B = bits >> 3, data = [...Array(Math.min(2, ch))].map((_, i) => out.getChannelData(i));
+  for (let i = 0, p = 0; i < frames; i++) for (let c = 0; c < ch; c++, p += B) {
+    if (c > 1) continue; let v;
+    if (B === 2) v = raw.getInt16(p, little) / 32768;
+    else if (B === 3) { const a = little ? raw.getUint8(p + 2) : raw.getUint8(p), m = raw.getUint8(p + 1), z = little ? raw.getUint8(p) : raw.getUint8(p + 2); v = ((a << 24 | m << 16 | z << 8) >> 8) / 8388608; }
+    else if (B === 4) v = raw.getInt32(p, little) / 2147483648;
+    else v = raw.getInt8(p) / 128;
+    data[c][i] = v;
+  }
+  return out;
+}
+let lameWorker = null;
+function encoder() {
+  if (lameWorker) return lameWorker;
+  const src = `
+    var ok = false, urls = ${JSON.stringify(LAME_URLS)};
+    for (var i = 0; i < urls.length && !ok; i++) { try { importScripts(urls[i]); ok = typeof lamejs !== 'undefined'; } catch (e) {} }
+    onmessage = function (e) {
+      if (!ok) { postMessage({ error: "The MP3 converter couldn't be loaded. Check your internet connection and try again." }); return; }
+      var ch = e.data.ch, rate = e.data.rate, kbps = e.data.kbps, n = ch[0].length, B = 1152 * 40;
+      var enc = new lamejs.Mp3Encoder(ch.length, rate, kbps), out = [], L = new Int16Array(B), R = new Int16Array(B);
+      for (var i = 0; i < n; i += B) {
+        var m = Math.min(B, n - i);
+        for (var j = 0; j < m; j++) { var s = ch[0][i + j]; L[j] = s < 0 ? Math.max(-1, s) * 32768 : Math.min(1, s) * 32767; if (ch[1]) { s = ch[1][i + j]; R[j] = s < 0 ? Math.max(-1, s) * 32768 : Math.min(1, s) * 32767; } }
+        var buf = ch[1] ? enc.encodeBuffer(L.subarray(0, m), R.subarray(0, m)) : enc.encodeBuffer(L.subarray(0, m));
+        if (buf.length) out.push(new Uint8Array(buf));
+        if ((i / B) % 8 === 0) postMessage({ p: i / n });
+      }
+      var f = enc.flush(); if (f.length) out.push(new Uint8Array(f));
+      postMessage({ done: new Blob(out, { type: 'audio/mpeg' }) });
+    };`;
+  lameWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+  return lameWorker;
+}
+async function toMP3(file, e, onP) {
+  const buf = await decode(file, e);
+  const stereo = buf.numberOfChannels > 1, dur = buf.length / buf.sampleRate;
+  const rates = stereo ? [256, 224, 192, 160, 128, 112, 96] : [160, 128, 112, 96, 80, 64];
+  const kbps = rates.find(k => dur * k * 125 < MAX_FILE) || rates[rates.length - 1];
+  const ch = [buf.getChannelData(0).slice()]; if (stereo) ch.push(buf.getChannelData(1).slice());
+  const w = encoder();
+  const blob = await new Promise((res, rej) => {
+    w.onmessage = m => { if (m.data.error) rej(new Error(m.data.error)); else if (m.data.done) res(m.data.done); else onP && onP(m.data.p); };
+    w.onerror = err => rej(new Error("The MP3 converter stopped. " + (err.message || '')));
+    w.postMessage({ ch, rate: buf.sampleRate, kbps }, ch.map(c => c.buffer));
+  });
+  return { blob, dur };
+}
+
+/* ---------- zips ---------- */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+async function crcOf(blob) {
+  let c = 0xFFFFFFFF;
+  for (let o = 0; o < blob.size; o += 8 << 20) { const u = new Uint8Array(await blob.slice(o, o + (8 << 20)).arrayBuffer()); for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); }
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+async function zip(files, onP) { // stored (uncompressed): music doesn't compress, and it's quick
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const d = new Date(), time = d.getHours() << 11 | d.getMinutes() << 5 | d.getSeconds() >> 1, date = (d.getFullYear() - 1980) << 9 | (d.getMonth() + 1) << 5 | d.getDate();
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i], name = enc.encode(f.path), blob = f.blob instanceof Blob ? f.blob : new Blob([f.blob]);
+    const crc = await crcOf(blob), size = blob.size;
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(10, time, true); lh.setUint16(12, date, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true); lh.setUint16(26, name.length, true);
+    parts.push(lh.buffer, name, blob);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(12, time, true); ch.setUint16(14, date, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true); ch.setUint16(28, name.length, true); ch.setUint32(42, off, true);
+    central.push(ch.buffer, name);
+    off += 30 + name.length + size;
+    onP && onP((i + 1) / files.length);
+  }
+  const cdSize = central.reduce((s, p) => s + p.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cdSize, true); end.setUint32(16, off, true);
+  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+}
+async function unzip(file) {
+  const tl = Math.min(file.size, 65557), tail = new DataView(await file.slice(file.size - tl).arrayBuffer());
+  let e = -1; for (let i = tl - 22; i >= 0; i--) if (tail.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error(file.name + " doesn't look like a zip file");
+  const n = tail.getUint16(e + 10, true), cdSize = tail.getUint32(e + 12, true), cdOff = tail.getUint32(e + 16, true);
+  const cd = new DataView(await file.slice(cdOff, cdOff + cdSize).arrayBuffer()), dec = new TextDecoder(), out = [];
+  for (let k = 0, p = 0; k < n; k++) {
+    const method = cd.getUint16(p + 10, true), csize = cd.getUint32(p + 20, true), nl = cd.getUint16(p + 28, true), xl = cd.getUint16(p + 30, true), cl = cd.getUint16(p + 32, true), lo = cd.getUint32(p + 42, true);
+    const name = dec.decode(new Uint8Array(cd.buffer, p + 46, nl)); p += 46 + nl + xl + cl;
+    if (name.endsWith('/') || /(^|\/)(\.|__MACOSX\/)/.test(name)) continue;
+    const lh = new DataView(await file.slice(lo, lo + 30).arrayBuffer()), start = lo + 30 + lh.getUint16(26, true) + lh.getUint16(28, true);
+    let blob = file.slice(start, start + csize);
+    if (method === 8) blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob();
+    else if (method !== 0) continue;
+    out.push({ path: name, file: new File([blob], name.split('/').pop()) });
+  }
+  return out;
+}
+
+/* ---------- making the site ---------- */
+async function fetchPage(rel) {
+  for (const base of [new URL('./', location.href).href, UPSTREAM]) {
+    try { const r = await fetch(base + rel, { cache: 'no-cache' }); if (r.ok) { const t = await r.text(); if (/<html/i.test(t)) return t; } } catch (_) {}
+  }
+  throw new Error(`Couldn't fetch ${rel}, which every site needs. Check your internet connection and try again.`);
+}
+const attr = s => esc(s).replace(/\n/g, ' ');
+
+function validate() {
+  let first = null;
+  const flag = el => { el.classList.add('bad'); first = first || el; };
+  if (!$('#name').value.trim()) flag($('#name'));
+  document.querySelectorAll('.rec').forEach(el => {
+    const r = S.records[+el.dataset.r];
+    if (!r.title.trim()) flag(el.querySelector('[data-f="title"]'));
+    el.querySelectorAll('.song').forEach(li => { if (!r.tracks[+li.dataset.t].title.trim()) flag(li.querySelector('[data-tf="title"]')); });
+    const b = el.querySelector('[data-f="buyUrl"]'); if (r.buyUrl.trim() && !/^https?:\/\/\S+\.\S+/i.test(r.buyUrl.trim()) && !/^[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(r.buyUrl.trim())) flag(b);
+  });
+  if (first) { first.focus(); first.scrollIntoView({ block: 'center', behavior: 'smooth' }); toast(first.id === 'name' ? 'Your name goes at the top of the site' : 'A few things still need a name'); }
+  return !first;
+}
+
+let lastZip = null;
+$('#make').addEventListener('click', async () => {
+  if (busy || !validate()) return;
+  stopPreview();
+  busy = true; $('#make').disabled = true; $('#done').hidden = true; $('#prog').hidden = false;
+  const bar = $('#bar'), say = (t, p) => { $('#progText').textContent = t; if (p != null) bar.style.width = (p * 100).toFixed(1) + '%'; };
+  try {
+    const name = $('#name').value.trim(), about = $('#about').value.trim();
+    let address = $('#address').value.trim().replace(/\/+$/, '');
+    if (address && !/^https?:\/\//i.test(address)) address = 'https://' + address;
+    const url = p => (address ? address + '/' : '') + p.split('/').map(encodeURIComponent).join('/');
+    const out = [], used = new Set();
+    const put = (path, blob) => { used.add(path); out.push({ path, blob }); };
+    const free = p => { if (!used.has(p)) return p; const [, a, b] = p.match(/^(.*?)(\.[^.\/]+)?$/); for (let i = 2; ; i++) if (!used.has(`${a}-${i}${b || ''}`)) return `${a}-${i}${b || ''}`; };
+
+    say('Fetching the players and pages…', .02);
+    const pages = {}; for (const t of TOYS) pages[t] = await fetchPage('toys/' + t);
+    let maker = null; try { maker = await fetchPage(location.pathname.split('/').pop() || 'make.html'); } catch (_) { try { maker = await fetchPage('make.html'); } catch (__) {} }
+
+    // Every record keeps its address from one version of the site to the next.
+    const ids = new Set(S.records.filter(r => r.id).map(r => r.id));
+    for (const r of S.records) if (!r.id) { let id = slug(r.title), k = 2; while (ids.has(id)) id = slug(r.title) + '-' + k++; r.id = id; ids.add(id); }
+    for (const r of S.records) { if (r.cover && r.cover.path) used.add(r.cover.path); for (const t of r.tracks) if (t.path) used.add(t.path); }
+
+    const work = S.records.reduce((s, r) => s + 1 + r.tracks.reduce((q, t) => q + (t.kind === 'convert' ? 6 : 1), 0), 0);
+    let done = 0; const tick = (n, text) => { done += n; say(text, .04 + .82 * done / work); };
+    const releases = [];
+    for (const r of S.records) {
+      const artist = r.artist.trim() || name;
+      // The cover: kept if unchanged, otherwise made into a sensible JPEG.
+      let coverPath;
+      if (r.cover && r.cover.path && !r.cover.made) { coverPath = r.cover.path; out.push({ path: coverPath, blob: r.cover.blob }); }
+      else {
+        const blob = r.cover ? await jpeg(r.cover.blob) : await (await fetch(madeCover(r, 1400))).blob();
+        coverPath = free(`music/${r.id}/cover-${rid().slice(0, 4)}.jpg`); put(coverPath, blob);
+        r.cover = { blob, url: r.cover ? r.cover.url : URL.createObjectURL(blob), path: coverPath, made: !r.cover };
+      }
+      tick(1, `Preparing the cover for ${r.title}…`);
+      const tracks = [];
+      for (let j = 0; j < r.tracks.length; j++) {
+        const t = r.tracks[j];
+        if (!t.file) continue;
+        let path = t.path;
+        if (path) out.push({ path, blob: t.file });
+        else if (t.kind === 'keep') { path = free(`music/${r.id}/${String(j + 1).padStart(2, '0')}-${slug(t.title)}.${t.ext}`); put(path, t.file); }
+        else {
+          const base = done;
+          let conv;
+          try { conv = await toMP3(t.file, t.ext, p => say(`Converting ${t.title} to MP3… ${Math.round(p * 100)}%`, .04 + .82 * (base + p * 6) / work)); }
+          catch (err) { throw /converter/.test(err.message) ? err : new Error(`“${t.title}” (${t.name}) couldn't be read as audio in this browser. Try Chrome, or remove that song and add it as an MP3.`); }
+          const { blob, dur } = conv;
+          path = free(`music/${r.id}/${String(j + 1).padStart(2, '0')}-${slug(t.title)}.mp3`); put(path, blob);
+          t.file = blob; t.kind = 'keep'; t.ext = 'mp3'; t.dur = t.dur || dur;
+          done += 5;
+        }
+        t.path = path; // from now on this song is part of the site, and stays where it is
+        tick(1, `Added ${t.title}`);
+        tracks.push({ id: t.id, title: t.title.trim(), trackNumber: tracks.length + 1, durationSeconds: Math.round(t.dur) || undefined, audioUrl: url(path) });
+      }
+      if (!tracks.length) continue;
+      let buy = r.buyUrl.trim(); if (buy && !/^https?:\/\//i.test(buy)) buy = 'https://' + buy;
+      releases.push({ id: r.id, title: r.title.trim(), artist, artworkUrl: url(coverPath), genre: r.genre || undefined, year: +r.year || undefined, buyUrl: buy || undefined, trackCount: tracks.length, tracks });
+    }
+    if (!releases.length) throw new Error("There's no music to put on the site yet.");
+    releases.sort((a, b) => (b.year || 0) - (a.year || 0) || a.title.localeCompare(b.title));
+
+    say('Writing the pages…', .87);
+    const feed = { feedVersion: '1', generatedAt: new Date().toISOString(), importEnabled: true,
+      instance: { name, description: about || undefined, url: address || undefined, feedUrl: address ? address + '/catalogue' : undefined },
+      releaseCount: releases.length, releases };
+    const json = JSON.stringify(feed, null, 1);
+    put('catalogue.json', new Blob([json], { type: 'application/json' }));
+    put('catalogue', new Blob([json], { type: 'application/json' })); // the address every toy and aggregator asks for
+    put('_headers', new Blob([`/*\n  Access-Control-Allow-Origin: *\n/catalogue\n  Content-Type: application/json; charset=utf-8\n  Cache-Control: public, max-age=60\n/catalogue.json\n  Cache-Control: public, max-age=60\n`]));
+    put('_redirects', new Blob([`/catalogue  /catalogue.json  200\n`]));
+
+    // The home page is the records page, told where it is.
+    const ogImg = releases[0].artworkUrl;
+    const head = `<title>${esc(name)}</title>
+<meta name="description" content="${attr(about || `Records by ${name}, free to listen to.`)}">
+<meta property="og:title" content="${attr(name)}"><meta property="og:description" content="${attr(about || `Records by ${name}, free to listen to.`)}"><meta property="og:type" content="website">
+<meta property="og:image" content="${attr(ogImg)}">${address ? `<meta property="og:url" content="${attr(address + '/')}">` : ''}<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" type="application/json" title="${attr(name)} catalogue" href="catalogue">`;
+    const home = pages['records.html'].replace(/<title>[^<]*<\/title>/, head).replace("const BASE_URL = '';", "const BASE_URL = '.';").replace("const MORE_URL = './';", "const MORE_URL = 'toys/';");
+    put('index.html', new Blob([home], { type: 'text/html' }));
+    for (const t of TOYS) put('toys/' + t, new Blob([pages[t].replace("const BASE_URL = '';", "const BASE_URL = '..';")], { type: 'text/html' }));
+    if (maker) put('make.html', new Blob([maker], { type: 'text/html' }));
+
+    // A small page for every song, so shared links show the cover and the name.
+    for (const r of releases) for (const t of r.tracks) {
+      const desc = `From ${r.title} by ${r.artist}. Listen free on ${name}'s own site.`;
+      const go = `../../?r=${encodeURIComponent(r.id)}`, up = u => /^https?:/i.test(u) ? u : '../../' + u;
+      put(`s/${t.id}/index.html`, new Blob([`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(t.title)} – ${esc(r.artist)}</title><meta name="description" content="${attr(desc)}">
+<meta property="og:title" content="${attr(t.title + ' – ' + r.artist)}"><meta property="og:description" content="${attr(desc)}"><meta property="og:type" content="music.song"><meta property="og:site_name" content="${attr(name)}">
+<meta property="og:image" content="${attr(up(r.artworkUrl))}"><meta property="og:audio" content="${attr(up(t.audioUrl))}">${address ? `<meta property="og:url" content="${attr(address + '/s/' + t.id)}"><link rel="canonical" href="${attr(address + '/s/' + t.id)}">` : ''}
+<meta name="twitter:card" content="summary_large_image"><meta http-equiv="refresh" content="0;url=${attr(go)}">
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111;color:#eee;font:16px system-ui,sans-serif}a{color:#e9c46a}</style></head>
+<body><p><a href="${attr(go)}">${esc(t.title)}</a></p><script>location.replace(${JSON.stringify(go)})<\/script></body></html>`], { type: 'text/html' }));
+    }
+    put('README.txt', new Blob([readme(name, address)], { type: 'text/plain' }));
+
+    say('Packing it all into one file…', .9);
+    const z = await zip(out, p => say('Packing it all into one file…', .9 + p * .09));
+    const fname = slug(name) + '-website.zip';
+    if (lastZip) URL.revokeObjectURL(lastZip);
+    lastZip = URL.createObjectURL(z);
+    say('Done.', 1); $('#prog').hidden = true;
+    const big = out.filter(f => f.blob.size > 25 * 1024 * 1024).length;
+    showDone(fname, z.size, out.length, big, !!address);
+    download(lastZip, fname);
+  } catch (e) {
+    console.error(e); say(e.message || String(e)); $('#progText').style.color = 'var(--bad)';
+    setTimeout(() => { $('#progText').style.color = ''; }, 6000);
+  } finally { busy = false; $('#make').disabled = false; render(); }
+});
+function download(href, name) { const a = document.createElement('a'); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+function readme(name, address) {
+  return `This folder is ${name}'s website.
+
+Everything is in here: the music, the covers, the pages, and a file called
+"catalogue" that lists it all, which is what the players read.
+
+PUTTING IT ONLINE
+Go to https://app.netlify.com/drop and drag this zip file (or the folder,
+once unzipped) onto the page. You'll be given a web address straight away.
+Make a free account when it offers, so the site stays up.
+
+Any other host that serves plain files works too: Cloudflare Pages, GitHub
+Pages, or ordinary web space. Upload everything in this folder as it is.
+
+ADDING MORE MUSIC LATER
+Keep this zip file safe. Open make.html on your site${address ? ` (${address}/make.html)` : ''},
+drop this zip onto it first, then drop your new songs. You'll get a new zip;
+upload that in place of this one (on Netlify, drag it onto your site's
+Deploys page).
+
+The addresses of your records and songs stay the same from one version to
+the next, so links people have shared keep working.
+`;
+}
+function showDone(fname, size, count, big, hasAddress) {
+  const d = $('#done'); d.hidden = false;
+  const elsewhere = `<details><summary>Rather put it somewhere else?</summary><ul>
+        <li><b>Cloudflare Pages</b> sets no limit on how much people listen on its free plan. Make a free account, create a Pages project and choose to upload your files, then give it this zip.${big ? ` <i>${big} of your files ${big === 1 ? 'is' : 'are'} over the 25 MB it allows for each one, though.</i>` : ''}</li>
+        <li><b>GitHub Pages</b>, or any ordinary web space you already have: unzip the file and upload everything inside it, just as it is.</li>
+      </ul></details>`;
+  const got = `<p>It's downloading now as <b>${esc(fname)}</b> (${mb(size)}). If it didn't start, <a href="${lastZip}" download="${esc(fname)}">download it here</a>.</p>`;
+  const later = `<p><b>To add more music later</b>, keep this zip safe. Come back here (your site has its own copy of this page at <code>/make.html</code>), drop the zip in first, then your new songs, and upload the new zip in the same way. Links people have shared keep working.</p>`;
+  if (!hasAddress) {
+    // First time: the site can't know its own address until it's online, and the catalogue
+    // needs full addresses, so there's a second, quick step once it has one.
+    d.innerHTML = `<h3>Nearly there.</h3>${got}
+    <ol class="how">
+      <li><b>Open Netlify Drop</b><span>It's free, and you don't need an account to start. <a class="btn primary" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
+      <li><b>Drag <code>${esc(fname)}</code> onto that page</b><span>From your downloads, straight onto the dotted box. There's no need to unzip it.</span></li>
+      <li><b>Make a free account when Netlify offers</b><span>Otherwise the site is taken down after a while. You can choose a nicer address in its settings now, or use a domain of your own.</span></li>
+      <li><b>Paste your site's address here</b><span>This finishes it: your music's catalogue has to give the full address of every song, so other players and sites can find them. <form class="finish" id="finish" novalidate><input class="in" name="addr" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"><button class="btn primary">Finish my site</button></form></span></li>
+    </ol>
+    <div class="later">${elsewhere}</div>`;
+    $('#finish').addEventListener('submit', e => {
+      e.preventDefault();
+      let v = e.target.addr.value.trim().replace(/\/+$/, '');
+      if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+      if (!/^https?:\/\/[^\s\/]+\.[^\s\/]+/i.test(v)) { e.target.addr.classList.add('bad'); e.target.addr.focus(); return toast("That doesn't look like a web address"); }
+      $('#address').value = v; $('#make').click();
+    });
+  } else {
+    d.innerHTML = `<h3>Your website is ready.</h3>${got}
+    <ol class="how">
+      <li><b>If your site is already on Netlify</b><span>Open it on Netlify, go to <b>Deploys</b>, and drag <code>${esc(fname)}</code> onto the box there. A few seconds later the new version is live.</span></li>
+      <li><b>If it isn't online yet</b><span>Drag the zip onto Netlify Drop instead, and make a free account when it offers. <a class="btn" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
+    </ol>
+    <div class="later">${later}${elsewhere}</div>`;
+  }
+  d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ---------- wiring ---------- */
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(t => document.addEventListener(t, e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { e.preventDefault(); if (!e.target.closest('.cov')) drop.classList.add('over'); } }));
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) drop.classList.remove('over'); });
+document.addEventListener('drop', async e => {
+  if (e.target.closest('.cov')) return;
+  e.preventDefault(); drop.classList.remove('over');
+  const list = await entriesFromDrop(e.dataTransfer);
+  intake(list);
+});
+$('#pickFiles').addEventListener('click', () => $('#files').click());
+$('#pickFolder').addEventListener('click', () => $('#folder').click());
+$('#files').addEventListener('change', e => { intake(fromInput(e.target)); e.target.value = ''; });
+$('#folder').addEventListener('change', e => { intake(fromInput(e.target)); e.target.value = ''; });
+if (!('webkitdirectory' in document.createElement('input')) || /iPhone|iPad|Android/i.test(navigator.userAgent)) $('#pickFolder').hidden = true;
+addEventListener('beforeunload', e => { if (S.records.length && !lastZip) { e.preventDefault(); e.returnValue = ''; } });
+document.fonts && document.fonts.load('400 40px "Instrument Serif"').then(() => S.records.some(r => !r.cover) && render());
+</script>
+</body>
+</html>

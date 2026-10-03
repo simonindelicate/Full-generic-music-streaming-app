@@ -18,6 +18,8 @@
    ?catalogue=https://that-site to the page's address.
    ========================================================================== */
 const BASE_URL = '';
+// Where the other ways of listening live, linked from the bottom of the gallery ('' hides the link).
+const MORE_URL = './';
 /* ==========================================================================
    Each record's page is this file with ?r=RECORD-ID on the end.
    Without it, the page shows every record.
@@ -142,6 +144,13 @@ body.playing .row.now .eq{display:inline-flex}
 .gallery{padding:10px var(--pad) 120px;max-width:1600px;margin:0 auto}
 .gallery h1{margin:0 0 40px;font:800 clamp(3.4rem,11vw,11rem)/.85 var(--display);letter-spacing:-.04em;overflow-wrap:normal}
 .gallery h1 em{font-style:normal;color:var(--accent)}
+.gallery .about{margin:-18px 0 44px;max-width:56ch;color:var(--muted);font-size:clamp(16px,1.6vw,19px)}
+.gallery .more-ways{margin:80px 0 0;text-align:center}
+.gallery .more-ways a{display:inline-flex;align-items:center;gap:10px;padding:14px 24px;border-radius:999px;border:1px solid rgb(255 255 255/.16);color:var(--ink);text-decoration:none;font-weight:700;transition:border-color .3s,background .3s}
+.gallery .more-ways a:hover{border-color:var(--accent);background:rgb(255 255 255/.04)}
+.buy{height:58px;padding:0 26px;border-radius:999px;border:1px solid rgb(255 255 255/.22);color:var(--ink);font-weight:800;font-size:16px;display:inline-flex;align-items:center;gap:10px;text-decoration:none;transition:border-color .3s,background .3s}
+.buy:hover{border-color:var(--accent);background:rgb(255 255 255/.05)}
+.buy svg{width:19px;height:19px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(128px,38vw,250px),1fr));gap:clamp(22px,3vw,44px) clamp(16px,2.5vw,34px)}
 .card{text-decoration:none;perspective:900px;display:block}
 .card .cov{border-radius:6px;overflow:hidden;box-shadow:0 26px 50px -22px rgb(0 0 0/.9);transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .4s var(--ease);position:relative}
@@ -216,12 +225,26 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radiu
 (() => {
 'use strict';
 const API = catalogueBase();
+// A catalogue may give its files relative to itself (a home-made one does), so make every address whole.
+function absolutise(list) {
+  let base; try { base = new URL(API + '/', location.href).href; } catch (_) { return list || []; }
+  const fix = u => { if (!u || typeof u !== 'string') return u; try { return new URL(u, base).href; } catch (_) { return u; } };
+  for (const r of list || []) {
+    if (r.artworkUrl) r.artworkUrl = fix(r.artworkUrl);
+    if (r.buyUrl) r.buyUrl = fix(r.buyUrl);
+    for (const t of r.tracks || []) { if (t.audioUrl) t.audioUrl = fix(t.audioUrl); if (t.artworkUrl) t.artworkUrl = fix(t.artworkUrl); }
+  }
+  return list || [];
+}
 // Where the catalogue lives: ?catalogue=… in the address, then BASE_URL, then this site.
 function catalogueBase() {
   let q = new URLSearchParams(location.search).get('catalogue');
   try { if (q) { const u = new URL(q); q = /^https?:$/.test(u.protocol) ? u.origin + u.pathname : ''; } } catch (_) { q = ''; }
   const base = q || (typeof BASE_URL === 'string' ? BASE_URL : '') || (/^https?:$/.test(location.protocol) ? location.origin : '');
-  return String(base).trim().replace(/\/+$/, '').replace(/\/catalogue$/, '');
+  let b = String(base).trim().replace(/\/+$/, '').replace(/\/catalogue$/, '');
+  // A relative address (such as '..' in a home-made site) is taken from where this page lives.
+  if (b && !/^[a-z][a-z0-9+.-]*:/i.test(b) && /^https?:$/.test(location.protocol)) b = new URL(b + '/', location.href).href.replace(/\/+$/, '');
+  return b;
 }
 // Carries a chosen ?catalogue= along to this page's own links.
 const CAT_QS = (() => { const c = new URLSearchParams(location.search).get('catalogue'); return c ? 'catalogue=' + encodeURIComponent(c) : ''; })();
@@ -251,7 +274,7 @@ function mergeReleases(list) {
     let n = 0;
     for (const t of (r.tracks || [])) { if (m._ids.has(t.id)) continue; m._ids.add(t.id); m.tracks.push({ ...t, artist: t.artist || r.artist, _o: m.tracks.length }); n++; }
     if (r.artist) m._a.set(r.artist, (m._a.get(r.artist) || 0) + n);
-    for (const k of ['artworkUrl', 'genre', 'year']) if (!m[k] && r[k]) m[k] = r[k];
+    for (const k of ['artworkUrl', 'genre', 'year', 'buyUrl']) if (!m[k] && r[k]) m[k] = r[k];
   }
   for (const m of out) {
     const names = [...m._a.entries()].sort((a, b) => b[1] - a[1] || a[0].length - b[0].length);
@@ -320,8 +343,8 @@ function renderGallery() {
   document.title = name;
   const first = releases.find(r => r.artworkUrl);
   if (first) { $('#ambient').style.backgroundImage = `url("${first.artworkUrl}")`; $('#ambient').classList.add('on'); accentFrom(first.artworkUrl, first.id); }
-  $('#main').innerHTML = `<section class="gallery"><h1>${esc(name)}<em>.</em></h1><div class="grid">${releases.map(r => `
-    <a class="card" href="${recordUrl(r)}"><div class="cov"><img src="${esc(r.artworkUrl || '')}" alt="" loading="lazy" decoding="async"></div><b>${esc(r.title)}</b><small>${esc(r.artist)}${r.year ? ', ' + esc(r.year) : ''}</small></a>`).join('')}</div></section>`;
+  $('#main').innerHTML = `<section class="gallery"><h1>${esc(name)}<em>.</em></h1>${instance.description ? `<p class="about">${esc(instance.description)}</p>` : ''}<div class="grid">${releases.map(r => `
+    <a class="card" href="${recordUrl(r)}"><div class="cov"><img src="${esc(r.artworkUrl || '')}" alt="" loading="lazy" decoding="async"></div><b>${esc(r.title)}</b><small>${esc(r.artist)}${r.year ? ', ' + esc(r.year) : ''}</small></a>`).join('')}</div>${MORE_URL ? `<p class="more-ways"><a href="${esc(MORE_URL + (CAT_QS ? '?' + CAT_QS : ''))}">More ways to listen: radio, mixtapes and a town to wander<span aria-hidden="true">→</span></a></p>` : ''}</section>`;
   $$('.card').forEach(c => tilt(c, c.querySelector('.cov'), 16));
   const h1 = $('.gallery h1'), fitG = () => { h1.style.fontSize = ''; fitTitle(h1, parseFloat(getComputedStyle(h1).fontSize), 28); };
   fitG(); addEventListener('resize', fitG); document.fonts && document.fonts.ready.then(fitG);
@@ -350,7 +373,7 @@ function renderRecord(r) {
         <h1 class="${sizeClass(r.title).trim()}" aria-label="${esc(r.title)}">${words.map((w, i) => `<span class="w" aria-hidden="true"><span style="--i:${i}">${esc(w)}</span></span>`).join(' ')}</h1>
         <p class="by">${esc(r.artist)}</p>
         <p class="facts">${r.tracks.length} song${r.tracks.length === 1 ? '' : 's'}${total ? ', ' + Math.round(total / 60) + ' minutes' : ''}</p>
-        <div class="cta">${playable.length ? `<button class="big" data-action="play-all">${ICON.play}Play the record</button>` : `<span class="lock" style="font-size:15px;padding:10px 18px">${ICON.lock}This record is locked</span>`}</div>
+        <div class="cta">${playable.length ? `<button class="big" data-action="play-all">${ICON.play}Play the record</button>` : `<span class="lock" style="font-size:15px;padding:10px 18px">${ICON.lock}This record is locked</span>`}${/^https?:\/\//i.test(r.buyUrl || '') ? `<a class="buy" href="${esc(r.buyUrl)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>Buy it</a>` : ''}</div>
       </div>
     </section>
     <section class="tracks"><div class="sect"><h2>The songs</h2><span>${fmt(total)}</span></div>
@@ -443,7 +466,7 @@ document.addEventListener('keydown', e => {
     if (!res.ok) throw new Error('The server replied ' + res.status);
     const data = await res.json();
     instance = data.instance || {};
-    releases = mergeReleases(data.releases || []).filter(r => r.tracks.length).sort((a, b) => (+b.year || 0) - (+a.year || 0));
+    releases = mergeReleases(absolutise(data.releases)).filter(r => r.tracks.length).sort((a, b) => (+b.year || 0) - (+a.year || 0));
   } catch (e) {
     $('#main').innerHTML = `<div class="msg"><h1>The records wouldn't load</h1><p>Check the BASE_URL line at the top of this file and your connection. (${esc(e.message)})</p></div>`;
     return;

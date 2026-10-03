@@ -45,6 +45,8 @@ const STATION = {
 
   // Records kept off the air entirely, by title or by id. Matching ignores capitals.
   // For example: exclude: ['Elevator Music', 'DoE "Part 4" DLC'],
+  // A station.json file beside this page can set any of these instead, so this file can stay
+  // as it is. Open the page with ?setup on the end to choose and download one.
   exclude: [],
 
   // How the presenter meets the next song. After every link the song comes in under the presenter's
@@ -205,6 +207,11 @@ dialog.sheet::backdrop{background:rgb(6 6 8/.55);backdrop-filter:blur(6px)}
 .sheet-in{padding:22px clamp(22px,4vw,36px) 40px}
 .sheet-in h2{margin:0;font:400 2.2rem/1 var(--serif)}
 .sheet-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.setup-note{margin:-6px 0 22px;color:var(--muted);font-size:14.5px;line-height:1.55}
+.setup-recs{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.setup-recs .check{margin:0;padding:6px 0}
+.setup-recs span{line-height:1.3}
+.setup-recs small{display:block;margin-top:2px;color:var(--faint)}
 .field{display:block;margin:0 0 20px}
 .field > span{display:block;font-size:13px;color:var(--muted);margin-bottom:7px}
 .field input[type=text],.field input[type=password],.field select{width:100%;height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--raise);outline:none}
@@ -311,7 +318,7 @@ summary{cursor:pointer;color:var(--muted);font-size:14px;margin-bottom:14px}
     <label class="field"><span>Programming</span>
       <select id="sCuration"><option value="">As set in the file</option><option value="artist">Curated Artist Radio</option><option value="singles">Random Artist Radio</option><option value="mixed">Mixed Catalogue</option></select></label>
     <label class="check"><input type="checkbox" id="sFade"> Crossfade between songs when nobody is talking</label>
-    <label class="check" id="wakeRow" hidden><input type="checkbox" id="sWake"> Keep the screen on while the station plays</label>
+    <label class="check" id="wakeRow"><input type="checkbox" id="sWake"> Keep the phone awake while the station plays (best for the car)</label>
     <details>
       <summary>Advanced</summary>
       <label class="field"><span>Script model</span><input type="text" id="sTextModel" spellcheck="false"><small>The cheapest current OpenAI text model. Change it here if OpenAI renames it.</small></label>
@@ -329,15 +336,44 @@ summary{cursor:pointer;color:var(--muted);font-size:14px;margin-bottom:14px}
 (() => {
 'use strict';
 const API = catalogueBase();
+// A catalogue may give its files relative to itself (a home-made one does), so make every address whole.
+function absolutise(list) {
+  let base; try { base = new URL(API + '/', location.href).href; } catch (_) { return list || []; }
+  const fix = u => { if (!u || typeof u !== 'string') return u; try { return new URL(u, base).href; } catch (_) { return u; } };
+  for (const r of list || []) {
+    if (r.artworkUrl) r.artworkUrl = fix(r.artworkUrl);
+    if (r.buyUrl) r.buyUrl = fix(r.buyUrl);
+    for (const t of r.tracks || []) { if (t.audioUrl) t.audioUrl = fix(t.audioUrl); if (t.artworkUrl) t.artworkUrl = fix(t.artworkUrl); }
+  }
+  return list || [];
+}
 // Where the catalogue lives: ?catalogue=… in the address, then BASE_URL, then this site.
 function catalogueBase() {
   let q = new URLSearchParams(location.search).get('catalogue');
   try { if (q) { const u = new URL(q); q = /^https?:$/.test(u.protocol) ? u.origin + u.pathname : ''; } } catch (_) { q = ''; }
   const base = q || (typeof BASE_URL === 'string' ? BASE_URL : '') || (/^https?:$/.test(location.protocol) ? location.origin : '');
-  return String(base).trim().replace(/\/+$/, '').replace(/\/catalogue$/, '');
+  let b = String(base).trim().replace(/\/+$/, '').replace(/\/catalogue$/, '');
+  // A relative address (such as '..' in a home-made site) is taken from where this page lives.
+  if (b && !/^[a-z][a-z0-9+.-]*:/i.test(b) && /^https?:$/.test(location.protocol)) b = new URL(b + '/', location.href).href.replace(/\/+$/, '');
+  return b;
 }
 // Carries a chosen ?catalogue= along to this page's own links.
 const CAT_QS = (() => { const c = new URLSearchParams(location.search).get('catalogue'); return c ? 'catalogue=' + encodeURIComponent(c) : ''; })();
+// The site's owner can change the STATION block above without editing this file: open the page
+// with ?setup on the end. On a site with the full backend the choices are saved straight to its
+// site settings (not to the catalogue); on a plain static site they're downloaded as station.json
+// to put beside this page. Either is ignored when the page is pointed at another catalogue.
+const SETUP = new URLSearchParams(location.search).has('setup');
+const STATION_KEYS = ['curation', 'mainArtist', 'exclude', 'overlapSeconds', 'clearChance', 'pauseBeforeTalk'];
+const SETTINGS_URL = API + '/.netlify/functions/siteSettings';
+let hasBackend = false;
+const applyStation = j => { if (j && typeof j === 'object' && !Array.isArray(j)) for (const k of STATION_KEYS) if (k in j) STATION[k] = j[k]; };
+const getJSON = url => fetch(url, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
+const stationFile = CAT_QS ? Promise.resolve() : (async () => {
+  const site = await getJSON(SETTINGS_URL);
+  if (site && typeof site === 'object' && !Array.isArray(site)) { hasBackend = true; if (site.radioStation) return applyStation(site.radioStation); }
+  applyStation(await getJSON('station.json'));
+})();
 const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
 const root = document.documentElement;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -392,7 +428,7 @@ const PERSONAS = [
 ];
 
 /* ================= settings & memory ================= */
-const settings = Object.assign({ station: '', persona: 'late', voice: 'ai', key: '', talk: '2', fade: true, wake: false, textModel: 'gpt-6-luna', ttsModel: 'gpt-4o-mini-tts', apiBase: 'https://api.openai.com/v1' }, LS.get('settings', {}));
+const settings = Object.assign({ station: '', persona: 'late', voice: 'ai', key: '', talk: '2', fade: true, awake: true, textModel: 'gpt-6-luna', ttsModel: 'gpt-4o-mini-tts', apiBase: 'https://api.openai.com/v1' }, LS.get('settings', {}));
 const saveSettings = () => LS.set('settings', settings);
 const MODES = ['artist', 'singles', 'mixed'];
 const curation = () => MODES.includes(settings.curation) ? settings.curation : (MODES.includes(STATION.curation) ? STATION.curation : 'artist');
@@ -442,21 +478,26 @@ async function load() {
     const data = await res.json();
     if (!data || !Array.isArray(data.releases)) throw new Error('The reply had no releases in it');
     instance = data.instance || {};
-    releases = mergeReleases(data.releases);
+    releases = mergeReleases(absolutise(data.releases));
+    await stationFile;
+    buildPool();
+    if (!settings.station || settings.stationFor !== API) { settings.station = (instance.name || 'Catalogue') + ' Radio'; settings.stationFor = API; }
+    renderIdle();
+    if (SETUP) openSetup();
+  } catch (e) {
+    console.error(e);
+    $('#main').innerHTML = `<div class="note" style="grid-column:1/-1"><h2>The station can't find its records</h2><p>The catalogue at <code>${esc(API)}/catalogue</code> didn't load. Check the <code>BASE_URL</code> line at the top of this file and your connection.</p><button class="btn primary" onclick="location.reload()">Try again</button><p style="font-size:12.5px;color:var(--faint)">${esc(e.message)}</p></div>`;
+  }
+}
+function buildPool() {
     pool = [];
-    const banned = new Set((STATION.exclude || []).map(x => String(x).trim().toLowerCase()));
-    const isBanned = r => banned.has(String(r.title || '').trim().toLowerCase()) || banned.has(String(r.id || '').trim().toLowerCase());
+    const banned = new Set((STATION.exclude || []).map(x => String(x).trim().toLowerCase()).filter(Boolean));
+    const isBanned = r => [r.title, r.id, ...(r.ids || [])].some(x => x != null && banned.has(String(x).trim().toLowerCase()));
     for (const r of releases) for (const t of r.tracks) { t.release = r; if (!t.gated && t.audioUrl && !isBanned(r)) pool.push(t); }
     if (!pool.length) throw new Error('There are no free songs to play');
     const counts = {}; pool.forEach(t => counts[t.artist] = (counts[t.artist] || 0) + 1);
     mainArtist = (STATION.mainArtist && counts[STATION.mainArtist]) ? STATION.mainArtist : Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
     buildBlocks();
-    if (!settings.station || settings.stationFor !== API) { settings.station = (instance.name || 'Catalogue') + ' Radio'; settings.stationFor = API; }
-    renderIdle();
-  } catch (e) {
-    console.error(e);
-    $('#main').innerHTML = `<div class="note" style="grid-column:1/-1"><h2>The station can't find its records</h2><p>The catalogue at <code>${esc(API)}/catalogue</code> didn't load. Check the <code>BASE_URL</code> line at the top of this file and your connection.</p><button class="btn primary" onclick="location.reload()">Try again</button><p style="font-size:12.5px;color:var(--faint)">${esc(e.message)}</p></div>`;
-  }
 }
 
 /* ================= programming: segments ================= */
@@ -771,6 +812,10 @@ async function startTrack(plan, link, myGen) {
   transitioning = false;
   const idx = cur < 0 ? 0 : 1 - cur, el = decks[idx], prevEl = cur < 0 ? null : decks[cur];
   const prevPlaying = prevEl && !prevEl.paused && prevEl.src !== SILENCE;
+  // With the screen off, a phone will only keep going on the element that is already playing,
+  // and any gap (the pause before the presenter, say) lets it put the page to sleep. So carry on
+  // on that same element, with no timers in the way.
+  if (document.hidden && prevEl && prevEl.src !== SILENCE) { clearInterval(prevEl._ramp); return sameDeckAdvance(prevEl, plan, link && link.mode === 'ai' ? link : null); }
   clearInterval(el._ramp);
   el.src = plan.track.audioUrl;
   el.volume = link ? masterVol() * DUCK : (prevPlaying && settings.fade ? 0 : masterVol());
@@ -901,17 +946,54 @@ decks.forEach(el => {
 });
 
 /* ---------- screen wake lock, and picking up after the phone wakes ---------- */
-async function syncWake() {
-  if (!('wakeLock' in navigator)) return;
-  const want = on && !paused && settings.wake && !document.hidden;
-  try {
-    if (want && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
-    else if (!want && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
-  } catch (_) { wakeLock = null; }
+/* The screen is kept on while the station plays: with the page in view every part of the
+   station works, where a locked phone only lets the song already playing carry on.
+   Browsers without the Wake Lock API (and ones that refuse it) get the old trick of a tiny
+   silent video playing on a loop, which phones also treat as a reason not to sleep. */
+const AWAKE_VIDEO = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMrbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAlV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAAAAABAAAAAAHNbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABeG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAThzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PLIAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAApAAAAKQAAAABhzdHRzAAAAAAAAAAEAAAACAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAACAAAAAQAAABxzdHN6AAAAAAAAAAAAAAACAAAChgAAAAoAAAAUc3RjbwAAAAAAAAABAAADWwAAAGJ1ZHRhAAAAWm1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAALWlsc3QAAAAlqXRvbwAAAB1kYXRhAAAAAQAAAABMYXZmNjAuMTYuMTAwAAAACGZyZWUAAAKYbWRhdAAAAnAGBf//bNxF6b3m2Ui3lizYINkj7u94MjY0IC0gY29yZSAxNjQgcjMxMDggMzFlMTlmOSAtIEguMjY0L01QRUctNCBBVkMgY29kZWMgLSBDb3B5bGVmdCAyMDAzLTIwMjMgLSBodHRwOi8vd3d3LnZpZGVvbGFuLm9yZy94MjY0Lmh0bWwgLSBvcHRpb25zOiBjYWJhYz0wIHJlZj0zIGRlYmxvY2s9MTowOjAgYW5hbHlzZT0weDE6MHgxMTEgbWU9aGV4IHN1Ym1lPTcgcHN5PTEgcHN5X3JkPTEuMDA6MC4wMCBtaXhlZF9yZWY9MSBtZV9yYW5nZT0xNiBjaHJvbWFfbWU9MSB0cmVsbGlzPTEgOHg4ZGN0PTAgY3FtPTAgZGVhZHpvbmU9MjEsMTEgZmFzdF9wc2tpcD0xIGNocm9tYV9xcF9vZmZzZXQ9LTIgdGhyZWFkcz0xIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MCB3ZWlnaHRwPTAga2V5aW50PTI1MCBrZXlpbnRfbWluPTEgc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD00MCByYz1jcmYgbWJ0cmVlPTEgY3JmPTIzLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjAwAIAAAAAOZYiEBb///w9FAAFPf4AAAAAGQZo4CvqA';
+let awakeVideo = null;
+function videoAwake(want) {
+  if (want && !awakeVideo) {
+    awakeVideo = document.createElement('video');
+    Object.assign(awakeVideo, { muted: true, loop: true, playsInline: true, src: AWAKE_VIDEO });
+    awakeVideo.setAttribute('playsinline', ''); awakeVideo.setAttribute('muted', ''); awakeVideo.setAttribute('aria-hidden', 'true');
+    awakeVideo.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:.01;pointer-events:none';
+    document.body.appendChild(awakeVideo);
+  }
+  if (!awakeVideo) return;
+  if (want) awakeVideo.play().catch(() => {}); else awakeVideo.pause();
 }
-if ('wakeLock' in navigator) $('#wakeRow').hidden = false;
+let wakeBusy = false;
+async function syncWake() {
+  const want = on && !paused && settings.awake && !document.hidden;
+  if (!('wakeLock' in navigator)) return videoAwake(want);
+  if (wakeBusy) return; wakeBusy = true;
+  try {
+    if (want && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      videoAwake(false);
+      // The browser drops the lock now and then (battery saver, a phone call); take it back.
+      wakeLock.addEventListener('release', () => { wakeLock = null; setTimeout(syncWake, 500); });
+    } else if (!want && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+  } catch (_) { wakeLock = null; videoAwake(want); }
+  finally { wakeBusy = false; }
+  if (!want) videoAwake(false);
+}
 document.addEventListener('visibilitychange', () => {
   syncWake();
+  // The screen went off in the middle of a hand-over (waiting for the presenter, or the quiet
+  // before a link). Rather than wait there and be put to sleep, go straight to the next song
+  // on the element that's still sounding.
+  if (document.hidden && on && !paused && curPlan && !talking) {
+    const el = decks[cur];
+    if (el && el.paused && el.src !== SILENCE && pendingPlay !== el && !held.has(el)) {
+      const carrier = decks.find(d => !d.paused && d.src !== SILENCE) || el;
+      gen++; transitioning = false; stopVoice(); clearInterval(carrier._ramp);
+      if (carrier !== el) { el.pause(); cur = decks.indexOf(carrier); carrier._voice = false; carrier._after = null; carrier.src = curPlan.track.audioUrl; }
+      carrier.volume = masterVol();
+      carrier.play().catch(e => { if (e.name === 'NotAllowedError') pendingPlay = carrier; });
+    }
+  }
   if (!document.hidden && on && pendingPlay) { const el = pendingPlay; pendingPlay = null; el.volume = masterVol(); el.play().catch(() => {}); }
 });
 
@@ -1121,7 +1203,7 @@ const dlg = $('#settings');
 $('#sPersona').innerHTML = PERSONAS.map(p => `<option value="${p.id}">${esc(p.name)}, ${esc(p.label.toLowerCase())}</option>`).join('');
 function openSettings() {
   $('#sStation').value = settings.station; $('#sPersona').value = settings.persona; $('#sVoice').value = settings.voice;
-  $('#sKey').value = settings.key; $('#sTalk').value = settings.talk; $('#sFade').checked = !!settings.fade; $('#sWake').checked = !!settings.wake;
+  $('#sKey').value = settings.key; $('#sTalk').value = settings.talk; $('#sFade').checked = !!settings.fade; $('#sWake').checked = !!settings.awake;
   $('#sTextModel').value = settings.textModel; $('#sTtsModel').value = settings.ttsModel; $('#sApiBase').value = settings.apiBase;
   $('#sCuration').value = settings.curation || '';
   dlg.showModal();
@@ -1133,7 +1215,7 @@ const bindField = (sel, key, prop = 'value') => $(sel).addEventListener(prop ===
   if (!on && ['station', 'persona', 'voice', 'key', 'curation'].includes(key) && document.body.classList.contains('was-on') === false && $('#offairIn .big')) renderIdle();
 });
 bindField('#sStation', 'station'); bindField('#sPersona', 'persona'); bindField('#sVoice', 'voice'); bindField('#sKey', 'key');
-bindField('#sTalk', 'talk'); bindField('#sFade', 'fade', 'checked'); bindField('#sWake', 'wake', 'checked');
+bindField('#sTalk', 'talk'); bindField('#sFade', 'fade', 'checked'); bindField('#sWake', 'awake', 'checked');
 $('#sWake').addEventListener('change', syncWake); bindField('#sCuration', 'curation');
 $('#sCuration').addEventListener('input', () => { if (!pool.length) return; buildBlocks(); sched.left = 0; if (!on) renderIdle(); toast('The new programming starts after this song'); }); bindField('#sTextModel', 'textModel'); bindField('#sTtsModel', 'ttsModel'); bindField('#sApiBase', 'apiBase');
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
@@ -1164,6 +1246,54 @@ async function testPresenter() {
     const a = new Audio(url); a.volume = clamp(volume, .2, 1); a.onended = () => URL.revokeObjectURL(url); a.play().catch(() => {});
   } catch (e) { setStatus('voice', 'failed: ' + describeErr(e), 'bad'); }
   btn.disabled = false; btn.textContent = 'Test the presenter';
+}
+
+/* ---------- station setup (?setup): makes station.json for whoever runs the site ---------- */
+function openSetup() {
+  let d = $('#setup');
+  if (!d) {
+    d = document.createElement('dialog'); d.className = 'sheet'; d.id = 'setup'; d.setAttribute('aria-label', 'Station setup');
+    document.body.appendChild(d);
+    d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-setup="close"]')) d.close(); if (e.target.closest('[data-setup="save"]')) saveSetup(d); });
+  }
+  const off = new Set((STATION.exclude || []).map(x => String(x).trim().toLowerCase()));
+  const isOff = r => [r.title, r.id, ...(r.ids || [])].some(x => x != null && off.has(String(x).trim().toLowerCase()));
+  const artists = [...new Set(releases.map(r => r.artist).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const recs = releases.slice().sort((a, b) => String(a.title).localeCompare(b.title));
+  d.innerHTML = `<div class="sheet-in">
+    <div class="sheet-top"><h2>Station setup</h2><button class="icon-btn" data-setup="close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="setup-note">${hasBackend ? 'These choices are saved to your site, and the station follows them for everyone who listens.' : 'This site has no settings to save to, so these choices are downloaded as a small file, <code>station.json</code>. Put it in the same folder as this page and the station follows it for everyone who listens.'} Listeners never see this panel.</p>
+    <label class="field"><span>Programming</span><select id="uCuration">${[['artist', 'Curated Artist Radio'], ['singles', 'Random Artist Radio'], ['mixed', 'Mixed Catalogue']].map(([v, l]) => `<option value="${v}"${(STATION.curation || 'artist') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="field"><span>The act the station is about</span><select id="uMain"><option value="">Whoever has the most songs</option>${artists.map(a => `<option${STATION.mainArtist === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select></label>
+    <div class="field"><span>Keep off the air</span><ul class="setup-recs">${recs.map(r => `<li><label class="check"><input type="checkbox" value="${esc(r.title)}"${isOff(r) ? ' checked' : ''}><span>${esc(r.title)} <small>${esc(r.artist)}${r.year ? ', ' + esc(r.year) : ''}</small></span></label></li>`).join('')}</ul></div>
+    ${hasBackend ? `<label class="field" id="uPassRow"${adminToken() ? ' hidden' : ''}><span>Your admin password</span><input type="password" id="uPass" autocomplete="current-password"></label>` : ''}
+    <button class="btn primary" data-setup="save" style="height:46px">${hasBackend ? 'Save' : 'Download station.json'}</button>
+  </div>`;
+  d.showModal();
+}
+// The same token the site's admin pages keep for the session.
+const adminToken = () => { try { return sessionStorage.getItem('admin-token') || ''; } catch (_) { return ''; } };
+async function saveSetup(d) {
+  const out = { curation: d.querySelector('#uCuration').value, mainArtist: d.querySelector('#uMain').value, exclude: [...d.querySelectorAll('.setup-recs input:checked')].map(i => i.value) };
+  if (!d.querySelector('.setup-recs input:not(:checked)')) return toast('That would leave nothing to play');
+  if (hasBackend) {
+    const btn = d.querySelector('[data-setup="save"]'), pass = d.querySelector('#uPass');
+    const token = (pass && pass.value.trim()) || adminToken();
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const r = await fetch(SETTINGS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token }, body: JSON.stringify({ radioStation: out }) });
+      if (r.status === 401) { d.querySelector('#uPassRow').hidden = false; pass.focus(); try { sessionStorage.removeItem('admin-token'); } catch (_) {} throw new Error("That password wasn't right"); }
+      if (!r.ok) throw new Error('The site replied ' + r.status);
+      try { if (token) sessionStorage.setItem('admin-token', token); } catch (_) {}
+      applyStation(out); buildPool(); if (!on) renderIdle();
+      d.close(); toast(on ? 'Saved. The new choices start after this song' : 'Saved');
+    } catch (e) { toast(e.message || "It didn't save"); }
+    finally { btn.disabled = false; btn.textContent = 'Save'; }
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2) + '\n'], { type: 'application/json' }));
+  a.download = 'station.json'; document.body.appendChild(a); a.click(); a.remove();
+  toast('Put station.json in the same folder as this page');
 }
 
 /* ---------- events ---------- */
