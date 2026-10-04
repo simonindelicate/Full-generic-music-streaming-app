@@ -247,7 +247,8 @@ async function intake(list) {
       const root = cat.path.slice(0, cat.path.length - 'catalogue.json'.length);
       const byPath = new Map(list.map(x => [x.path, x.file]));
       let feed; try { feed = JSON.parse(await cat.file.text()); } catch (_) { throw new Error("That folder's catalogue.json couldn't be read"); }
-      const n = await loadExisting(feed, async p => byPath.get(root + p) || null, null);
+      // Copied in as they're found, so the site's own files can't change underneath it later.
+      const n = await loadExisting(feed, async p => { const f = byPath.get(root + p); return f ? own(f) : null; }, null);
       const SITE = /^(index\.html|make\.html|catalogue(\.json)?|readme\.txt|_headers|_redirects)$/i;
       list = list.filter(x => { if (!x.path.startsWith(root)) return true; const r = x.path.slice(root.length); return !(SITE.test(r) || /^(music|toys|s)\//.test(r)); });
       toast(`Opened your site: ${n} record${n === 1 ? '' : 's'}`);
@@ -804,7 +805,8 @@ async function unzip(file) {
     // Copied out of the zip now, not read from it later: if the zip on disk is replaced in the
     // meantime (say by saving the new version of the site over it), a later read would get
     // pieces of the new file instead.
-    out.push({ path: name, file: new File([await blob.arrayBuffer()], name.split('/').pop()) });
+    const copy = new File([await blob.arrayBuffer()], name.split('/').pop()); copy._owned = true;
+    out.push({ path: name, file: copy });
   }
   return out;
 }
