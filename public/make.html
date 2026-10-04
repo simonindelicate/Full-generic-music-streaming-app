@@ -94,6 +94,17 @@ label.f small{color:var(--faint)}
 .link{border:0;background:none;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;font-size:13.5px}
 .link:hover{color:var(--bad)}
 .summary{margin:26px 0 0;color:var(--muted);font-size:15px}
+.hosts{margin-top:26px}
+.hosts h3{margin:0 0 6px;font:400 1.5rem/1.1 var(--serif)}
+.hosts-lede,.hosts-more{margin:0 0 14px;color:var(--muted);font-size:14.5px;max-width:64ch}
+.hosts-more{margin:14px 0 0}
+.host-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.host{padding:16px 18px;border-radius:16px;background:var(--panel);border:1px solid var(--line);font-size:14px}
+.host b{display:block;font-size:16px}
+.host .tag{display:block;margin:2px 0 8px;font-size:12.5px;color:var(--accent)}
+.host p{margin:0 0 8px;color:var(--muted)}
+.host .catch{margin:0;color:var(--faint)}
+@media (max-width:760px){.host-grid{grid-template-columns:minmax(0,1fr)}}
 .go{display:flex;flex-wrap:wrap;align-items:center;gap:16px 22px;margin-top:22px}
 /* progress */
 .prog{margin-top:22px;padding:22px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
@@ -172,6 +183,22 @@ label.f small{color:var(--faint)}
   <section class="step" id="makeStep" hidden>
     <header><b>3</b><div><h2>Make the site</h2><p>Everything happens here in your browser. Songs that need converting take a few seconds each.</p></div></header>
     <p class="summary" id="summary"></p>
+    <div class="hosts">
+      <h3>Where it will live</h3>
+      <p class="hosts-lede">The site this makes is one zip file of ordinary files, so you can put it on any of these, and move it from one to another later.</p>
+      <div class="host-grid">
+        <div class="host"><b>Netlify</b><span class="tag">Quickest</span>
+          <p>Drag the zip onto a web page and you have a site, with no account needed to start.</p>
+          <p class="catch">The catch: the free plan has a monthly allowance, used up by listening and by each upload. <span id="netlifyPlays"></span>If it runs out, Netlify switches the site off until the next month. Fine for trying things out or a small audience.</p></div>
+        <div class="host"><b>Cloudflare Pages</b><span class="tag">Best free option</span>
+          <p>A free account and a few more clicks, then upload the same zip.</p>
+          <p class="catch">No charge for listening, however popular you get. Each file must be under 25&nbsp;MB, which songs converted here always are.<span id="cfBig"></span></p></div>
+        <div class="host"><b>Hosting you pay for</b><span class="tag">GoDaddy, IONOS and the like</span>
+          <p>Upload the zip in your control panel's File Manager and choose Extract.</p>
+          <p class="catch">Usually unmetered within fair use. It needs a hosting plan with file access: website builders such as Wix or Squarespace can't take it.</p></div>
+      </div>
+      <p class="hosts-more">For a large catalogue, paid downloads or subscriptions, the <a href="https://github.com/simonindelicate/Full-generic-music-streaming-app" target="_blank" rel="noopener">full version of this software</a> keeps your music in a storage bucket of your own.</p>
+    </div>
     <div class="go"><button class="btn primary huge" id="make" type="button">Make my website</button></div>
     <div class="prog" id="prog" hidden><div class="bar"><i id="bar"></i></div><p id="progText">Getting ready…</p></div>
     <div class="done" id="done" hidden></div>
@@ -578,6 +605,13 @@ function summarise() {
   const bytes = S.records.reduce((s, r) => s + r.tracks.reduce((q, t) => q + (!t.file ? 0 : t.kind === 'convert' ? (t.dur || 240) * 32000 : t.file.size), 0), 0);
   const conv = S.records.reduce((s, r) => s + r.tracks.filter(t => t.kind === 'convert').length, 0);
   $('#summary').textContent = `${S.records.length} record${S.records.length === 1 ? '' : 's'}, ${songs} song${songs === 1 ? '' : 's'}, about ${mb(bytes)} altogether.` + (conv ? ` ${conv} will be converted to MP3, which takes a few seconds each.` : '');
+  // A rough idea of what Netlify's free allowance means for this music: at Netlify's
+  // published prices (300 credits a month, 10 credits per GB sent, 15 per upload),
+  // and allowing for two uploads, about 27 GB a month of listening.
+  const plays = songs ? Math.floor(27e9 / (bytes / songs) / 500) * 500 : 0;
+  $('#netlifyPlays').textContent = plays >= 500 ? `With your music, that's roughly ${plays.toLocaleString('en-GB')} complete plays of a song a month. ` : '';
+  const big = S.records.reduce((n, r) => n + r.tracks.filter(t => t.file && t.kind === 'keep' && t.file.size > 25 * 1024 * 1024).length, 0);
+  $('#cfBig').textContent = big ? ` ${big} of your MP3s ${big === 1 ? 'is' : 'are'} bigger than that, though.` : '';
 }
 const recOf = el => S.records[+el.closest('.rec').dataset.r];
 
@@ -967,6 +1001,11 @@ Go to https://app.netlify.com/drop and drag this zip file (or the folder,
 once unzipped) onto the page. You'll be given a web address straight away.
 Make a free account when it offers, so the site stays up.
 
+Netlify's free plan has a monthly allowance, used up by listening and by
+each upload. If it runs out, Netlify switches the site off until the next
+month. For anything beyond a small audience, use Cloudflare Pages (free,
+with no charge for listening) or hosting you pay for.
+
 Any other host that serves plain files works too:
 
 - Ordinary web hosting (GoDaddy, IONOS, 123-reg, anything with cPanel):
@@ -991,7 +1030,7 @@ the next, so links people have shared keep working.
 }
 function showDone(fname, size, count, big, hasAddress) {
   const d = $('#done'); d.hidden = false;
-  const elsewhere = `<details><summary>Rather put it somewhere else?</summary>
+  const elsewhere = `<details><summary>Using Cloudflare Pages or your own hosting instead?</summary>
       <p style="margin-top:10px">Your site is just a folder of ordinary files, so it works on almost any web host. Whichever you choose, the address must start with <code>https://</code>, or browsers won't play the music.</p><ul>
         <li><b>Hosting you already pay for</b> (GoDaddy, IONOS, 123-reg and the like). In your control panel, open the File Manager, go into <code>public_html</code> (or a folder inside it), upload the zip, then choose <b>Extract</b>. Extracting it there, rather than unzipping it on your computer first, keeps a hidden file called <code>.htaccess</code> that lets other sites' players read your music. Make sure HTTPS (SSL) is switched on. If the zip is too big for the File Manager, unzip it on your computer and upload everything inside it by FTP, including the hidden files. This needs a <i>hosting</i> plan: website builders such as Wix, Squarespace or GoDaddy's Website Builder don't let you upload your own files.</li>
         <li><b>Cloudflare Pages</b> sets no limit on how much people listen on its free plan. Make a free account, create a Pages project, choose to upload your files, and give it this zip.${big ? ` <i>${big} of your files ${big === 1 ? 'is' : 'are'} over the 25 MB it allows for each one, though.</i>` : ''}</li>
@@ -1006,7 +1045,7 @@ function showDone(fname, size, count, big, hasAddress) {
     <ol class="how">
       <li><b>Open Netlify Drop</b><span>It's free, and you don't need an account to start. <a class="btn primary" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
       <li><b>Drag <code>${esc(fname)}</code> onto that page</b><span>From your downloads, straight onto the dotted box. There's no need to unzip it.</span></li>
-      <li><b>Make a free account when Netlify offers</b><span>Otherwise the site is taken down after a while. You can choose a nicer address in its settings now, or use a domain of your own.</span></li>
+      <li><b>Make a free account when Netlify offers</b><span>Otherwise the site is taken down after a while. You can choose a nicer address in its settings now, or use a domain of your own. Remember the free plan's monthly allowance (see "Where it will live" above): if you expect a lot of listeners, use Cloudflare Pages instead.</span></li>
       <li><b>Paste your site's address here</b><span>This finishes it: your music's catalogue has to give the full address of every song, so other players and sites can find them. <form class="finish" id="finish" novalidate><input class="in" name="addr" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"><button class="btn primary">Finish my site</button></form></span></li>
     </ol>
     <div class="later">${elsewhere}</div>`;
