@@ -17,7 +17,7 @@ body{margin:0;min-height:100dvh;background:var(--bg);color:var(--ink);font:400 1
 body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(1200px 600px at 85% -10%,rgb(233 196 106/.09),transparent 60%),radial-gradient(900px 500px at -10% 110%,rgb(120 190 160/.06),transparent 60%)}
 main{position:relative;max-width:900px;margin:0 auto;padding:clamp(32px,8vw,96px) clamp(16px,5vw,40px) 120px}
 a{color:var(--accent)}
-button,input,select{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 [hidden]{display:none!important}
 h1{margin:0;font:400 clamp(2.9rem,9vw,5.6rem)/.95 var(--serif);letter-spacing:-.02em}
@@ -31,6 +31,10 @@ h1 em{color:var(--accent)}
 .fields{display:grid;gap:14px}
 label.f{display:grid;gap:6px;font-size:14.5px;color:var(--muted)}
 label.f small{color:var(--faint)}
+.opt{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;margin-top:4px;cursor:pointer;font-size:14.5px}
+.opt input{width:19px;height:19px;margin:2px 0 0;accent-color:var(--accent)}
+.opt b{font-weight:600}
+.opt small{display:block;margin-top:3px;color:var(--faint);font-size:13.5px;line-height:1.5}
 .in{width:100%;min-width:0;height:48px;padding:0 15px;border-radius:12px;border:1px solid var(--line2);background:rgb(255 255 255/.035);color:var(--ink);transition:border-color .2s,background .2s}
 .in:focus{outline:none;border-color:var(--accent);background:rgb(255 255 255/.06)}
 .in.big{height:58px;font:400 1.6rem var(--serif)}
@@ -94,6 +98,17 @@ label.f small{color:var(--faint)}
 .link{border:0;background:none;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;font-size:13.5px}
 .link:hover{color:var(--bad)}
 .summary{margin:26px 0 0;color:var(--muted);font-size:15px}
+.hosts{margin-top:26px}
+.hosts h3{margin:0 0 6px;font:400 1.5rem/1.1 var(--serif)}
+.hosts-lede,.hosts-more{margin:0 0 14px;color:var(--muted);font-size:14.5px;max-width:64ch}
+.hosts-more{margin:14px 0 0}
+.host-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.host{padding:16px 18px;border-radius:16px;background:var(--panel);border:1px solid var(--line);font-size:14px}
+.host b{display:block;font-size:16px}
+.host .tag{display:block;margin:2px 0 8px;font-size:12.5px;color:var(--accent)}
+.host p{margin:0 0 8px;color:var(--muted)}
+.host .catch{margin:0;color:var(--faint)}
+@media (max-width:760px){.host-grid{grid-template-columns:minmax(0,1fr)}}
 .go{display:flex;flex-wrap:wrap;align-items:center;gap:16px 22px;margin-top:22px}
 /* progress */
 .prog{margin-top:22px;padding:22px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
@@ -115,6 +130,12 @@ label.f small{color:var(--faint)}
 .later{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:14.5px}
 .later p{margin:0 0 10px}
 .later details{margin-top:12px}
+.own{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:14.5px}
+.own h4{margin:0 0 8px;font:400 1.5rem/1.1 var(--serif);color:var(--ink)}
+.own p{margin:0 0 12px}
+.own code{color:var(--ink);overflow-wrap:anywhere}
+.own textarea{height:auto;padding:12px 14px;line-height:1.5;font-size:14px;resize:vertical;margin-bottom:10px}
+.own .own-note{margin:12px 0 0;color:var(--faint)}
 .later summary{cursor:pointer;color:var(--ink)}
 .later ul{margin:10px 0 0;padding-left:20px}
 .later li{margin:6px 0}
@@ -144,6 +165,7 @@ label.f small{color:var(--faint)}
       <label class="f">Your name, band name or label<input class="in big" id="name" autocomplete="off" placeholder="e.g. The Lonely Crowd"></label>
       <label class="f">A line about you <small>(optional)</small><input class="in" id="about" autocomplete="off" placeholder="e.g. Four-piece from Hastings, making records since 2009."></label>
       <label class="f">Your site's address, if it already has one <small>(if not, you'll be asked for it once it's online)</small><input class="in" id="address" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"></label>
+      <label class="opt"><input type="checkbox" id="open" checked><span><b>Let other websites and apps play my music</b><small>Your site lists your music in a catalogue that other players, radio stations and pages can read, so they can play it with credit and a link back to you. Untick this to keep the catalogue to your own site. Your songs are still ordinary files on a public website, though, so anyone who finds them can download them, as with any site.</small></span></label>
     </div>
   </section>
 
@@ -172,6 +194,22 @@ label.f small{color:var(--faint)}
   <section class="step" id="makeStep" hidden>
     <header><b>3</b><div><h2>Make the site</h2><p>Everything happens here in your browser. Songs that need converting take a few seconds each.</p></div></header>
     <p class="summary" id="summary"></p>
+    <div class="hosts">
+      <h3>Where it will live</h3>
+      <p class="hosts-lede">The site this makes is one zip file of ordinary files, so you can put it on any of these, and move it from one to another later.</p>
+      <div class="host-grid">
+        <div class="host"><b>Netlify</b><span class="tag">Quickest</span>
+          <p>Drag the zip onto a web page and you have a site, with no account needed to start.</p>
+          <p class="catch">The catch: the free plan has a monthly allowance, used up by listening and by each upload. <span id="netlifyPlays"></span>If it runs out, Netlify switches the site off until the next month. Fine for trying things out or a small audience.</p></div>
+        <div class="host"><b>Cloudflare Pages</b><span class="tag">Best free option</span>
+          <p>A free account and a few more clicks, then upload the same zip.</p>
+          <p class="catch">No charge for listening, however popular you get. Each file must be under 25&nbsp;MB, which songs converted here always are.<span id="cfBig"></span></p></div>
+        <div class="host"><b>Hosting you pay for</b><span class="tag">GoDaddy, IONOS and the like</span>
+          <p>Upload the zip in your control panel's File Manager and choose Extract.</p>
+          <p class="catch">Usually unmetered within fair use. It needs a hosting plan with file access: website builders such as Wix or Squarespace can't take it.</p></div>
+      </div>
+      <p class="hosts-more">For a large catalogue, paid downloads or subscriptions, the <a href="https://github.com/simonindelicate/Full-generic-music-streaming-app" target="_blank" rel="noopener">full version of this software</a> keeps your music in a storage bucket of your own.</p>
+    </div>
     <div class="go"><button class="btn primary huge" id="make" type="button">Make my website</button></div>
     <div class="prog" id="prog" hidden><div class="bar"><i id="bar"></i></div><p id="progText">Getting ready…</p></div>
     <div class="done" id="done" hidden></div>
@@ -247,7 +285,11 @@ async function intake(list) {
       const root = cat.path.slice(0, cat.path.length - 'catalogue.json'.length);
       const byPath = new Map(list.map(x => [x.path, x.file]));
       let feed; try { feed = JSON.parse(await cat.file.text()); } catch (_) { throw new Error("That folder's catalogue.json couldn't be read"); }
-      const n = await loadExisting(feed, async p => byPath.get(root + p) || null, null);
+      // Copied in as they're found, so the site's own files can't change underneath it later.
+      const n = await loadExisting(feed, async p => { const f = byPath.get(root + p); return f ? own(f) : null; }, null);
+      // Whether that site shared its catalogue with other sites is in its _headers file.
+      const headers = byPath.get(root + '_headers');
+      if (headers) $('#open').checked = /Access-Control-Allow-Origin/i.test(await headers.text());
       const SITE = /^(index\.html|make\.html|catalogue(\.json)?|readme\.txt|_headers|_redirects)$/i;
       list = list.filter(x => { if (!x.path.startsWith(root)) return true; const r = x.path.slice(root.length); return !(SITE.test(r) || /^(music|toys|s)\//.test(r)); });
       toast(`Opened your site: ${n} record${n === 1 ? '' : 's'}`);
@@ -516,7 +558,7 @@ $('#fetchForm').addEventListener('submit', async e => {
   try {
     status('Fetching ' + v + '…');
     let feed = null;
-    for (const p of ['/catalogue.json', '/catalogue']) { try { const r = await fetch(v + p, { cache: 'no-store' }); if (r.ok) { feed = await r.json(); break; } } catch (_) {} }
+    for (const p of ['/catalogue.json', '/catalogue']) { try { const r = await fetch(v + p, { cache: 'no-store' }); if (r.ok) { feed = await r.json(); if (new URL(v).origin === location.origin) $('#open').checked = !!r.headers.get('access-control-allow-origin'); break; } } catch (_) {} }
     if (!feed || !Array.isArray(feed.releases)) throw new Error("That site's catalogue couldn't be read. If you made it here, drop its zip file onto the box instead.");
     const getFile = async u => { if (!u) return null; const r = await fetch(new URL(u, v + '/').href); if (!r.ok) throw new Error(r.status); const b = await r.blob(); return new File([b], u.split('/').pop().split('?')[0], { type: b.type }); };
     const n = await loadExisting(feed, getFile, v);
@@ -577,6 +619,13 @@ function summarise() {
   const bytes = S.records.reduce((s, r) => s + r.tracks.reduce((q, t) => q + (!t.file ? 0 : t.kind === 'convert' ? (t.dur || 240) * 32000 : t.file.size), 0), 0);
   const conv = S.records.reduce((s, r) => s + r.tracks.filter(t => t.kind === 'convert').length, 0);
   $('#summary').textContent = `${S.records.length} record${S.records.length === 1 ? '' : 's'}, ${songs} song${songs === 1 ? '' : 's'}, about ${mb(bytes)} altogether.` + (conv ? ` ${conv} will be converted to MP3, which takes a few seconds each.` : '');
+  // A rough idea of what Netlify's free allowance means for this music: at Netlify's
+  // published prices (300 credits a month, 10 credits per GB sent, 15 per upload),
+  // and allowing for two uploads, about 27 GB a month of listening.
+  const plays = songs ? Math.floor(27e9 / (bytes / songs) / 500) * 500 : 0;
+  $('#netlifyPlays').textContent = plays >= 500 ? `With your music, that's roughly ${plays.toLocaleString('en-GB')} complete plays of a song a month. ` : '';
+  const big = S.records.reduce((n, r) => n + r.tracks.filter(t => t.file && t.kind === 'keep' && t.file.size > 25 * 1024 * 1024).length, 0);
+  $('#cfBig').textContent = big ? ` ${big} of your MP3s ${big === 1 ? 'is' : 'are'} bigger than that, though.` : '';
 }
 const recOf = el => S.records[+el.closest('.rec').dataset.r];
 
@@ -804,7 +853,8 @@ async function unzip(file) {
     // Copied out of the zip now, not read from it later: if the zip on disk is replaced in the
     // meantime (say by saving the new version of the site over it), a later read would get
     // pieces of the new file instead.
-    out.push({ path: name, file: new File([await blob.arrayBuffer()], name.split('/').pop()) });
+    const copy = new File([await blob.arrayBuffer()], name.split('/').pop()); copy._owned = true;
+    out.push({ path: name, file: copy });
   }
   return out;
 }
@@ -902,16 +952,19 @@ $('#make').addEventListener('click', async () => {
     releases.sort((a, b) => (b.year || 0) - (a.year || 0) || a.title.localeCompare(b.title));
 
     say('Writing the pages…', .87);
-    const feed = { feedVersion: '1', generatedAt: new Date().toISOString(), importEnabled: true,
+    const open = $('#open').checked;
+    const feed = { feedVersion: '1', generatedAt: new Date().toISOString(), importEnabled: open || undefined,
       instance: { name, description: about || undefined, url: address || undefined, feedUrl: address ? address + '/catalogue' : undefined },
       releaseCount: releases.length, releases };
     const json = JSON.stringify(feed, null, 1);
     put('catalogue.json', new Blob([json], { type: 'application/json' }));
     put('catalogue', new Blob([json], { type: 'application/json' })); // the address every toy and aggregator asks for
-    put('_headers', new Blob([`/*\n  Access-Control-Allow-Origin: *\n/catalogue\n  Content-Type: application/json; charset=utf-8\n  Cache-Control: no-cache\n/catalogue.json\n  Cache-Control: no-cache\n`]));
+    // Sharing the catalogue with other sites is the Access-Control-Allow-Origin header; without
+    // it, only this site's own pages can read the catalogue.
+    put('_headers', new Blob([`${open ? '/*\n  Access-Control-Allow-Origin: *\n' : ''}/catalogue\n  Content-Type: application/json; charset=utf-8\n  Cache-Control: no-cache\n/catalogue.json\n  Cache-Control: no-cache\n`]));
     put('_redirects', new Blob([`/catalogue  /catalogue.json  200\n`]));
     // The same two things for ordinary (Apache) web hosting, which ignores the files above.
-    put('.htaccess', new Blob([`# Lets players on other websites read this catalogue and its music.\n<IfModule mod_headers.c>\n  Header set Access-Control-Allow-Origin "*"\n  # Always check for a newer catalogue, so it never points at files a new upload replaced.\n  <FilesMatch "^catalogue(\\.json)?$">\n    Header set Cache-Control "no-cache"\n  </FilesMatch>\n</IfModule>\n# The catalogue file has no extension, so say what it is.\n<Files "catalogue">\n  ForceType application/json\n</Files>\nAddType application/json .json\n`]));
+    put('.htaccess', new Blob([`${open ? '# Lets players on other websites read this catalogue and its music.\n' : ''}<IfModule mod_headers.c>\n${open ? '  Header set Access-Control-Allow-Origin "*"\n' : ''}  # Always check for a newer catalogue, so it never points at files a new upload replaced.\n  <FilesMatch "^catalogue(\\.json)?$">\n    Header set Cache-Control "no-cache"\n  </FilesMatch>\n</IfModule>\n# The catalogue file has no extension, so say what it is.\n<Files "catalogue">\n  ForceType application/json\n</Files>\nAddType application/json .json\n`]));
 
     // The home page is the records page, told where it is.
     const ogImg = releases[0].artworkUrl;
@@ -919,7 +972,7 @@ $('#make').addEventListener('click', async () => {
 <meta name="description" content="${attr(about || `Records by ${name}, free to listen to.`)}">
 <meta property="og:title" content="${attr(name)}"><meta property="og:description" content="${attr(about || `Records by ${name}, free to listen to.`)}"><meta property="og:type" content="website">
 <meta property="og:image" content="${attr(ogImg)}">${address ? `<meta property="og:url" content="${attr(address + '/')}">` : ''}<meta name="twitter:card" content="summary_large_image">
-<link rel="alternate" type="application/json" title="${attr(name)} catalogue" href="catalogue">`;
+${open ? `<link rel="alternate" type="application/json" title="${attr(name)} catalogue" href="catalogue">` : ''}`;
     const home = pages['records.html'].replace(/<title>[^<]*<\/title>/, head).replace("const BASE_URL = '';", "const BASE_URL = '.';").replace("const MORE_URL = './';", "const MORE_URL = 'toys/';");
     put('index.html', new Blob([home], { type: 'text/html' }));
     for (const t of TOYS) put('toys/' + t, new Blob([pages[t].replace("const BASE_URL = '';", "const BASE_URL = '..';")], { type: 'text/html' }));
@@ -937,7 +990,7 @@ $('#make').addEventListener('click', async () => {
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111;color:#eee;font:16px system-ui,sans-serif}a{color:#e9c46a}</style></head>
 <body><p><a href="${attr(go)}">${esc(t.title)}</a></p><script>location.replace(${JSON.stringify(go)})<\/script></body></html>`], { type: 'text/html' }));
     }
-    put('README.txt', new Blob([readme(name, address)], { type: 'text/plain' }));
+    put('README.txt', new Blob([readme(name, address, open)], { type: 'text/plain' }));
 
     say('Packing it all into one file…', .9);
     const z = await zip(out, p => say('Packing it all into one file…', .9 + p * .09));
@@ -954,7 +1007,7 @@ $('#make').addEventListener('click', async () => {
   } finally { busy = false; $('#make').disabled = false; render(); }
 });
 function download(href, name) { const a = document.createElement('a'); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
-function readme(name, address) {
+function readme(name, address, open) {
   return `This folder is ${name}'s website.
 
 Everything is in here: the music, the covers, the pages, and a file called
@@ -964,6 +1017,11 @@ PUTTING IT ONLINE
 Go to https://app.netlify.com/drop and drag this zip file (or the folder,
 once unzipped) onto the page. You'll be given a web address straight away.
 Make a free account when it offers, so the site stays up.
+
+Netlify's free plan has a monthly allowance, used up by listening and by
+each upload. If it runs out, Netlify switches the site off until the next
+month. For anything beyond a small audience, use Cloudflare Pages (free,
+with no charge for listening) or hosting you pay for.
 
 Any other host that serves plain files works too:
 
@@ -985,11 +1043,47 @@ Deploys page).
 
 The addresses of your records and songs stay the same from one version to
 the next, so links people have shared keep working.
+
+MAKE IT YOUR OWN
+${open ? `Once the site is online, your catalogue is public at its address followed by
+/catalogue${address ? ` (${address}/catalogue)` : ''}. Anything that can read it can play
+your music, including pages you dream up yourself: describe what you'd like
+to an AI assistant such as Claude or ChatGPT, give it that address and this
+description of the format, and it can build it for you:` : `Your catalogue is kept to this site: other websites can't read it. Pages of
+your own can still use it if they're put in this folder (next to index.html).
+Describe what you'd like to an AI assistant such as Claude or ChatGPT, give it
+your catalogue's address${address ? ` (${address}/catalogue)` : ''} and this description of the
+format, and it can build it for you:`}
+${SPEC_URL}
 `;
+}
+// Once the catalogue is online, anyone can build on it: including the musician, by asking an
+// AI assistant to make them whatever site or player they can describe.
+const SPEC_URL = 'https://github.com/simonindelicate/Full-generic-music-streaming-app/blob/main/docs/catalogue-format.md';
+function yourOwn() {
+  const site = $('#address').value.trim().replace(/\/+$/, '');
+  const prompt = `My music is published as a catalogue at ${site}/catalogue. It's a JSON file listing my records and their songs, with the address of every song's audio and every cover, in the format described here: ${SPEC_URL}
+
+Please make me a single web page, as one HTML file, that loads my catalogue from that address each time it opens (so it stays up to date when I add music) and [describe what you'd like: a page in the style of my last album, a jukebox, a player that only plays my B-sides, a game where…].`;
+  const open = $('#open').checked;
+  return `<div class="own">
+    <h4>Then make it your own</h4>
+    <p>${open ? `Your music now has a public catalogue at <code>${esc(site)}/catalogue</code>, and anything that can read it can play your music. That includes pages you dream up yourself.` : `Your music has a catalogue at <code>${esc(site)}/catalogue</code>, kept to your own site, so pages of your own can use it as long as they live in your site's folder.`} Describe what you'd like to an AI assistant such as Claude or ChatGPT, give it your catalogue's address, and it can build you a page that works with your music and stays up to date as you add more. Here's a starting point to copy and finish:</p>
+    <textarea class="in" id="ownPrompt" rows="7" spellcheck="false">${esc(prompt)}</textarea>
+    <button class="btn" id="ownCopy" type="button">Copy</button>
+    <p class="own-note">${open ? "Put the page it gives you on any host, including in this site's folder alongside the others, or anywhere else at all: it will find your music by the address." : "Put the page it gives you in your site's folder, next to index.html, and upload the site again. As your catalogue is kept to your own site, a page anywhere else can't read it."}</p>
+  </div>`;
+}
+function wireYourOwn() {
+  $('#ownCopy')?.addEventListener('click', async () => {
+    const t = $('#ownPrompt');
+    try { await navigator.clipboard.writeText(t.value); } catch (_) { t.select(); document.execCommand('copy'); }
+    toast('Copied');
+  });
 }
 function showDone(fname, size, count, big, hasAddress) {
   const d = $('#done'); d.hidden = false;
-  const elsewhere = `<details><summary>Rather put it somewhere else?</summary>
+  const elsewhere = `<details><summary>Using Cloudflare Pages or your own hosting instead?</summary>
       <p style="margin-top:10px">Your site is just a folder of ordinary files, so it works on almost any web host. Whichever you choose, the address must start with <code>https://</code>, or browsers won't play the music.</p><ul>
         <li><b>Hosting you already pay for</b> (GoDaddy, IONOS, 123-reg and the like). In your control panel, open the File Manager, go into <code>public_html</code> (or a folder inside it), upload the zip, then choose <b>Extract</b>. Extracting it there, rather than unzipping it on your computer first, keeps a hidden file called <code>.htaccess</code> that lets other sites' players read your music. Make sure HTTPS (SSL) is switched on. If the zip is too big for the File Manager, unzip it on your computer and upload everything inside it by FTP, including the hidden files. This needs a <i>hosting</i> plan: website builders such as Wix, Squarespace or GoDaddy's Website Builder don't let you upload your own files.</li>
         <li><b>Cloudflare Pages</b> sets no limit on how much people listen on its free plan. Make a free account, create a Pages project, choose to upload your files, and give it this zip.${big ? ` <i>${big} of your files ${big === 1 ? 'is' : 'are'} over the 25 MB it allows for each one, though.</i>` : ''}</li>
@@ -1004,7 +1098,7 @@ function showDone(fname, size, count, big, hasAddress) {
     <ol class="how">
       <li><b>Open Netlify Drop</b><span>It's free, and you don't need an account to start. <a class="btn primary" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
       <li><b>Drag <code>${esc(fname)}</code> onto that page</b><span>From your downloads, straight onto the dotted box. There's no need to unzip it.</span></li>
-      <li><b>Make a free account when Netlify offers</b><span>Otherwise the site is taken down after a while. You can choose a nicer address in its settings now, or use a domain of your own.</span></li>
+      <li><b>Make a free account when Netlify offers</b><span>Otherwise the site is taken down after a while. You can choose a nicer address in its settings now, or use a domain of your own. Remember the free plan's monthly allowance (see "Where it will live" above): if you expect a lot of listeners, use Cloudflare Pages instead.</span></li>
       <li><b>Paste your site's address here</b><span>This finishes it: your music's catalogue has to give the full address of every song, so other players and sites can find them. <form class="finish" id="finish" novalidate><input class="in" name="addr" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"><button class="btn primary">Finish my site</button></form></span></li>
     </ol>
     <div class="later">${elsewhere}</div>`;
@@ -1021,7 +1115,8 @@ function showDone(fname, size, count, big, hasAddress) {
       <li><b>If your site is already on Netlify</b><span>Open it on Netlify, go to <b>Deploys</b>, and drag <code>${esc(fname)}</code> onto the box there. A few seconds later the new version is live.</span></li>
       <li><b>If it isn't online yet</b><span>Drag the zip onto Netlify Drop instead, and make a free account when it offers. <a class="btn" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
     </ol>
-    <div class="later">${later}${elsewhere}</div>`;
+    <div class="later">${later}${elsewhere}</div>${yourOwn()}`;
+    wireYourOwn();
   }
   d.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
