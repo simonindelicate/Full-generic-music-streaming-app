@@ -7,7 +7,7 @@
 <title>Records</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300..800&family=Syne:wght@500..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300..800&display=swap" rel="stylesheet">
 <script>
 /* ==========================================================================
    ▼▼▼  WHICH CATALOGUE  ▼▼▼
@@ -28,7 +28,7 @@ const MORE_URL = './';
 <style>
 :root{
   --accent:#f0c36a; --accent-ink:#1a1206; --ink:#f6f2ec; --muted:rgb(246 242 236/.66); --faint:rgb(246 242 236/.4); --line:rgb(246 242 236/.12);
-  --display:'Syne',ui-sans-serif,system-ui,sans-serif; --sans:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;
+  --display:ui-sans-serif,system-ui,sans-serif; --sans:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;
   --ease:cubic-bezier(.2,.8,.2,1); --pad:clamp(18px,5vw,80px);
 }
 *{box-sizing:border-box}
@@ -376,7 +376,7 @@ function renderRecord(r) {
         <div class="cta">${playable.length ? `<button class="big" data-action="play-all">${ICON.play}Play the record</button>` : `<span class="lock" style="font-size:15px;padding:10px 18px">${ICON.lock}This record is locked</span>`}${/^https?:\/\//i.test(r.buyUrl || '') ? `<a class="buy" href="${esc(r.buyUrl)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>Buy it</a>` : ''}</div>
       </div>
     </section>
-    <section class="tracks"><div class="sect"><h2>The songs</h2><span>${fmt(total)}</span></div>
+    <section class="tracks"><div class="sect"><h2>Tracks</h2><span>${fmt(total)}</span></div>
       <ol class="list">${r.tracks.map((t, i) => {
         const locked = t.gated || !t.audioUrl;
         return `<li class="row${locked ? ' locked' : ''}" data-action="${locked ? '' : 'play-track'}" data-i="${i}">
