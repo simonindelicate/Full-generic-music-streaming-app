@@ -31,6 +31,10 @@ h1 em{color:var(--accent)}
 .fields{display:grid;gap:14px}
 label.f{display:grid;gap:6px;font-size:14.5px;color:var(--muted)}
 label.f small{color:var(--faint)}
+.opt{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;margin-top:4px;cursor:pointer;font-size:14.5px}
+.opt input{width:19px;height:19px;margin:2px 0 0;accent-color:var(--accent)}
+.opt b{font-weight:600}
+.opt small{display:block;margin-top:3px;color:var(--faint);font-size:13.5px;line-height:1.5}
 .in{width:100%;min-width:0;height:48px;padding:0 15px;border-radius:12px;border:1px solid var(--line2);background:rgb(255 255 255/.035);color:var(--ink);transition:border-color .2s,background .2s}
 .in:focus{outline:none;border-color:var(--accent);background:rgb(255 255 255/.06)}
 .in.big{height:58px;font:400 1.6rem var(--serif)}
@@ -161,6 +165,7 @@ label.f small{color:var(--faint)}
       <label class="f">Your name, band name or label<input class="in big" id="name" autocomplete="off" placeholder="e.g. The Lonely Crowd"></label>
       <label class="f">A line about you <small>(optional)</small><input class="in" id="about" autocomplete="off" placeholder="e.g. Four-piece from Hastings, making records since 2009."></label>
       <label class="f">Your site's address, if it already has one <small>(if not, you'll be asked for it once it's online)</small><input class="in" id="address" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"></label>
+      <label class="opt"><input type="checkbox" id="open" checked><span><b>Let other websites and apps play my music</b><small>Your site lists your music in a catalogue that other players, radio stations and pages can read, so they can play it with credit and a link back to you. Untick this to keep the catalogue to your own site. Your songs are still ordinary files on a public website, though, so anyone who finds them can download them, as with any site.</small></span></label>
     </div>
   </section>
 
@@ -282,6 +287,9 @@ async function intake(list) {
       let feed; try { feed = JSON.parse(await cat.file.text()); } catch (_) { throw new Error("That folder's catalogue.json couldn't be read"); }
       // Copied in as they're found, so the site's own files can't change underneath it later.
       const n = await loadExisting(feed, async p => { const f = byPath.get(root + p); return f ? own(f) : null; }, null);
+      // Whether that site shared its catalogue with other sites is in its _headers file.
+      const headers = byPath.get(root + '_headers');
+      if (headers) $('#open').checked = /Access-Control-Allow-Origin/i.test(await headers.text());
       const SITE = /^(index\.html|make\.html|catalogue(\.json)?|readme\.txt|_headers|_redirects)$/i;
       list = list.filter(x => { if (!x.path.startsWith(root)) return true; const r = x.path.slice(root.length); return !(SITE.test(r) || /^(music|toys|s)\//.test(r)); });
       toast(`Opened your site: ${n} record${n === 1 ? '' : 's'}`);
@@ -550,7 +558,7 @@ $('#fetchForm').addEventListener('submit', async e => {
   try {
     status('Fetching ' + v + '…');
     let feed = null;
-    for (const p of ['/catalogue.json', '/catalogue']) { try { const r = await fetch(v + p, { cache: 'no-store' }); if (r.ok) { feed = await r.json(); break; } } catch (_) {} }
+    for (const p of ['/catalogue.json', '/catalogue']) { try { const r = await fetch(v + p, { cache: 'no-store' }); if (r.ok) { feed = await r.json(); if (new URL(v).origin === location.origin) $('#open').checked = !!r.headers.get('access-control-allow-origin'); break; } } catch (_) {} }
     if (!feed || !Array.isArray(feed.releases)) throw new Error("That site's catalogue couldn't be read. If you made it here, drop its zip file onto the box instead.");
     const getFile = async u => { if (!u) return null; const r = await fetch(new URL(u, v + '/').href); if (!r.ok) throw new Error(r.status); const b = await r.blob(); return new File([b], u.split('/').pop().split('?')[0], { type: b.type }); };
     const n = await loadExisting(feed, getFile, v);
@@ -944,16 +952,19 @@ $('#make').addEventListener('click', async () => {
     releases.sort((a, b) => (b.year || 0) - (a.year || 0) || a.title.localeCompare(b.title));
 
     say('Writing the pages…', .87);
-    const feed = { feedVersion: '1', generatedAt: new Date().toISOString(), importEnabled: true,
+    const open = $('#open').checked;
+    const feed = { feedVersion: '1', generatedAt: new Date().toISOString(), importEnabled: open || undefined,
       instance: { name, description: about || undefined, url: address || undefined, feedUrl: address ? address + '/catalogue' : undefined },
       releaseCount: releases.length, releases };
     const json = JSON.stringify(feed, null, 1);
     put('catalogue.json', new Blob([json], { type: 'application/json' }));
     put('catalogue', new Blob([json], { type: 'application/json' })); // the address every toy and aggregator asks for
-    put('_headers', new Blob([`/*\n  Access-Control-Allow-Origin: *\n/catalogue\n  Content-Type: application/json; charset=utf-8\n  Cache-Control: no-cache\n/catalogue.json\n  Cache-Control: no-cache\n`]));
+    // Sharing the catalogue with other sites is the Access-Control-Allow-Origin header; without
+    // it, only this site's own pages can read the catalogue.
+    put('_headers', new Blob([`${open ? '/*\n  Access-Control-Allow-Origin: *\n' : ''}/catalogue\n  Content-Type: application/json; charset=utf-8\n  Cache-Control: no-cache\n/catalogue.json\n  Cache-Control: no-cache\n`]));
     put('_redirects', new Blob([`/catalogue  /catalogue.json  200\n`]));
     // The same two things for ordinary (Apache) web hosting, which ignores the files above.
-    put('.htaccess', new Blob([`# Lets players on other websites read this catalogue and its music.\n<IfModule mod_headers.c>\n  Header set Access-Control-Allow-Origin "*"\n  # Always check for a newer catalogue, so it never points at files a new upload replaced.\n  <FilesMatch "^catalogue(\\.json)?$">\n    Header set Cache-Control "no-cache"\n  </FilesMatch>\n</IfModule>\n# The catalogue file has no extension, so say what it is.\n<Files "catalogue">\n  ForceType application/json\n</Files>\nAddType application/json .json\n`]));
+    put('.htaccess', new Blob([`${open ? '# Lets players on other websites read this catalogue and its music.\n' : ''}<IfModule mod_headers.c>\n${open ? '  Header set Access-Control-Allow-Origin "*"\n' : ''}  # Always check for a newer catalogue, so it never points at files a new upload replaced.\n  <FilesMatch "^catalogue(\\.json)?$">\n    Header set Cache-Control "no-cache"\n  </FilesMatch>\n</IfModule>\n# The catalogue file has no extension, so say what it is.\n<Files "catalogue">\n  ForceType application/json\n</Files>\nAddType application/json .json\n`]));
 
     // The home page is the records page, told where it is.
     const ogImg = releases[0].artworkUrl;
@@ -961,7 +972,7 @@ $('#make').addEventListener('click', async () => {
 <meta name="description" content="${attr(about || `Records by ${name}, free to listen to.`)}">
 <meta property="og:title" content="${attr(name)}"><meta property="og:description" content="${attr(about || `Records by ${name}, free to listen to.`)}"><meta property="og:type" content="website">
 <meta property="og:image" content="${attr(ogImg)}">${address ? `<meta property="og:url" content="${attr(address + '/')}">` : ''}<meta name="twitter:card" content="summary_large_image">
-<link rel="alternate" type="application/json" title="${attr(name)} catalogue" href="catalogue">`;
+${open ? `<link rel="alternate" type="application/json" title="${attr(name)} catalogue" href="catalogue">` : ''}`;
     const home = pages['records.html'].replace(/<title>[^<]*<\/title>/, head).replace("const BASE_URL = '';", "const BASE_URL = '.';").replace("const MORE_URL = './';", "const MORE_URL = 'toys/';");
     put('index.html', new Blob([home], { type: 'text/html' }));
     for (const t of TOYS) put('toys/' + t, new Blob([pages[t].replace("const BASE_URL = '';", "const BASE_URL = '..';")], { type: 'text/html' }));
@@ -979,7 +990,7 @@ $('#make').addEventListener('click', async () => {
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111;color:#eee;font:16px system-ui,sans-serif}a{color:#e9c46a}</style></head>
 <body><p><a href="${attr(go)}">${esc(t.title)}</a></p><script>location.replace(${JSON.stringify(go)})<\/script></body></html>`], { type: 'text/html' }));
     }
-    put('README.txt', new Blob([readme(name, address)], { type: 'text/plain' }));
+    put('README.txt', new Blob([readme(name, address, open)], { type: 'text/plain' }));
 
     say('Packing it all into one file…', .9);
     const z = await zip(out, p => say('Packing it all into one file…', .9 + p * .09));
@@ -996,7 +1007,7 @@ $('#make').addEventListener('click', async () => {
   } finally { busy = false; $('#make').disabled = false; render(); }
 });
 function download(href, name) { const a = document.createElement('a'); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
-function readme(name, address) {
+function readme(name, address, open) {
   return `This folder is ${name}'s website.
 
 Everything is in here: the music, the covers, the pages, and a file called
@@ -1034,11 +1045,15 @@ The addresses of your records and songs stay the same from one version to
 the next, so links people have shared keep working.
 
 MAKE IT YOUR OWN
-Once the site is online, your catalogue is public at its address followed by
+${open ? `Once the site is online, your catalogue is public at its address followed by
 /catalogue${address ? ` (${address}/catalogue)` : ''}. Anything that can read it can play
 your music, including pages you dream up yourself: describe what you'd like
 to an AI assistant such as Claude or ChatGPT, give it that address and this
-description of the format, and it can build it for you:
+description of the format, and it can build it for you:` : `Your catalogue is kept to this site: other websites can't read it. Pages of
+your own can still use it if they're put in this folder (next to index.html).
+Describe what you'd like to an AI assistant such as Claude or ChatGPT, give it
+your catalogue's address${address ? ` (${address}/catalogue)` : ''} and this description of the
+format, and it can build it for you:`}
 ${SPEC_URL}
 `;
 }
@@ -1050,12 +1065,13 @@ function yourOwn() {
   const prompt = `My music is published as a catalogue at ${site}/catalogue. It's a JSON file listing my records and their songs, with the address of every song's audio and every cover, in the format described here: ${SPEC_URL}
 
 Please make me a single web page, as one HTML file, that loads my catalogue from that address each time it opens (so it stays up to date when I add music) and [describe what you'd like: a page in the style of my last album, a jukebox, a player that only plays my B-sides, a game where…].`;
+  const open = $('#open').checked;
   return `<div class="own">
     <h4>Then make it your own</h4>
-    <p>Your music now has a public catalogue at <code>${esc(site)}/catalogue</code>, and anything that can read it can play your music. That includes pages you dream up yourself. Describe what you'd like to an AI assistant such as Claude or ChatGPT, give it your catalogue's address, and it can build you a page that works with your music and stays up to date as you add more. Here's a starting point to copy and finish:</p>
+    <p>${open ? `Your music now has a public catalogue at <code>${esc(site)}/catalogue</code>, and anything that can read it can play your music. That includes pages you dream up yourself.` : `Your music has a catalogue at <code>${esc(site)}/catalogue</code>, kept to your own site, so pages of your own can use it as long as they live in your site's folder.`} Describe what you'd like to an AI assistant such as Claude or ChatGPT, give it your catalogue's address, and it can build you a page that works with your music and stays up to date as you add more. Here's a starting point to copy and finish:</p>
     <textarea class="in" id="ownPrompt" rows="7" spellcheck="false">${esc(prompt)}</textarea>
     <button class="btn" id="ownCopy" type="button">Copy</button>
-    <p class="own-note">Put the page it gives you on any host, including in this site's folder alongside the others, or anywhere else at all: it will find your music by the address.</p>
+    <p class="own-note">${open ? "Put the page it gives you on any host, including in this site's folder alongside the others, or anywhere else at all: it will find your music by the address." : "Put the page it gives you in your site's folder, next to index.html, and upload the site again. As your catalogue is kept to your own site, a page anywhere else can't read it."}</p>
   </div>`;
 }
 function wireYourOwn() {
