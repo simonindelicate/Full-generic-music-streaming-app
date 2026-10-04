@@ -199,7 +199,7 @@ label.f small{color:var(--faint)}
       <p class="hosts-lede">The site this makes is one zip file of ordinary files, so you can put it on any of these, and move it from one to another later.</p>
       <div class="host-grid">
         <div class="host"><b>Netlify</b><span class="tag">Quickest</span>
-          <p>Drag the zip onto a web page and you have a site, with no account needed to start.</p>
+          <p>Drop the zip onto a web page and you have a site. Claim it straight away with a free account (no card needed), or it's password-protected and gone within the hour.</p>
           <p class="catch">The catch: the free plan has a monthly allowance, used up by listening and by each upload. <span id="netlifyPlays"></span>If it runs out, Netlify switches the site off until the next month. Fine for trying things out or a small audience.</p></div>
         <div class="host"><b>Cloudflare Pages</b><span class="tag">Best free option</span>
           <p>A free account and a few more clicks, then upload the same zip.</p>
@@ -1014,9 +1014,11 @@ Everything is in here: the music, the covers, the pages, and a file called
 "catalogue" that lists it all, which is what the players read.
 
 PUTTING IT ONLINE
-Go to https://app.netlify.com/drop and drag this zip file (or the folder,
-once unzipped) onto the page. You'll be given a web address straight away.
-Make a free account when it offers, so the site stays up.
+Go to https://app.netlify.com/drop and drop this zip file onto the page (or
+tap to choose it, on a phone). Then press "Claim this site" straight away and
+make a free account (no card needed): until you do, the site is hidden behind
+a password and disappears after an hour. Your site's page on Netlify then
+shows its address, ending in .netlify.app.
 
 Netlify's free plan has a monthly allowance, used up by listening and by
 each upload. If it runs out, Netlify switches the site off until the next
@@ -1096,10 +1098,10 @@ function showDone(fname, size, count, big, hasAddress) {
     // needs full addresses, so there's a second, quick step once it has one.
     d.innerHTML = `<h3>Nearly there.</h3>${got}
     <ol class="how">
-      <li><b>Open Netlify Drop</b><span>It's free, and you don't need an account to start. <a class="btn primary" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
-      <li><b>Drag <code>${esc(fname)}</code> onto that page</b><span>From your downloads, straight onto the dotted box. There's no need to unzip it.</span></li>
-      <li><b>Make a free account when Netlify offers</b><span>Otherwise the site is taken down after a while. You can choose a nicer address in its settings now, or use a domain of your own. Remember the free plan's monthly allowance (see "Where it will live" above): if you expect a lot of listeners, use Cloudflare Pages instead.</span></li>
-      <li><b>Paste your site's address here</b><span>This finishes it: your music's catalogue has to give the full address of every song, so other players and sites can find them. <form class="finish" id="finish" novalidate><input class="in" name="addr" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"><button class="btn primary">Finish my site</button></form></span></li>
+      <li><b>Open Netlify Drop</b><span>It's free. <a class="btn primary" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
+      <li><b>Put <code>${esc(fname)}</code> on that page</b><span>Drag it from your downloads onto the dotted box, or on a phone tap the box and choose it. There's no need to unzip it.</span></li>
+      <li><b>Press "Claim this site" straight away</b><span>It's a free account, with no card needed. Until you claim it, your site is hidden behind a password and disappears after an hour. Remember the free plan's monthly allowance (see "Where it will live" above): if you expect a lot of listeners, use Cloudflare Pages instead.</span></li>
+      <li><b>Copy your site's address, and paste it here</b><span>Once it's claimed, your site's page on Netlify shows the address near the top, ending in <code>.netlify.app</code> (you can choose a nicer name in its settings, or use a domain of your own). On the page you dropped the zip onto, the address is the small bar under "Claim this site", with a Copy button beside it. Pasting it here finishes your site: its catalogue has to give the full address of every song, so other players and sites can find them. <form class="finish" id="finish" novalidate><input class="in" name="addr" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://your-site.netlify.app"><button class="btn primary">Finish my site</button></form></span></li>
     </ol>
     <div class="later">${elsewhere}</div>`;
     $('#finish').addEventListener('submit', e => {
@@ -1113,7 +1115,7 @@ function showDone(fname, size, count, big, hasAddress) {
     d.innerHTML = `<h3>Your website is ready.</h3>${got}
     <ol class="how">
       <li><b>If your site is already on Netlify</b><span>Open it on Netlify, go to <b>Deploys</b>, and drag <code>${esc(fname)}</code> onto the box there. A few seconds later the new version is live.</span></li>
-      <li><b>If it isn't online yet</b><span>Drag the zip onto Netlify Drop instead, and make a free account when it offers. <a class="btn" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
+      <li><b>If it isn't online yet</b><span>Put the zip on Netlify Drop instead, and press "Claim this site" straight away: until you do, it's hidden behind a password and disappears after an hour. <a class="btn" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
     </ol>
     <div class="later">${later}${elsewhere}</div>${yourOwn()}`;
     wireYourOwn();
