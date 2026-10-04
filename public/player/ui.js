@@ -84,14 +84,8 @@ let artworkEventsBound = false;
 let colorThiefImg = null;
 const paletteCache = new Map();
 const artworkPreloadCache = new Map();
-const audioPreloadCache = new Map();
-// Cache the resolved (post-redirect) MP3 URL for each stream URL so that
-// subsequent plays bypass the Netlify function redirect round-trip entirely.
-const resolvedUrlCache = new Map();
-// Dedicated Audio element kept hot with the next track so the transition is
-// near-instant even when the page is backgrounded (screen off, tab hidden).
-let nextTrackAudio = null;
-let nextTrackAudioUrl = null;
+// Songs downloaded in full ahead of time, by track id (see "Prefetched audio").
+const prefetchedAudio = new Map();
 // Screen Wake Lock handle — held while audio is actively playing to discourage
 // the browser from throttling JavaScript execution on mobile.
 let wakeLock = null;
@@ -770,9 +764,9 @@ function resolveArtwork(track) {
 
 function preloadTrackAssets(track) {
   if (!track) return;
+  // Artwork only: audio is fetched ahead by prefetchUpcoming(), one song at a time,
+  // so that extra downloads never compete with the song that's playing.
   preloadArtwork(resolveArtwork(track));
-  const trackSrc = resolveTrackUrl(track);
-  if (trackSrc) preloadAudio(trackSrc);
 }
 
 function warmTrackAssets(tracks = [], limit = 3) {
@@ -851,66 +845,92 @@ function preloadArtwork(url) {
   return loadPromise;
 }
 
-function preloadAudio(url) {
-  if (!url || audioPreloadCache.has(url)) return audioPreloadCache.get(url);
+// ── Prefetched audio ──────────────────────────────────────────────────────────
+// A native app is guaranteed by the operating system to keep running while it
+// plays. A web page is not, and its weakest moment is the gap between songs: the
+// page falls silent, and a busy or locked phone may suspend it before the next
+// song has been fetched (which used to mean a Netlify function, a database read
+// and a redirect, all in the background). So while each song plays, the whole of
+// the next one is downloaded into memory, and the hand-over points the same audio
+// element at that local copy: no network and nothing to wait for, so it happens
+// in the same instant as the 'ended' event, before the phone can intervene.
+const PREFETCH_MAX_BYTES = 80 * 1024 * 1024; // leave hour-long mixes to stream
 
-  const audio = new Audio();
-  audio.preload = 'auto';
-  audio.src = url;
-
-  const loadPromise = new Promise(resolve => {
-    const finalize = () => {
-      // currentSrc is the post-redirect URL — cache it so playTrack can use it
-      // directly, skipping the Netlify function redirect on every subsequent play.
-      const resolved = audio.currentSrc;
-      if (resolved && resolved !== url) resolvedUrlCache.set(url, resolved);
-      resolve(url);
-    };
-    audio.addEventListener('canplaythrough', finalize, { once: true });
-    audio.addEventListener('error', finalize, { once: true });
-  });
-
-  audioPreloadCache.set(url, loadPromise);
-  return loadPromise;
+function upcomingTrack(track = state.currentTrack) {
+  // The next track the queue will play, without moving the queue along.
+  const q = state.queue;
+  if (!q || !track) return null;
+  const items = q.shuffleEnabled && q.shuffledItems.length ? q.shuffledItems : q.items;
+  const pos = items.findIndex(t => t._id === track._id);
+  if (pos === -1) return null;
+  if (pos + 1 < items.length) return items[pos + 1];
+  // At the end, repeat starts again from the top (a shuffled repeat reshuffles,
+  // so its next track can't be known in advance).
+  return q.repeatEnabled && !q.shuffleEnabled ? items[0] : null;
 }
 
-// Returns the direct MP3 URL if a prior preload already resolved the redirect,
-// otherwise returns the stream URL as-is. This eliminates the API round-trip
-// for the most common case (next track was preloaded while current track played).
-function getEffectiveAudioUrl(streamUrl) {
-  return resolvedUrlCache.get(streamUrl) || streamUrl;
+function audioTypeFor(url, given) {
+  if (/^audio\//i.test(given || '')) return given;
+  if (/\.m4a(\?|$)|\.mp4(\?|$)|\.aac(\?|$)/i.test(url)) return 'audio/mp4';
+  if (/\.ogg(\?|$)|\.oga(\?|$)/i.test(url)) return 'audio/ogg';
+  if (/\.wav(\?|$)/i.test(url)) return 'audio/wav';
+  return 'audio/mpeg';
 }
 
-// Keep a dedicated next-track Audio element fully buffered.  Called whenever
-// the adjacent-track prime list changes, or ~30 s before the current track ends.
-function primeNextTrackAudio(track) {
-  if (!track) return;
-  // Use the already-resolved direct URL when available so the browser's media
-  // cache is populated at the same URL that state.audio will use — meaning no
-  // redirect round-trip is needed when the track transitions in background.
-  const url = getEffectiveAudioUrl(resolveTrackUrl(track));
-  if (!url || url === nextTrackAudioUrl) return; // already primed
-
-  nextTrackAudioUrl = url;
-  if (!nextTrackAudio) {
-    nextTrackAudio = new Audio();
-    nextTrackAudio.preload = 'auto';
-    nextTrackAudio.setAttribute('playsinline', '');
+async function prefetchTrack(track) {
+  const key = String(track?._id ?? '');
+  if (!key || prefetchedAudio.has(key)) return;
+  const src = resolveTrackUrl(track);
+  if (!src) return;
+  const entry = { status: 'loading', url: null, controller: new AbortController() };
+  prefetchedAudio.set(key, entry);
+  try {
+    const response = await fetch(src, { signal: entry.controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const length = Number(response.headers.get('content-length')) || 0;
+    if (length > PREFETCH_MAX_BYTES) throw new Error('too long to prefetch');
+    const type = response.headers.get('content-type') || '';
+    if (/text\/html|json/i.test(type)) throw new Error('not audio');
+    const body = await response.blob();
+    if (prefetchedAudio.get(key) !== entry) return; // dropped meanwhile
+    // Safari won't play a blob whose type isn't an audio type, and storage often
+    // serves files as application/octet-stream.
+    const blob = /^audio\//i.test(body.type) ? body : new Blob([body], { type: audioTypeFor(response.url || src, type) });
+    entry.url = URL.createObjectURL(blob);
+    entry.status = 'ready';
+  } catch (_) {
+    // Not fatal: this song will simply stream when its turn comes, as before.
+    // (Typical causes: no CORS header on the audio host, a very long file, offline.)
+    if (prefetchedAudio.get(key) === entry) entry.status = 'failed';
   }
-  // Capture resolved URL when it becomes available.
-  // Guard: rapid calls to primeNextTrackAudio leave stale { once: true } listeners
-  // on the element. When the *next* load fires canplaythrough, every stale listener
-  // sees nextTrackAudio.currentSrc for the *new* track and would cache that URL
-  // under the *old* stream URL — poisoning the cache so a later playTrack call
-  // plays the wrong audio file. The nextTrackAudioUrl check detects staleness.
-  const onCanPlay = () => {
-    if (nextTrackAudioUrl !== url) return;
-    const resolved = nextTrackAudio.currentSrc;
-    if (resolved && resolved !== url) resolvedUrlCache.set(url, resolved);
-  };
-  nextTrackAudio.removeEventListener('canplaythrough', onCanPlay);
-  nextTrackAudio.addEventListener('canplaythrough', onCanPlay, { once: true });
-  nextTrackAudio.src = url;
+}
+
+function dropPrefetched(key) {
+  const entry = prefetchedAudio.get(key);
+  if (!entry) return;
+  entry.controller?.abort();
+  // Never pull the file out from under the audio element.
+  if (entry.url && state.audio?.src !== entry.url) URL.revokeObjectURL(entry.url);
+  else if (entry.url) return; // still playing: keep it; it's dropped on the next change
+  prefetchedAudio.delete(key);
+}
+
+// Keep the current song and the next one, fetching the next if it isn't here yet.
+// Cheap to call often: it's driven by the audio element's own events, which keep
+// firing in the background while sound is playing, unlike timers.
+function prefetchUpcoming() {
+  const current = state.currentTrack;
+  if (!current) return;
+  const next = upcomingTrack(current);
+  const keep = new Set([String(current._id), next ? String(next._id) : '']);
+  for (const key of [...prefetchedAudio.keys()]) if (!keep.has(key)) dropPrefetched(key);
+  if (next && !next.paid) prefetchTrack(next);
+  else if (next && next.paid && getAccessToken()) prefetchTrack(next);
+}
+
+function prefetchedUrlFor(track) {
+  const entry = prefetchedAudio.get(String(track?._id ?? ''));
+  return entry?.status === 'ready' ? entry.url : null;
 }
 
 function buildArtworkLayers(primary, fallback) {
@@ -2106,8 +2126,6 @@ function primeAdjacentTracks(track) {
   if (nextTrack) nearby.push(nextTrack);
   if (currentIndex > 0) nearby.push(items[currentIndex - 1]);
   warmTrackAssets(nearby, 3);
-  // Keep the dedicated next-track buffer hot so the transition is instant.
-  if (nextTrack) primeNextTrackAudio(nextTrack);
 }
 
 function activateSubscribedState() {
@@ -2198,11 +2216,11 @@ function playTrack(track, { autoplay = true } = {}) {
     return;
   }
 
-  // Load via the stream function URL directly. The 302 redirect it returns is
-  // browser-cacheable (Cache-Control: private, max-age=300), so once
-  // primeNextTrackAudio has warmed the cache for this track the transition
-  // skips the function round-trip even when the page is backgrounded.
-  const src = getEffectiveAudioUrl(streamUrl);
+  // Play the copy downloaded while the last song played, if there is one, so the
+  // change of song needs no network at all; otherwise stream as usual.
+  const src = prefetchedUrlFor(track) || streamUrl;
+  // A download of this song still under way would only duplicate the stream.
+  if (prefetchedAudio.get(String(track._id))?.status === 'loading') dropPrefetched(String(track._id));
   // Clear any pending watchdog from the previous track before swapping src.
   clearTrackEndWatchdog();
   state.audio.src = src;
@@ -2516,20 +2534,9 @@ function bindEvents() {
   document.addEventListener('keydown', onKeyboard);
   state.audio.addEventListener('timeupdate', () => {
     updateTime();
-    // ~30 s before the end, ensure the next track's audio is pre-buffered so
-    // the transition is near-instant even with the screen off / page hidden.
-    const dur = state.audio.duration;
-    const remaining = dur - state.audio.currentTime;
-    if (remaining > 0 && remaining < 30 && state.queue) {
-      // Peek at the next track without advancing the queue pointer.
-      const q = state.queue;
-      const orderedItems = q.shuffleEnabled && q.shuffledItems.length ? q.shuffledItems : q.items;
-      const currentPos = orderedItems.findIndex(t => t._id === state.currentTrack?._id);
-      const peekNext = currentPos !== -1 && currentPos + 1 < orderedItems.length
-        ? orderedItems[currentPos + 1]
-        : null;
-      if (peekNext) primeNextTrackAudio(peekNext);
-    }
+    // Fetch the next song in full once this one has had a few seconds to buffer.
+    // (Also picks up changes to the queue, such as shuffle being switched on.)
+    if (state.audio.currentTime > 3 || state.audio.src.startsWith('blob:')) prefetchUpcoming();
   });
   state.audio.addEventListener('loadedmetadata', updateTime);
   state.audio.addEventListener('durationchange', updateTime);
@@ -2582,9 +2589,18 @@ function bindEvents() {
     if (!state.audio.paused && userWantsToPlay) armTrackEndWatchdog();
   });
   state.audio.addEventListener('error', async () => {
+    const track = state.currentTrack;
+    // A downloaded copy that won't play: forget it and stream the song instead.
+    if (track && state.audio.src.startsWith('blob:')) {
+      const key = String(track._id);
+      const entry = prefetchedAudio.get(key);
+      if (entry?.url) URL.revokeObjectURL(entry.url);
+      prefetchedAudio.set(key, { status: 'failed', url: null, controller: null });
+      const streamUrl = resolveTrackUrl(track);
+      if (streamUrl) { state.audio.src = streamUrl; if (userWantsToPlay) state.audio.play().catch(() => {}); return; }
+    }
     setBufferingState(false);
     syncPlayState();
-    const track = state.currentTrack;
     if (!track?.paid) {
       // Show a toast for network or unplayable-file errors so the user knows
       // why playback stopped rather than seeing silent failure.
