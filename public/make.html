@@ -667,6 +667,10 @@ function madeCover(r, size) {
   lines.forEach((l, i) => g.fillText(l, 70 * k, 930 * k - (lines.length - 1 - i) * fs * 1.0));
   return c.toDataURL('image/jpeg', .9);
 }
+async function shortHash(blob) {
+  try { const d = new Uint8Array(await crypto.subtle.digest('SHA-1', await blob.arrayBuffer())); return [...d.slice(0, 4)].map(b => b.toString(16).padStart(2, '0')).join(''); }
+  catch (_) { return rid().slice(0, 8); }
+}
 async function jpeg(blob, max = 1400) {
   const bm = await createImageBitmap(blob);
   const s = Math.min(1, max / Math.max(bm.width, bm.height));
@@ -851,7 +855,9 @@ $('#make').addEventListener('click', async () => {
       if (r.cover && r.cover.path && !r.cover.made) { coverPath = r.cover.path; out.push({ path: coverPath, blob: r.cover.blob }); }
       else {
         const blob = r.cover ? await jpeg(r.cover.blob) : await (await fetch(madeCover(r, 1400))).blob();
-        coverPath = free(`music/${r.id}/cover-${rid().slice(0, 4)}.jpg`); put(coverPath, blob);
+        // Named after its contents, so an unchanged cover keeps the same address from one
+        // version of the site to the next, and a changed one never reuses an old address.
+        coverPath = free(`music/${r.id}/cover-${await shortHash(blob)}.jpg`); put(coverPath, blob);
         r.cover = { blob, url: r.cover ? r.cover.url : URL.createObjectURL(blob), path: coverPath, made: !r.cover };
       }
       tick(1, `Preparing the cover for ${r.title}…`);
@@ -890,10 +896,10 @@ $('#make').addEventListener('click', async () => {
     const json = JSON.stringify(feed, null, 1);
     put('catalogue.json', new Blob([json], { type: 'application/json' }));
     put('catalogue', new Blob([json], { type: 'application/json' })); // the address every toy and aggregator asks for
-    put('_headers', new Blob([`/*\n  Access-Control-Allow-Origin: *\n/catalogue\n  Content-Type: application/json; charset=utf-8\n  Cache-Control: public, max-age=60\n/catalogue.json\n  Cache-Control: public, max-age=60\n`]));
+    put('_headers', new Blob([`/*\n  Access-Control-Allow-Origin: *\n/catalogue\n  Content-Type: application/json; charset=utf-8\n  Cache-Control: no-cache\n/catalogue.json\n  Cache-Control: no-cache\n`]));
     put('_redirects', new Blob([`/catalogue  /catalogue.json  200\n`]));
     // The same two things for ordinary (Apache) web hosting, which ignores the files above.
-    put('.htaccess', new Blob([`# Lets players on other websites read this catalogue and its music.\n<IfModule mod_headers.c>\n  Header set Access-Control-Allow-Origin "*"\n</IfModule>\n# The catalogue file has no extension, so say what it is.\n<Files "catalogue">\n  ForceType application/json\n</Files>\nAddType application/json .json\n`]));
+    put('.htaccess', new Blob([`# Lets players on other websites read this catalogue and its music.\n<IfModule mod_headers.c>\n  Header set Access-Control-Allow-Origin "*"\n  # Always check for a newer catalogue, so it never points at files a new upload replaced.\n  <FilesMatch "^catalogue(\\.json)?$">\n    Header set Cache-Control "no-cache"\n  </FilesMatch>\n</IfModule>\n# The catalogue file has no extension, so say what it is.\n<Files "catalogue">\n  ForceType application/json\n</Files>\nAddType application/json .json\n`]));
 
     // The home page is the records page, told where it is.
     const ogImg = releases[0].artworkUrl;
