@@ -892,6 +892,8 @@ $('#make').addEventListener('click', async () => {
     put('catalogue', new Blob([json], { type: 'application/json' })); // the address every toy and aggregator asks for
     put('_headers', new Blob([`/*\n  Access-Control-Allow-Origin: *\n/catalogue\n  Content-Type: application/json; charset=utf-8\n  Cache-Control: public, max-age=60\n/catalogue.json\n  Cache-Control: public, max-age=60\n`]));
     put('_redirects', new Blob([`/catalogue  /catalogue.json  200\n`]));
+    // The same two things for ordinary (Apache) web hosting, which ignores the files above.
+    put('.htaccess', new Blob([`# Lets players on other websites read this catalogue and its music.\n<IfModule mod_headers.c>\n  Header set Access-Control-Allow-Origin "*"\n</IfModule>\n# The catalogue file has no extension, so say what it is.\n<Files "catalogue">\n  ForceType application/json\n</Files>\nAddType application/json .json\n`]));
 
     // The home page is the records page, told where it is.
     const ogImg = releases[0].artworkUrl;
@@ -945,8 +947,17 @@ Go to https://app.netlify.com/drop and drag this zip file (or the folder,
 once unzipped) onto the page. You'll be given a web address straight away.
 Make a free account when it offers, so the site stays up.
 
-Any other host that serves plain files works too: Cloudflare Pages, GitHub
-Pages, or ordinary web space. Upload everything in this folder as it is.
+Any other host that serves plain files works too:
+
+- Ordinary web hosting (GoDaddy, IONOS, 123-reg, anything with cPanel):
+  open the File Manager, go into public_html, upload this zip and choose
+  Extract. Extracting it on the server keeps the hidden .htaccess file,
+  which lets players on other websites read your music. Switch on HTTPS
+  (SSL). Website builders like Wix or Squarespace can't take files.
+- Cloudflare Pages: no limit on listening; each file must be under 25 MB.
+- GitHub Pages: upload everything in this folder as it is.
+
+The address must start with https://, or browsers won't play the music.
 
 ADDING MORE MUSIC LATER
 Keep this zip file safe. Open make.html on your site${address ? ` (${address}/make.html)` : ''},
@@ -960,9 +971,11 @@ the next, so links people have shared keep working.
 }
 function showDone(fname, size, count, big, hasAddress) {
   const d = $('#done'); d.hidden = false;
-  const elsewhere = `<details><summary>Rather put it somewhere else?</summary><ul>
-        <li><b>Cloudflare Pages</b> sets no limit on how much people listen on its free plan. Make a free account, create a Pages project and choose to upload your files, then give it this zip.${big ? ` <i>${big} of your files ${big === 1 ? 'is' : 'are'} over the 25 MB it allows for each one, though.</i>` : ''}</li>
-        <li><b>GitHub Pages</b>, or any ordinary web space you already have: unzip the file and upload everything inside it, just as it is.</li>
+  const elsewhere = `<details><summary>Rather put it somewhere else?</summary>
+      <p style="margin-top:10px">Your site is just a folder of ordinary files, so it works on almost any web host. Whichever you choose, the address must start with <code>https://</code>, or browsers won't play the music.</p><ul>
+        <li><b>Hosting you already pay for</b> (GoDaddy, IONOS, 123-reg and the like). In your control panel, open the File Manager, go into <code>public_html</code> (or a folder inside it), upload the zip, then choose <b>Extract</b>. Extracting it there, rather than unzipping it on your computer first, keeps a hidden file called <code>.htaccess</code> that lets other sites' players read your music. Make sure HTTPS (SSL) is switched on. If the zip is too big for the File Manager, unzip it on your computer and upload everything inside it by FTP, including the hidden files. This needs a <i>hosting</i> plan: website builders such as Wix, Squarespace or GoDaddy's Website Builder don't let you upload your own files.</li>
+        <li><b>Cloudflare Pages</b> sets no limit on how much people listen on its free plan. Make a free account, create a Pages project, choose to upload your files, and give it this zip.${big ? ` <i>${big} of your files ${big === 1 ? 'is' : 'are'} over the 25 MB it allows for each one, though.</i>` : ''}</li>
+        <li><b>GitHub Pages</b>: unzip the file and upload everything inside it to a repository, just as it is.</li>
       </ul></details>`;
   const got = `<p>It's downloading now as <b>${esc(fname)}</b> (${mb(size)}). If it didn't start, <a href="${lastZip}" download="${esc(fname)}">download it here</a>.</p>`;
   const later = `<p><b>To add more music later</b>, keep this zip safe. Come back here (your site has its own copy of this page at <code>/make.html</code>), drop the zip in first, then your new songs, and upload the new zip in the same way. Links people have shared keep working.</p>`;
