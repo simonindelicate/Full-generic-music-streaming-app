@@ -667,6 +667,14 @@ function madeCover(r, size) {
   lines.forEach((l, i) => g.fillText(l, 70 * k, 930 * k - (lines.length - 1 - i) * fs * 1.0));
   return c.toDataURL('image/jpeg', .9);
 }
+// A file from the computer is only a pointer to it, read again whenever it's used. Before a
+// file goes into a site it's copied into memory, so that later versions of the site (such as
+// the 'Finish my site' step) don't depend on it staying unchanged on disk.
+async function own(blob) {
+  if (!(blob instanceof File) || blob._owned) return blob;
+  try { const copy = new Blob([await blob.arrayBuffer()], { type: blob.type }); copy._owned = true; return copy; }
+  catch (_) { throw new Error(`"${blob.name}" couldn't be read. It may have been moved, renamed or replaced since you added it: add it again and try once more.`); }
+}
 async function shortHash(blob) {
   try { const d = new Uint8Array(await crypto.subtle.digest('SHA-1', await blob.arrayBuffer())); return [...d.slice(0, 4)].map(b => b.toString(16).padStart(2, '0')).join(''); }
   catch (_) { return rid().slice(0, 8); }
@@ -793,7 +801,10 @@ async function unzip(file) {
     let blob = file.slice(start, start + csize);
     if (method === 8) blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob();
     else if (method !== 0) continue;
-    out.push({ path: name, file: new File([blob], name.split('/').pop()) });
+    // Copied out of the zip now, not read from it later: if the zip on disk is replaced in the
+    // meantime (say by saving the new version of the site over it), a later read would get
+    // pieces of the new file instead.
+    out.push({ path: name, file: new File([await blob.arrayBuffer()], name.split('/').pop()) });
   }
   return out;
 }
@@ -852,7 +863,7 @@ $('#make').addEventListener('click', async () => {
       const artist = r.artist.trim() || name;
       // The cover: kept if unchanged, otherwise made into a sensible JPEG.
       let coverPath;
-      if (r.cover && r.cover.path && !r.cover.made) { coverPath = r.cover.path; out.push({ path: coverPath, blob: r.cover.blob }); }
+      if (r.cover && r.cover.path && !r.cover.made) { r.cover.blob = await own(r.cover.blob); coverPath = r.cover.path; out.push({ path: coverPath, blob: r.cover.blob }); }
       else {
         const blob = r.cover ? await jpeg(r.cover.blob) : await (await fetch(madeCover(r, 1400))).blob();
         // Named after its contents, so an unchanged cover keeps the same address from one
@@ -866,6 +877,7 @@ $('#make').addEventListener('click', async () => {
         const t = r.tracks[j];
         if (!t.file) continue;
         let path = t.path;
+        if (t.kind === 'keep') t.file = await own(t.file);
         if (path) out.push({ path, blob: t.file });
         else if (t.kind === 'keep') { path = free(`music/${r.id}/${String(j + 1).padStart(2, '0')}-${slug(t.title)}.${t.ext}`); put(path, t.file); }
         else {
