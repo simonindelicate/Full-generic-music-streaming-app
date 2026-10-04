@@ -17,7 +17,7 @@ body{margin:0;min-height:100dvh;background:var(--bg);color:var(--ink);font:400 1
 body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(1200px 600px at 85% -10%,rgb(233 196 106/.09),transparent 60%),radial-gradient(900px 500px at -10% 110%,rgb(120 190 160/.06),transparent 60%)}
 main{position:relative;max-width:900px;margin:0 auto;padding:clamp(32px,8vw,96px) clamp(16px,5vw,40px) 120px}
 a{color:var(--accent)}
-button,input,select{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 [hidden]{display:none!important}
 h1{margin:0;font:400 clamp(2.9rem,9vw,5.6rem)/.95 var(--serif);letter-spacing:-.02em}
@@ -126,6 +126,12 @@ label.f small{color:var(--faint)}
 .later{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:14.5px}
 .later p{margin:0 0 10px}
 .later details{margin-top:12px}
+.own{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:14.5px}
+.own h4{margin:0 0 8px;font:400 1.5rem/1.1 var(--serif);color:var(--ink)}
+.own p{margin:0 0 12px}
+.own code{color:var(--ink);overflow-wrap:anywhere}
+.own textarea{height:auto;padding:12px 14px;line-height:1.5;font-size:14px;resize:vertical;margin-bottom:10px}
+.own .own-note{margin:12px 0 0;color:var(--faint)}
 .later summary{cursor:pointer;color:var(--ink)}
 .later ul{margin:10px 0 0;padding-left:20px}
 .later li{margin:6px 0}
@@ -1026,7 +1032,38 @@ Deploys page).
 
 The addresses of your records and songs stay the same from one version to
 the next, so links people have shared keep working.
+
+MAKE IT YOUR OWN
+Once the site is online, your catalogue is public at its address followed by
+/catalogue${address ? ` (${address}/catalogue)` : ''}. Anything that can read it can play
+your music, including pages you dream up yourself: describe what you'd like
+to an AI assistant such as Claude or ChatGPT, give it that address and this
+description of the format, and it can build it for you:
+${SPEC_URL}
 `;
+}
+// Once the catalogue is online, anyone can build on it: including the musician, by asking an
+// AI assistant to make them whatever site or player they can describe.
+const SPEC_URL = 'https://github.com/simonindelicate/Full-generic-music-streaming-app/blob/main/docs/catalogue-format.md';
+function yourOwn() {
+  const site = $('#address').value.trim().replace(/\/+$/, '');
+  const prompt = `My music is published as a catalogue at ${site}/catalogue. It's a JSON file listing my records and their songs, with the address of every song's audio and every cover, in the format described here: ${SPEC_URL}
+
+Please make me a single web page, as one HTML file, that loads my catalogue from that address each time it opens (so it stays up to date when I add music) and [describe what you'd like: a page in the style of my last album, a jukebox, a player that only plays my B-sides, a game where…].`;
+  return `<div class="own">
+    <h4>Then make it your own</h4>
+    <p>Your music now has a public catalogue at <code>${esc(site)}/catalogue</code>, and anything that can read it can play your music. That includes pages you dream up yourself. Describe what you'd like to an AI assistant such as Claude or ChatGPT, give it your catalogue's address, and it can build you a page that works with your music and stays up to date as you add more. Here's a starting point to copy and finish:</p>
+    <textarea class="in" id="ownPrompt" rows="7" spellcheck="false">${esc(prompt)}</textarea>
+    <button class="btn" id="ownCopy" type="button">Copy</button>
+    <p class="own-note">Put the page it gives you on any host, including in this site's folder alongside the others, or anywhere else at all: it will find your music by the address.</p>
+  </div>`;
+}
+function wireYourOwn() {
+  $('#ownCopy')?.addEventListener('click', async () => {
+    const t = $('#ownPrompt');
+    try { await navigator.clipboard.writeText(t.value); } catch (_) { t.select(); document.execCommand('copy'); }
+    toast('Copied');
+  });
 }
 function showDone(fname, size, count, big, hasAddress) {
   const d = $('#done'); d.hidden = false;
@@ -1062,7 +1099,8 @@ function showDone(fname, size, count, big, hasAddress) {
       <li><b>If your site is already on Netlify</b><span>Open it on Netlify, go to <b>Deploys</b>, and drag <code>${esc(fname)}</code> onto the box there. A few seconds later the new version is live.</span></li>
       <li><b>If it isn't online yet</b><span>Drag the zip onto Netlify Drop instead, and make a free account when it offers. <a class="btn" style="margin-top:10px" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Open Netlify Drop</a></span></li>
     </ol>
-    <div class="later">${later}${elsewhere}</div>`;
+    <div class="later">${later}${elsewhere}</div>${yourOwn()}`;
+    wireYourOwn();
   }
   d.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
