@@ -1,4 +1,4 @@
-# Catalogue 1.0 specification
+# RSMS 1.0: Really Simple Music Syndication
 
 ## Contents
 
@@ -14,6 +14,8 @@
 - Version history
 
 ## What is a catalogue?
+
+Really Simple Music Syndication (RSMS) is a way for musicians and labels to publish their music directly, so that any player, app or website can play it. An RSMS file is called a catalogue.
 
 A catalogue is a single JSON file that lists a musician's or a label's records, and for each record its songs, with the address of every song's audio. It plays the part for recorded music that an RSS feed plays for a podcast. A catalogue can be published by anyone who can put a file on a web server, and any program that reads catalogues can then present that music: as a player, a radio station, a shop window, a map, or anything else.
 
@@ -181,4 +183,4 @@ A reader:
 
 ## Version history
 
-1.0, October 2026: first written down, describing the format already published by the catalogue function of the self-hosted music streaming app and read by its catalogue toys.
+1.0, October 2026: first written down and named RSMS, describing the format already published by the catalogue function of the self-hosted music streaming app and read by its catalogue toys.
