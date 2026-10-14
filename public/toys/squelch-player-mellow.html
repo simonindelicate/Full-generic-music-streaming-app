@@ -351,15 +351,23 @@ body.is-playing .p-art{animation-play-state:running}
 'use strict';
 const API = catalogueBase();
 // A catalogue may give its files relative to itself (a home-made one does), so make every address whole.
+// It can also come from anyone's site, so it is treated as untrusted: addresses must be web
+// addresses, text must be text and numbers must be numbers. Anything else is dropped.
 function absolutise(list) {
-  let base; try { base = new URL(API + '/', location.href).href; } catch (_) { return list || []; }
-  const fix = u => { if (!u || typeof u !== 'string') return u; try { return new URL(u, base).href; } catch (_) { return u; } };
-  for (const r of list || []) {
-    if (r.artworkUrl) r.artworkUrl = fix(r.artworkUrl);
-    if (r.buyUrl) r.buyUrl = fix(r.buyUrl);
-    for (const t of r.tracks || []) { if (t.audioUrl) t.audioUrl = fix(t.audioUrl); if (t.artworkUrl) t.artworkUrl = fix(t.artworkUrl); }
+  let base; try { base = new URL(API + '/', location.href).href; } catch (_) { base = location.href; }
+  const fix = u => { if (!u || typeof u !== 'string') return undefined; try { const x = new URL(u, base); return /^https?:$/.test(x.protocol) ? x.href : undefined; } catch (_) { return undefined; } };
+  const txt = v => typeof v === 'string' ? v : typeof v === 'number' && isFinite(v) ? String(v) : undefined;
+  const num = v => { const n = typeof v === 'string' && v.trim() ? Number(v) : v; return typeof n === 'number' && isFinite(n) && n >= 0 ? n : undefined; };
+  const clean = (o, texts, nums, urls) => { texts.forEach(k => { if (k in o) o[k] = txt(o[k]); }); nums.forEach(k => { if (k in o) o[k] = num(o[k]); }); urls.forEach(k => { if (k in o) o[k] = fix(o[k]); }); };
+  const out = [];
+  for (const r of Array.isArray(list) ? list : []) {
+    if (!r || typeof r !== 'object') continue;
+    clean(r, ['id', 'title', 'artist', 'genre', 'year', 'description', 'label'], [], ['artworkUrl', 'buyUrl']);
+    r.tracks = (Array.isArray(r.tracks) ? r.tracks : []).filter(t => t && typeof t === 'object');
+    for (const t of r.tracks) clean(t, ['id', 'title', 'artist', 'genre', 'year', 'description'], ['trackNumber', 'durationSeconds'], ['audioUrl', 'artworkUrl']);
+    out.push(r);
   }
-  return list || [];
+  return out;
 }
 // Where the catalogue lives: ?catalogue=… in the address, then BASE_URL, then this site.
 function catalogueBase() {

@@ -2,6 +2,10 @@ import { state } from './state.js';
 import { loadLibrary } from './api.js';
 import { playerConfig } from './config.js';
 
+// Catalogue text can come from other people's catalogues (imports), so it is
+// always escaped before it goes into HTML.
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 const dom = {
   albumGallery: document.getElementById('albumGallery'),
   albumDetail: document.getElementById('albumDetail'),
@@ -1757,13 +1761,13 @@ function renderTracks(album) {
       ? (isSubscribed ? 'track-item paid is-subscribed' : 'track-item paid')
       : 'track-item';
     li.dataset.id = track._id;
-    const prefix = resolvedAlbum?.allTracks || resolvedAlbum?.pseudoType ? `${index + 1}.` : track.trackNumber ? `${track.trackNumber}.` : '';
+    const prefix = resolvedAlbum?.allTracks || resolvedAlbum?.pseudoType ? `${index + 1}.` : track.trackNumber ? `${escapeHtml(track.trackNumber)}.` : '';
     const lockIcon = (isPaid && paymentConfig?.paymentsEnabled !== false)
       ? isSubscribed
         ? '<span class="track-star" aria-label="Members track" title="Members track — you have full access">★</span>'
         : '<span class="track-lock" aria-label="Members only" title="Subscribe to unlock">&#128274;</span>'
       : '';
-    li.innerHTML = `<div>${prefix}${lockIcon}</div><div>${track.trackName}</div>`;
+    li.innerHTML = `<div>${prefix}${lockIcon}</div><div>${escapeHtml(track.trackName)}</div>`;
     li.addEventListener('click', () => playTrack(track));
     dom.tracksList.appendChild(li);
   });

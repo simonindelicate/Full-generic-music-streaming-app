@@ -964,7 +964,7 @@ function showReading(query) {
           <!-- Text anchored to bottom -->
           <div class="card-content">
             <div class="card-track-title">${escHtml(track.title || 'Untitled')}</div>
-            <div class="card-artist">${escHtml(track.artist || 'Unknown')}${track.year ? ` · ${track.year}` : ''}</div>
+            <div class="card-artist">${escHtml(track.artist || 'Unknown')}${track.year ? ` · ${escHtml(track.year)}` : ''}</div>
             <div class="card-interpretation">${terp}</div>
             <div class="card-play-hint">▶ &nbsp;tap to channel</div>
           </div>

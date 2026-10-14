@@ -35,6 +35,10 @@ function matchesTrackId(track, trackParam) {
   return false;
 }
 
+// Text and addresses can come from imported catalogues, so everything that
+// goes into the page is escaped.
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 function errorPage(message) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Player</title>
 <style>body{background:#111;color:#aaa;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:14px;}</style>
@@ -78,11 +82,11 @@ exports.handler = async event => {
     };
   }
 
-  const artworkUrl = absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || '');
-  const trackName = track.trackName || 'Unknown track';
-  const artistName = track.artistName || '';
-  const albumName = track.albumName || '';
-  const playerUrl = `${origin}/player.html?track=${encodeURIComponent(track._id)}`;
+  const artworkUrl = escapeHtml(absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || ''));
+  const trackName = escapeHtml(track.trackName || 'Unknown track');
+  const artistName = escapeHtml(track.artistName || '');
+  const albumName = escapeHtml(track.albumName || '');
+  const playerUrl = escapeHtml(`${origin}/player.html?track=${encodeURIComponent(track._id)}`);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -160,7 +164,7 @@ exports.handler = async event => {
   <div class="info">
     <div class="track-name">${trackName}</div>
     ${artistName || albumName ? `<div class="meta">${[artistName, albumName].filter(Boolean).join(' · ')}</div>` : ''}
-    <audio controls src="${audioSrc}"></audio>
+    <audio controls src="${escapeHtml(audioSrc)}"></audio>
     <a class="open-link" href="${playerUrl}" target="_blank" rel="noopener noreferrer">Open full player ↗</a>
   </div>
 </body>

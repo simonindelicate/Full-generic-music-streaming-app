@@ -207,6 +207,7 @@
     </div>
 
     <script>
+      const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     (function () {
       const scanBtn          = document.getElementById('scanBtn');
       const resizeBtn        = document.getElementById('resizeBtn');
@@ -302,7 +303,7 @@
         const meta = document.createElement('div');
         meta.className = 'art-card__meta';
         const title = tracks[0]?.albumName || tracks[0]?.trackName || '—';
-        meta.innerHTML = `<strong title="${artworkUrl}">${title}</strong><span>${tracks.length} track${tracks.length !== 1 ? 's' : ''}</span><span class="dim-label" style="color:#aaa;">detecting…</span>`;
+        meta.innerHTML = `<strong title="${escapeHtml(artworkUrl)}">${escapeHtml(title)}</strong><span>${tracks.length} track${tracks.length !== 1 ? 's' : ''}</span><span class="dim-label" style="color:#aaa;">detecting…</span>`;
 
         card.appendChild(imgWrap);
         card.appendChild(meta);
