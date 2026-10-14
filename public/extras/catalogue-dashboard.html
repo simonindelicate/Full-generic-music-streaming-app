@@ -475,6 +475,7 @@
 </div>
 
 <script>
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); // catalogue text is untrusted
   let catData = null;
 
   /* ─── parse & route ─────────────────────────────── */
@@ -587,8 +588,8 @@
       sg.innerHTML += `
         <div class="stat-card">
           <div class="stat-label">${s.label}</div>
-          <div class="stat-value">${s.value}</div>
-          <div class="stat-sub">${s.sub}</div>
+          <div class="stat-value">${esc(s.value)}</div>
+          <div class="stat-sub">${esc(s.sub)}</div>
         </div>`;
     }
 
@@ -607,7 +608,7 @@
       const pct = Math.round(c / maxGenre * 100);
       gl.innerHTML += `
         <div class="genre-row">
-          <div class="genre-name">${g}</div>
+          <div class="genre-name">${esc(g)}</div>
           <div class="genre-track">
             <div class="genre-fill" data-pct="${pct}" style="background:${color}"></div>
           </div>
@@ -624,7 +625,7 @@
       al.innerHTML += `
         <div class="artist-row">
           <div class="artist-rank">${i+1}</div>
-          <div class="artist-name" title="${a}">${a}</div>
+          <div class="artist-name" title="${esc(a)}">${esc(a)}</div>
           <div class="artist-bar-wrap">
             <div class="artist-bar" data-pct="${Math.round(c/maxArtist*100)}"></div>
           </div>
@@ -651,7 +652,7 @@
           <div class="decade-bar-wrap">
             <div class="decade-bar" data-pct="${pct}" style="height:0px" title="${c} tracks"></div>
           </div>
-          <div class="decade-label">${d}s</div>
+          <div class="decade-label">${esc(d)}s</div>
         </div>`;
     }
 
@@ -689,7 +690,7 @@
       fg.innerHTML += `
         <div class="fact-item">
           <div class="fact-label">${f.label}</div>
-          <div class="fact-val">${f.val}</div>
+          <div class="fact-val">${esc(f.val)}</div>
         </div>`;
     }
 
@@ -701,8 +702,8 @@
         <div class="track-row">
           <div class="track-no">${i+1}</div>
           <div class="track-info-col">
-            <div class="track-row-title" title="${t.title}">${t.title}</div>
-            <div class="track-row-sub">${t._rel.artist}</div>
+            <div class="track-row-title" title="${esc(t.title)}">${esc(t.title)}</div>
+            <div class="track-row-sub">${esc(t._rel.artist)}</div>
           </div>
           <div class="track-dur">${fmt(t.durationSeconds)}</div>
         </div>`;
@@ -717,8 +718,8 @@
         <div class="track-row">
           <div class="track-no">${i+1}</div>
           <div class="track-info-col">
-            <div class="track-row-title" title="${rel.title}">${rel.title}</div>
-            <div class="track-row-sub">${rel.artist}</div>
+            <div class="track-row-title" title="${esc(rel.title)}">${esc(rel.title)}</div>
+            <div class="track-row-sub">${esc(rel.artist)}</div>
           </div>
           <div class="track-dur">${rel.tracks?.length||0} trk</div>
         </div>`;
@@ -857,7 +858,7 @@
       leg.innerHTML += `
         <div class="legend-item">
           <div class="legend-dot" style="background:${s.color}"></div>
-          <span>${s.label} <strong>${pct}%</strong></span>
+          <span>${esc(s.label)} <strong>${pct}%</strong></span>
         </div>`;
     }
   }

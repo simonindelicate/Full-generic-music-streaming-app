@@ -38,7 +38,15 @@ function absoluteUrl(origin, url) {
   return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function sharePageHtml({ origin, rawId, title, description, image, imageAlt, imageWidth, imageHeight, embedUrl, playerUrl, siteTitle }) {
+// Track text comes from the catalogue (possibly imported) and the id from the
+// address, so everything that goes into the page is escaped.
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function sharePageHtml(raw) {
+  const e = (v) => (v ? escapeHtml(v) : v);
+  const origin = e(raw.origin), title = e(raw.title), description = e(raw.description), image = e(raw.image), imageAlt = e(raw.imageAlt), embedUrl = e(raw.embedUrl), playerUrl = e(raw.playerUrl), siteTitle = e(raw.siteTitle);
+  const rawId = raw.rawId ? escapeHtml(encodeURIComponent(raw.rawId)) : raw.rawId;
+  const imageWidth = Number(raw.imageWidth) || null, imageHeight = Number(raw.imageHeight) || null;
   const twitterCard = embedUrl ? 'player' : 'summary_large_image';
   const imageType = image
     ? (/\.png(\?|$)/i.test(image) ? 'image/png' : /\.webp(\?|$)/i.test(image) ? 'image/webp' : /\.gif(\?|$)/i.test(image) ? 'image/gif' : 'image/jpeg')
@@ -99,7 +107,7 @@ function sharePageHtml({ origin, rawId, title, description, image, imageAlt, ima
   <h1>${title}</h1>
   <p class="sub">${description}</p>
   <a class="listen" href="${playerUrl}">Listen now</a>
-  <script>window.location.replace('${playerUrl}');</script>
+  <script>window.location.replace(${JSON.stringify(String(raw.playerUrl)).replace(/</g, '\\u003c')});</script>
 </body>
 </html>`;
 }

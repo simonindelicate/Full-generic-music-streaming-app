@@ -419,7 +419,7 @@
         const summaryHtml = `
           <div class="source-attribution">
             Source: <strong>${escHtml(inst.name || inst.url || 'Unknown')}</strong>
-            ${inst.url ? `&mdash; <a href="${escHtml(inst.url)}" target="_blank" rel="noopener">${escHtml(inst.url)}</a>` : ''}
+            ${inst.url ? `&mdash; ${/^https?:\/\//i.test(String(inst.url)) ? `<a href="${escHtml(inst.url)}" target="_blank" rel="noopener">${escHtml(inst.url)}</a>` : escHtml(inst.url)}` : ''}
           </div>
           <div class="preview-summary" style="margin-top:12px;">
             <div class="preview-stat ${hasNew ? 'preview-stat--ok' : ''}">

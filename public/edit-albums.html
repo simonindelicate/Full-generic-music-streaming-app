@@ -189,6 +189,7 @@
     </div>
 
     <script>
+      const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const albumSelect     = document.getElementById('albumSelect');
       const statusEl        = document.getElementById('status');
       const formCard        = document.getElementById('formCard');
@@ -318,7 +319,7 @@
           const li = document.createElement('li');
           const pub = track.published === false ? ' <span class="badge warning" style="font-size:0.7rem;">draft</span>' : '';
           const paid = track.paid ? ' 🔒' : '';
-          li.innerHTML = `<span class="track-num">${track.trackNumber || '—'}</span><span>${track.trackName || 'Untitled'}${paid}${pub}</span><span class="track-dur">${fmtDur(track.durationSeconds)}</span>`;
+          li.innerHTML = `<span class="track-num">${escapeHtml(track.trackNumber || '—')}</span><span>${escapeHtml(track.trackName || 'Untitled')}${paid}${pub}</span><span class="track-dur">${fmtDur(track.durationSeconds)}</span>`;
           const link = document.createElement('a');
           link.href = `fiddle.html?id=${track._id}`;
           link.className = 'button-link button-secondary button-sm';
@@ -809,7 +810,7 @@
 
           const info = document.createElement('div');
           info.className = 'release-order-info';
-          info.innerHTML = `<strong>${album.albumName || '(no title)'}</strong><span>${album.artistName || ''}</span>`;
+          info.innerHTML = `<strong>${escapeHtml(album.albumName || '(no title)')}</strong><span>${escapeHtml(album.artistName || '')}</span>`;
 
           li.appendChild(handle);
           li.appendChild(num);

@@ -56,21 +56,27 @@ function absoluteUrl(origin, url) {
   return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
-  const siteTitle = siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player';
-  const title = meta.title || siteTitle;
-  const description = meta.description || siteSettings.shareDescription || FALLBACK_DESCRIPTION;
-  const image = meta.image;
-  const imageAlt = meta.imageAlt || title;
-  const imageWidth = meta.imageWidth || null;
-  const imageHeight = meta.imageHeight || null;
+// Text and addresses can come from imported catalogues, so everything that
+// goes into the page is escaped.
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function buildShareHtml(meta = {}, redirectUrlRaw, siteSettings = {}) {
+  const siteTitleRaw = siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player';
+  const siteTitle = escapeHtml(siteTitleRaw);
+  const title = escapeHtml(meta.title || siteTitleRaw);
+  const description = escapeHtml(meta.description || siteSettings.shareDescription || FALLBACK_DESCRIPTION);
+  const image = meta.image ? escapeHtml(meta.image) : meta.image;
+  const imageAlt = escapeHtml(meta.imageAlt || meta.title || siteTitleRaw);
+  const imageWidth = Number(meta.imageWidth) || null;
+  const imageHeight = Number(meta.imageHeight) || null;
+  const redirectUrl = redirectUrlRaw ? escapeHtml(redirectUrlRaw) : redirectUrlRaw;
   // Provide og:image:type so Discord (and others) don't need to probe the URL
   const imageType = image
     ? (/\.png(\?|$)/i.test(image) ? 'image/png' : /\.webp(\?|$)/i.test(image) ? 'image/webp' : /\.gif(\?|$)/i.test(image) ? 'image/gif' : 'image/jpeg')
     : null;
-  const canonical = meta.url;
-  const type = meta.type || 'website';
-  const embedUrl = meta.embedUrl || null;
+  const canonical = meta.url ? escapeHtml(meta.url) : meta.url;
+  const type = escapeHtml(meta.type || 'website');
+  const embedUrl = meta.embedUrl ? escapeHtml(meta.embedUrl) : null;
   // Use Twitter player card when we have an embeddable player; otherwise large image card
   const twitterCard = embedUrl ? 'player' : 'summary_large_image';
 
@@ -148,7 +154,7 @@ function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
     <h1>${title}</h1>
     <p class="sub">${description}</p>
     ${redirectUrl ? `<a class="listen" href="${redirectUrl}">Listen now</a>` : ''}
-    ${redirectUrl ? `<script>window.location.replace('${redirectUrl}');</script>` : ''}
+    ${redirectUrl ? `<script>window.location.replace(${JSON.stringify(String(redirectUrlRaw)).replace(/</g, '\\u003c')});</script>` : ''}
   </body>
 </html>`;
 }

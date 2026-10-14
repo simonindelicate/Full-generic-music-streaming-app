@@ -57,12 +57,39 @@ function makeS3Client() {
 }
 
 // Fetch a remote URL and return its contents as a Buffer.
+// ── Untrusted input ────────────────────────────────────────────────────────
+// Everything in a source catalogue comes from someone else's site. Text is kept
+// as plain text (control characters stripped, length capped), numbers must be
+// numbers, and only public http(s) addresses are ever fetched.
+
+function cleanText(value, max = 500) {
+  if (typeof value === 'number' && Number.isFinite(value)) value = String(value);
+  if (typeof value !== 'string') return '';
+  return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, max);
+}
+
+function cleanNumber(value) {
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+function isPublicHttpUrl(value) {
+  let u;
+  try { u = new URL(String(value)); } catch (_) { return false; }
+  if (!/^https?:$/.test(u.protocol) || u.username || u.password) return false;
+  const host = u.hostname.toLowerCase();
+  if (!host.includes('.') || host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) return false;
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host) || host.includes(':')) return false; // no bare IP addresses
+  return true;
+}
+
 // The data passes through memory only — no local files are written.
 // A hard timeout prevents a slow/large file from killing the whole function.
 async function fetchToBuffer(url, timeoutMs = 22000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    if (!isPublicHttpUrl(url)) throw new Error(`Not a public web address: ${String(url).slice(0, 200)}`);
     const response = await fetch(url, { redirect: 'follow', signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${url}`);
     return Buffer.from(await response.arrayBuffer());
@@ -282,8 +309,9 @@ exports.handler = async (event) => {
       return newUrl;
     } catch (err) {
       console.error('artwork transfer failed', artworkUrl, err.message);
-      uploadedArtwork.set(artworkUrl, artworkUrl); // fall back to source URL
-      return artworkUrl;
+      const fallback = isPublicHttpUrl(artworkUrl) ? artworkUrl : null; // fall back to the source URL if it's a real web address
+      uploadedArtwork.set(artworkUrl, fallback);
+      return fallback;
     }
   }
 
@@ -303,6 +331,7 @@ exports.handler = async (event) => {
     const uid = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
     try {
+      if (!cleanText(sourceTrack.id, 200)) throw new Error('The track has no id');
       // ── Audio: fetch source URL → stream into R2 (no local disk) ──────────
       let mp3Url = sourceTrack.importAudioUrl || (!sourceTrack.gated && sourceTrack.audioUrl) || null;
       if (mp3Url) {
@@ -323,12 +352,12 @@ exports.handler = async (event) => {
 
       // ── Build destination track record ─────────────────────────────────────
       const record = {
-        _id: String(sourceTrack.id),
-        albumName: release.title || '',
-        albumId: release.id || '',
+        _id: cleanText(sourceTrack.id, 200),
+        albumName: cleanText(release.title, 300),
+        albumId: cleanText(release.id, 200),
         albumArtworkUrl: newReleaseArtwork || '',
-        artistName: release.artist || '',
-        trackName: sourceTrack.title || '',
+        artistName: cleanText(release.artist, 300),
+        trackName: cleanText(sourceTrack.title, 300),
         mp3Url: mp3Url || '',
         artworkUrl: newTrackArtwork || newReleaseArtwork || '',
         published: true,
@@ -337,12 +366,15 @@ exports.handler = async (event) => {
         createdAt: new Date().toISOString(),
       };
 
-      if (sourceTrack.trackNumber != null) record.trackNumber = sourceTrack.trackNumber;
-      if (sourceTrack.durationSeconds) { record.durationSeconds = sourceTrack.durationSeconds; record.duration = sourceTrack.durationSeconds; }
-      if (sourceTrack.genre) record.genre = sourceTrack.genre;
-      if (sourceTrack.year) record.year = sourceTrack.year;
-      if (sourceTrack.description) record.trackText = sourceTrack.description;
-      if (sourceTrack.medium) record.trackMedium = sourceTrack.medium;
+      const trackNumber = cleanNumber(sourceTrack.trackNumber);
+      const durationSeconds = cleanNumber(sourceTrack.durationSeconds);
+      const year = cleanNumber(sourceTrack.year);
+      if (trackNumber !== undefined) record.trackNumber = trackNumber;
+      if (durationSeconds) { record.durationSeconds = durationSeconds; record.duration = durationSeconds; }
+      if (cleanText(sourceTrack.genre, 100)) record.genre = cleanText(sourceTrack.genre, 100);
+      if (year) record.year = year;
+      if (cleanText(sourceTrack.description, 5000)) record.trackText = cleanText(sourceTrack.description, 5000);
+      if (cleanText(sourceTrack.medium, 100)) record.trackMedium = cleanText(sourceTrack.medium, 100);
 
       imported.push(record);
     } catch (err) {

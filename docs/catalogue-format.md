@@ -87,6 +87,10 @@ Every address in a catalogue (of audio, of artwork, of anything else) MUST be ab
 
 The audio and artwork MUST be publicly readable without signing in. They SHOULD be served with `Access-Control-Allow-Origin: *`, which readers need in order to analyse the sound (to draw a visualiser, say) or to read the colours of a cover, and with support for HTTP range requests, which players need in order to let listeners skip about within a song.
 
+### Text
+
+Every piece of text in a catalogue (a title, a name, a description) is plain text. It is never HTML or Markdown: `<b>Live</b>` in a title is a title that contains those characters, and readers show it exactly as written. A publisher who wants a line break in a description uses a newline.
+
 ## Required elements
 
 The catalogue is a JSON object with three required elements.
@@ -180,6 +184,7 @@ A reader:
 - SHOULD treat two releases with the same title and year as one release, since some publishers list a record once for each of its credited artists;
 - SHOULD NOT fetch a catalogue more often than once every few minutes, and SHOULD respect any caching headers it is served with;
 - MAY, for the sake of robustness, resolve a relative address it meets against the address of the catalogue, though publishers MUST NOT rely on that.
+- MUST treat everything in a catalogue as untrusted, because anyone can publish one. Text MUST be shown as plain text and never interpreted as HTML or script, and an address MUST be used only if it begins `https://` or `http://` (after resolving it, if the reader resolves relative addresses). Anything else, such as `javascript:` or `data:`, is ignored as if it were missing.
 
 ## Version history
 
