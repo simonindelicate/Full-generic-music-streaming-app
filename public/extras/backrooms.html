@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>THE BACKROOMS — Level 0</title>
+
+<!-- Fonts are cosmetic and fall back cleanly if offline -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{ --yellow:#c8b65b; --ink:#1a1708; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:#000;color:#e9e1bf;
+            font-family:"Space Mono",ui-monospace,monospace;cursor:default;touch-action:none}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  #vignette{position:fixed;inset:0;pointer-events:none;z-index:5;
+            box-shadow:inset 0 0 220px 40px rgba(0,0,0,.78);
+            background:radial-gradient(ellipse at center,rgba(0,0,0,0) 52%,rgba(20,16,4,.55) 100%)}
+  #grain{position:fixed;inset:0;pointer-events:none;z-index:6;opacity:.05;mix-blend-mode:overlay;
+         background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+         animation:grain .6s steps(2) infinite}
+  @keyframes grain{0%{transform:translate(0,0)}50%{transform:translate(-3px,2px)}100%{transform:translate(2px,-2px)}}
+  #fade{position:fixed;inset:0;pointer-events:none;z-index:9;background:#000;opacity:0}
+
+  #hud{position:fixed;top:14px;left:16px;z-index:7;font-size:12px;line-height:1.7;
+       color:rgba(233,225,191,.55);pointer-events:none;text-shadow:0 1px 2px #000}
+  #hud b{color:var(--yellow)}
+  #crosshair{position:fixed;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;
+             border-radius:50%;background:rgba(255,247,210,.5);z-index:7;pointer-events:none;
+             box-shadow:0 0 6px rgba(255,247,210,.4)}
+  #hint{position:fixed;bottom:18px;left:0;right:0;text-align:center;z-index:7;
+        font-size:11px;letter-spacing:.18em;color:rgba(233,225,191,.4);pointer-events:none}
+
+  #menu{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;text-align:center;
+        background:radial-gradient(ellipse at center,rgba(40,34,12,.55),rgba(0,0,0,.92));
+        backdrop-filter:blur(2px)}
+  #menu.hidden{display:none}
+  #title{font-family:"Bebas Neue",Impact,sans-serif;font-size:clamp(56px,12vw,150px);
+         line-height:.86;letter-spacing:.04em;color:var(--yellow);
+         text-shadow:0 0 40px rgba(200,182,91,.25);margin-bottom:2px}
+  #sub{font-size:12px;letter-spacing:.42em;color:rgba(233,225,191,.5);margin-bottom:36px}
+  .btnrow{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:30px}
+  button.enter{font-family:"Bebas Neue",Impact,sans-serif;font-size:24px;letter-spacing:.14em;
+        padding:12px 30px;color:var(--ink);background:var(--yellow);border:none;cursor:pointer;
+        transition:.15s;clip-path:polygon(0 0,100% 0,100% 72%,94% 100%,0 100%)}
+  button.enter:hover{background:#e6d278;transform:translateY(-1px)}
+  button.ghost{background:transparent;color:var(--yellow);box-shadow:inset 0 0 0 1px rgba(200,182,91,.5)}
+  button.ghost:hover{background:rgba(200,182,91,.12)}
+  #controls{font-size:11px;line-height:2;letter-spacing:.1em;color:rgba(233,225,191,.42);max-width:360px}
+  #controls span{color:var(--yellow)}
+  #snd{position:fixed;bottom:14px;right:16px;z-index:8;font-size:11px;letter-spacing:.1em;
+       color:rgba(233,225,191,.45);background:none;border:none;cursor:pointer}
+  #snd:hover{color:var(--yellow)}
+  #np{position:fixed;bottom:14px;left:16px;z-index:8;display:none;align-items:center;gap:10px;
+      font-size:11px;letter-spacing:.07em;color:rgba(233,225,191,.5);max-width:46vw}
+  #np .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #np .t b{color:var(--yellow);font-weight:400}
+  #np button{background:none;border:1px solid rgba(200,182,91,.4);color:var(--yellow);
+      font:inherit;letter-spacing:.12em;padding:2px 9px;cursor:pointer;border-radius:2px}
+  #np button:hover{background:rgba(200,182,91,.14)}
+
+  /* Mobile-only: a tap target to bring up the pause menu, since there's no Escape key. */
+  #mobileMenuBtn{position:fixed;top:14px;right:16px;z-index:8;display:none;
+      font-size:11px;letter-spacing:.1em;color:rgba(233,225,191,.55);
+      background:rgba(20,17,6,.45);border:1px solid rgba(200,182,91,.35);
+      border-radius:4px;padding:6px 12px;cursor:pointer}
+  body.has-touch #mobileMenuBtn{display:block}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="vignette"></div>
+<div id="grain"></div>
+<div id="fade"></div>
+
+<div id="hud">
+  <div><b id="mode">— PAUSED —</b></div>
+  <div>X <span id="cx">0</span> &nbsp; Z <span id="cz">0</span> &nbsp; LV <span id="lv">0</span></div>
+</div>
+<div id="crosshair" style="display:none"></div>
+<div id="hint">click to look • wasd to walk • <b>E</b> drift mode • <b>esc</b> menu</div>
+<button id="mobileMenuBtn">⏸ menu</button>
+<button id="snd">♪ sound: on</button>
+<div id="np"><span class="t">♪ <b id="np-title">—</b></span><button id="np-skip">SKIP ⏭</button></div>
+
+<div id="menu">
+  <div id="title"></div>
+  <div id="sub">You Have Fallen</div>
+  <div class="btnrow">
+    <button class="enter" id="enterBtn">EXPLORE</button>
+    <button class="enter ghost" id="driftBtn">DRIFT&nbsp;∞</button>
+  </div>
+  <div id="controls">
+    <span>WASD</span> move &nbsp;·&nbsp; <span>MOUSE</span> look &nbsp;·&nbsp; <span>E</span> toggle endless drift<br>
+    <span>ENTER</span> explore on foot &nbsp;·&nbsp; <span>DRIFT</span> hands-off camera
+  </div>
+</div>
+
+<!-- three.js r128 (UMD global build). To go fully offline, download this file and host it next to the html. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+/* ============================================================================
+   THE BACKROOMS — single-file procedural liminal-space explorer
+   Banner-marked sections you'll likely edit:
+     [1] CONFIG    — speeds, fog, render distance, feature rarity
+     [2] TEXTURES  — swap in your own image URLs
+     [3] AUDIO     — procedural bed FX + catalogue blend / soundtrack
+   ========================================================================== */
+
+
+/* ===========================================================================
+   [1] CONFIG
+   =========================================================================== */
+const CONFIG = {
+  cell:        4.2,
+  wallThick:   0.18,
+  playerRadius:0.34,
+  eyeHeight:   1.7,
+  walkSpeed:   3.4,
+  driftSpeed:  2.6,
+  lookSens:    0.0022,
+  renderRadius:12,
+
+  fogColor:    0x4a4226,
+  fogNear:     7,
+  fogFar:      38,
+
+  wallColor:   0xc8b65b,
+  floorColor:  0x9c8838,
+  ceilColor:   0xe6e0c9,
+  lightColor:  0xfff3c0,
+
+  // Falling into a hole normally fades-to-black and respawns you at the start.
+  // Set this to a URL and falling instead loads that page (your "overworld").
+  // Wired to the streaming site's home page, so falling through escapes the maze.
+  overworldUrl: '/',
+
+  // rare vertical features
+  features:{
+    stairChance: 0.012,   // per-cell chance of a staircase DOWN to a new lower level
+    stairUpChance:0.010,  // per-cell chance of a staircase UP (on sub-levels only)
+    pitChance:   0.010,   // per-cell probability of a bottomless pit
+    stairDrop:   3.4,     // vertical travel of a staircase
+    stairSteps:  7,
+    abyssDepth:  10       // visual depth of the dark beneath a pit
+  }
+};
+
+
+/* ===========================================================================
+   [2] TEXTURES  — REPLACE `url` WITH YOUR OWN IMAGES
+   ---------------------------------------------------------------------------
+   url:null => built-in procedural texture (so the game runs offline, no CORS).
+   Real CC0 sources: ambientcg.com / polyhaven.com  (wallpaper / carpet /
+   ceiling tile). A remote host must send CORS headers, or host the image
+   next to this file.
+   =========================================================================== */
+const TEXTURES = {
+  wall:    { url: null /* <-- wallpaper image  */, repeat:[2,2] },
+  floor:   { url: null /* <-- carpet image     */, repeat:[1,1] },
+  ceiling: { url: null /* <-- ceiling tile     */, repeat:[1,1] },
+  light:   { url: null /* <-- light panel      */, repeat:[1,1] },
+  pillar:  { url: null /* <-- column texture   */, repeat:[1,3] }
+};
+
+
+/* ===========================================================================
+   [3] AUDIO
+   ---------------------------------------------------------------------------
+   The bed is a procedural fluorescent hum + low drone, and the FX (low-pass +
+   reverb) are applied to THAT bed — which we generate in-page, so it needs no
+   CORS. Random catalogue tracks are then played DRY through a plain <audio>
+   element (nothing reads their samples), so they also need no CORS on the audio
+   host. A quiet dry track sitting inside a filtered, reverberant room reads as
+   muffled and far away without ever touching the track's bytes.
+
+   `soundtrackUrl` still works as a fixed dry loop and overrides the catalogue.
+
+   Controller at window.BACKROOMS_AUDIO:
+     .setVolume(0..1) .mute() .unmute() .pause() .resume()
+     .skipTrack() .tracks .playSoundtrack(url) .stopSoundtrack() .ctx .master
+   =========================================================================== */
+// Relative path — resolves against whichever site is hosting this file, so the
+// install's own catalogue feed is used wherever this page is deployed.
+const CATALOGUE_URL = '/catalogue';
+
+const AUDIO_CONFIG = {
+  masterVolume:   0.55,
+  proceduralHum:  true,
+  humVolume:      0.75,     // the room floor — raised so music doesn't drown it
+  droneVolume:    0.35,
+  soundtrackUrl:  null,     // fixed dry loop; overrides the catalogue blend
+
+  // Random catalogue tracks — played DRY (no CORS needed on the audio host).
+  catalogue: {
+    enabled:      true,
+    url:          CATALOGUE_URL,
+    tracks:       null,     // optional override: ["https://.../a.mp3", ...] (or {url,title})
+                            // — skips the live fetch entirely (use for testing / offline installs)
+    volume:       0.12,     // dry track level — kept under the room so the FX reads
+    playbackRate: 1.0,      // <1 darkens/slurs it (e.g. 0.92 lo-fi); 1 = unchanged
+    echoes:       4,        // PSEUDO-REVERB: delayed dry copies of the track (the FX you hear ON the music)
+    echoDelayMs:  100,      // spacing between echo taps
+    echoFalloff:  0.35       // each tap this much quieter than the last
+  },
+
+  // Reverb + low-pass on the procedural ROOM TONE only (CORS-free, since we make it).
+  roomFX: {
+    lowpassHz:     3600,    // roll the top off the room
+    reverbMix:     0.65,    // 0..1 wet
+    reverbSeconds: 3.6
+  }
+};
+
+
+/* ===========================================================================
+   PROCEDURAL TEXTURE GENERATORS (fallbacks)
+   =========================================================================== */
+function _cv(){ const c=document.createElement('canvas'); c.width=c.height=256; return c; }
+function _hex(n){ return '#'+('000000'+(n>>>0).toString(16)).slice(-6); }
+
+// Seamless plain damp wallpaper (wraps in both axes -> no visible tiling).
+function genWallpaper(){
+  const N=256, c=_cv(), x=c.getContext('2d');
+  x.fillStyle=_hex(CONFIG.wallColor); x.fillRect(0,0,N,N);
+  const im=x.getImageData(0,0,N,N), d=im.data, TWO=Math.PI*2;
+  for(let yy=0; yy<N; yy++) for(let xx=0; xx<N; xx++){
+    const i=(yy*N+xx)*4, u=xx/N, v=yy/N;
+    let m = Math.sin(TWO*u)*6 + Math.sin(TWO*v+1.3)*5
+          + Math.sin(TWO*2*(u+v)+0.7)*4 + Math.sin(TWO*3*u)*2;
+    if(Math.sin(TWO*10*u) > 0.6) m -= 5;            // faint vertical striations (tileable)
+    const n=(Math.random()-0.5)*10;
+    d[i]+=m+n; d[i+1]+=m*0.92+n; d[i+2]+=m*0.6+n*0.7;
+  }
+  x.putImageData(im,0,0);
+  return c;
+}
+function genCarpet(){
+  const c=_cv(), x=c.getContext('2d');
+  x.fillStyle=_hex(CONFIG.floorColor); x.fillRect(0,0,256,256);
+  const im=x.getImageData(0,0,256,256), d=im.data;
+  for(let i=0;i<d.length;i+=4){
+    let n=(Math.random()-0.5)*46; if(Math.random()<0.06) n-=40;
+    d[i]+=n; d[i+1]+=n*0.95; d[i+2]+=n*0.6;
+  }
+  x.putImageData(im,0,0);
+  x.globalAlpha=0.05; x.strokeStyle='#000';
+  for(let y=0;y<256;y+=2){ x.beginPath(); x.moveTo(0,y+Math.sin(y)*1.2); x.lineTo(256,y); x.stroke(); }
+  x.globalAlpha=1;
+  return c;
+}
+function genCeiling(){
+  const c=_cv(), x=c.getContext('2d');
+  x.fillStyle=_hex(CONFIG.ceilColor); x.fillRect(0,0,256,256);
+  for(let i=0;i<4200;i++){
+    x.fillStyle='rgba(120,114,92,'+(0.05+Math.random()*0.25)+')';
+    x.fillRect(Math.random()*256,Math.random()*256,1,1);
+  }
+  if(Math.random()<0.5){
+    const gx=Math.random()*256, gy=Math.random()*256, r=30+Math.random()*60;
+    const g=x.createRadialGradient(gx,gy,2,gx,gy,r);
+    g.addColorStop(0,'rgba(120,90,40,0.18)'); g.addColorStop(1,'rgba(120,90,40,0)');
+    x.fillStyle=g; x.fillRect(0,0,256,256);
+  }
+  x.strokeStyle='rgba(120,112,86,0.55)'; x.lineWidth=5; x.strokeRect(2,2,252,252);
+  return c;
+}
+function genLight(){
+  const c=_cv(), x=c.getContext('2d');
+  x.fillStyle=_hex(CONFIG.lightColor); x.fillRect(0,0,256,256);
+  x.fillStyle='rgba(255,255,255,0.65)'; x.fillRect(40,0,60,256); x.fillRect(156,0,60,256);
+  x.strokeStyle='rgba(180,168,120,0.6)'; x.lineWidth=8; x.strokeRect(4,4,248,248);
+  return c;
+}
+const _GEN = { wall:genWallpaper, floor:genCarpet, ceiling:genCeiling, light:genLight, pillar:genWallpaper };
+
+
+/* ===========================================================================
+   ENGINE SETUP
+   =========================================================================== */
+const C = CONFIG, F = CONFIG.features;
+const app = document.getElementById('app');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(C.fogColor);
+scene.fog = new THREE.Fog(C.fogColor, C.fogNear, C.fogFar);
+
+const camera = new THREE.PerspectiveCamera(74, innerWidth/innerHeight, 0.05, C.fogFar+30);
+camera.rotation.order = 'YXZ';
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+app.appendChild(renderer.domElement);
+addEventListener('resize', ()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+scene.add(new THREE.AmbientLight(0xfff2c0, 0.42));
+const hemi = new THREE.HemisphereLight(0xfff6d5, 0x5b4d24, 0.55); scene.add(hemi);
+const followLight = new THREE.PointLight(0xfff0c0, 0.55, 22, 2); scene.add(followLight);
+
+const texLoader = new THREE.TextureLoader();
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+function makeTexture(def, kind){
+  let tex;
+  if(def && def.url){ tex=texLoader.load(def.url); tex.crossOrigin='anonymous'; }
+  else { tex=new THREE.CanvasTexture(_GEN[kind]()); }
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  if(def && def.repeat) tex.repeat.set(def.repeat[0], def.repeat[1]);
+  tex.anisotropy=maxAniso; tex.encoding=THREE.sRGBEncoding;
+  return tex;
+}
+const T = {
+  wall:    makeTexture(TEXTURES.wall,'wall'),
+  floor:   makeTexture(TEXTURES.floor,'floor'),
+  ceiling: makeTexture(TEXTURES.ceiling,'ceiling'),
+  light:   makeTexture(TEXTURES.light,'light'),
+  pillar:  makeTexture(TEXTURES.pillar,'pillar')
+};
+
+const matWall  = new THREE.MeshStandardMaterial({ map:T.wall,  roughness:0.96 });
+const matFloor = new THREE.MeshStandardMaterial({ map:T.floor, roughness:1.0 });
+const matCeil  = new THREE.MeshStandardMaterial({ map:T.ceiling,roughness:1.0 });
+const matPill  = new THREE.MeshStandardMaterial({ map:T.pillar, roughness:0.96 });
+const matLight = new THREE.MeshStandardMaterial({ color:0x111008, emissive:C.lightColor,
+                                                  emissiveMap:T.light, emissiveIntensity:1.05 });
+const matDark  = new THREE.MeshBasicMaterial({ color:0x050403, fog:false, side:THREE.DoubleSide });
+
+const gFloor = new THREE.PlaneGeometry(1,1); gFloor.rotateX(-Math.PI/2);
+const gCeil  = new THREE.PlaneGeometry(1,1); gCeil.rotateX(Math.PI/2);
+const gLight = new THREE.PlaneGeometry(1,1); gLight.rotateX(Math.PI/2);
+const gBox   = new THREE.BoxGeometry(1,1,1);
+
+function instanced(geo,mat,count){
+  const m=new THREE.InstancedMesh(geo,mat,count); m.frustumCulled=false; m.count=0; scene.add(m); return m;
+}
+const iFloor  = instanced(gFloor, matFloor, 900);
+const iCeil   = instanced(gCeil,  matCeil,  900);
+const iWall   = instanced(gBox,   matWall,  1800);   // walls + soffits + stair sides
+const iPillar = instanced(gBox,   matPill,  500);
+const iLight  = instanced(gLight, matLight, 350);
+const iStep   = instanced(gBox,   matFloor, 200);    // staircase treads
+const iAbyss  = instanced(gFloor, matDark,  80);     // dark floor of a hole
+const iShaft  = instanced(gBox,   matDark,  240);    // dark walls of a hole
+const _d = new THREE.Object3D();
+
+
+/* ===========================================================================
+   PROCEDURAL WORLD — deterministic / infinite
+   =========================================================================== */
+const REGION=9, OPEN=0, PILLARF=1, MAZE=2, ROOMS=3;
+const SD=F.stairDrop, SS=F.stairSteps, AB=F.abyssDepth;
+
+function hashf(x,y,salt){
+  let n = Math.imul(x|0,0x1f1f1f1f) ^ Math.imul(y|0,0x3b3b3b3b) ^ Math.imul(salt|0,0x2c2c2c2c);
+  n = Math.imul(n^(n>>>15),0x2c1b3c6d); n = Math.imul(n^(n>>>12),0x297a2d39); n^=n>>>15;
+  return (n>>>0)/4294967295;
+}
+const gen = { level: 0 };                 // current depth; 0 = the surface backrooms
+// level-salted hash, so every depth is a different (but deterministic) infinite maze
+function H(x,y,salt){ return hashf(x,y, (salt|0) + gen.level*1313); }
+
+function regionType(cx,cz){
+  const rx=Math.floor(cx/REGION), rz=Math.floor(cz/REGION);
+  if(rx===0&&rz===0) return OPEN;
+  const r=H(rx,rz,777);
+  if(r<0.30) return OPEN; if(r<0.50) return PILLARF; if(r<0.78) return MAZE; return ROOMS;
+}
+function ceilingHeight(cx,cz){
+  if(featureAt(cx,cz)==='stairUp') return SD+2.6;        // headroom for an ascending stairwell
+  const rx=Math.floor(cx/REGION), rz=Math.floor(cz/REGION);
+  return [6.1,4.6,3.0,3.7][regionType(cx,cz)] + H(rx,rz,55)*0.6;
+}
+function wallH(cx,cz){ return H(cx,cz,1234) < [0.05,0,0.45,0.26][regionType(cx,cz)]; }
+function wallV(cx,cz){ return H(cx,cz,5678) < [0.05,0,0.45,0.26][regionType(cx,cz)]; }
+function pillarAt(cx,cz){
+  if(featureAt(cx,cz)) return false;
+  const t=regionType(cx,cz);
+  if(t===PILLARF) return (cx&1)===0 && (cz&1)===0;
+  if(t===OPEN)    return H(cx,cz,99) < 0.05;
+  return false;
+}
+function lightAt(cx,cz){ return (cx&1)===0 && (cz&1)===0 && H(cx,cz,321) > 0.14; }
+
+// ---- vertical features: staircases (level transitions) + bottomless pits ----
+function inSpawn(cx,cz){ return Math.abs(cx)<=2 && Math.abs(cz)<=2; }
+function featureAt(cx,cz){
+  if(gen.level>0 && cx===2 && cz===0) return 'stairUp';   // guaranteed way back up, just east of spawn
+  if(inSpawn(cx,cz)) return null;
+  if(H(cx,cz,4040) < F.stairChance) return 'stairDown';
+  if(gen.level>0 && H(cx,cz,7070) < F.stairUpChance) return 'stairUp';
+  if(H(cx,cz,9090) < F.pitChance) return 'pit';
+  return null;
+}
+function isStair(cx,cz){ const f=featureAt(cx,cz); return f==='stairDown'||f==='stairUp'; }
+
+// staircase enclosure: N/S sides for both; down-stairs also extend their walls into the shaft
+function stairSideH(cx,cz){ return isStair(cx,cz) || isStair(cx,cz-1); }
+function stairDownSideH(cx,cz){ return featureAt(cx,cz)==='stairDown' || featureAt(cx,cz-1)==='stairDown'; }
+
+function edgeWallH(cx,cz){
+  if(stairSideH(cx,cz)) return true;
+  if(featureAt(cx,cz)==='pit' || featureAt(cx,cz-1)==='pit') return false;
+  return wallH(cx,cz);
+}
+function edgeWallV(cx,cz){
+  if(isStair(cx,cz))   return false;     // entrance (west) of a staircase stays open
+  if(isStair(cx-1,cz)) return true;      // far (east) end is walled — you transition before reaching it
+  if(featureAt(cx,cz)==='pit' || featureAt(cx-1,cz)==='pit') return false;
+  return wallV(cx,cz);
+}
+
+// ground height under a point: null over a pit (=> fall). Staircases ramp; never null.
+function floorHeightAt(x,z){
+  const cx=Math.floor(x/C.cell), cz=Math.floor(z/C.cell), f=featureAt(cx,cz);
+  if(f==='pit') return null;
+  if(f==='stairDown' || f==='stairUp'){
+    const u=(x-cx*C.cell)/C.cell, k=Math.min(SS-1, Math.floor(u*SS));
+    return (f==='stairUp'?1:-1) * (k+1)/SS*SD;
+  }
+  return 0;
+}
+// reaching the far end of a staircase triggers a level change: +1 = descend, -1 = ascend
+function stairEndAt(x,z){
+  const cx=Math.floor(x/C.cell), cz=Math.floor(z/C.cell), f=featureAt(cx,cz);
+  if(f!=='stairDown' && f!=='stairUp') return 0;
+  return ((x-cx*C.cell)/C.cell > 0.86) ? (f==='stairUp' ? -1 : 1) : 0;
+}
+
+/* ---- collision (2D) ---- */
+function distSeg(px,pz, ax,az, bx,bz){
+  const dx=bx-ax, dz=bz-az, l2=dx*dx+dz*dz;
+  let t=l2?((px-ax)*dx+(pz-az)*dz)/l2:0; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(ax+t*dx), pz-(az+t*dz));
+}
+function blocked(x,z){
+  const cx=Math.floor(x/C.cell), cz=Math.floor(z/C.cell), R=C.playerRadius, half=C.wallThick/2;
+  for(let dz=-1;dz<=1;dz++) for(let dx=-1;dx<=1;dx++){
+    const ax=cx+dx, az=cz+dz;
+    if(pillarAt(ax,az)){
+      if(Math.hypot(x-(ax+0.5)*C.cell, z-(az+0.5)*C.cell) < R+0.40) return true;
+    }
+    if(edgeWallH(ax,az)){
+      const z0=az*C.cell;
+      if(distSeg(x,z, ax*C.cell,z0, (ax+1)*C.cell,z0) < R+half) return true;
+    }
+    if(edgeWallV(ax,az)){
+      const x0=ax*C.cell;
+      if(distSeg(x,z, x0,az*C.cell, x0,(az+1)*C.cell) < R+half) return true;
+    }
+  }
+  return false;
+}
+function driftBlocked(x,z){
+  return blocked(x,z) || featureAt(Math.floor(x/C.cell), Math.floor(z/C.cell)) !== null;
+}
+
+/* ---- chunk builder ---- */
+function setM(mesh,i,px,py,pz,sx,sy,sz){
+  _d.position.set(px,py,pz); _d.scale.set(sx,sy,sz); _d.rotation.set(0,0,0);
+  _d.updateMatrix(); mesh.setMatrixAt(i,_d.matrix);
+}
+function buildChunk(centerX, centerZ){
+  let fi=0, ci=0, wi=0, pi=0, li=0, si=0, ai=0, hi=0;
+  const R=C.renderRadius, S=C.cell, TH=C.wallThick;
+  for(let dz=-R; dz<=R; dz++) for(let dx=-R; dx<=R; dx++){
+    const cx=centerX+dx, cz=centerZ+dz;
+    const X=(cx+0.5)*S, Z=(cz+0.5)*S, h=ceilingHeight(cx,cz), f=featureAt(cx,cz);
+
+    // ceiling always (seals the top of shafts)
+    if(ci<900) setM(iCeil,ci++, X,h,Z, S,1,S);
+    if(f===null && lightAt(cx,cz) && li<350) setM(iLight,li++, X,h-0.02,Z, S*0.82,1,S*0.82);
+
+    // floor / feature floor
+    if(f===null){
+      if(fi<900) setM(iFloor,fi++, X,0,Z, S,1,S);
+    } else if(f==='stairDown' || f==='stairUp'){
+      const up = (f==='stairUp');
+      for(let k=0;k<SS;k++){
+        const surf=(up?1:-1)*(k+1)/SS*SD;          // walking surface of step k
+        const top=surf, bot=up?0:-SD-0.5;          // solid below the tread
+        const bw=S/SS, bh=Math.max(0.1, top-bot);
+        if(si<200) setM(iStep,si++, cx*S+(k+0.5)/SS*S, (top+bot)/2, Z, bw, bh, S*0.96);
+      }
+    } else if(f==='pit'){
+      if(ai<80) setM(iAbyss,ai++, X,-AB,Z, S*1.02,1,S*1.02);
+      // dark shaft walls only where the pit borders ordinary floor
+      const nb=[[1,0],[-1,0],[0,1],[0,-1]];
+      for(const [ex,ez] of nb){
+        if(featureAt(cx+ex,cz+ez)!==null) continue;     // open toward stair / adjacent hole
+        if(hi>=240) break;
+        if(ex!==0) setM(iShaft,hi++, (cx+(ex>0?1:0))*S, -AB/2, Z, 0.06, AB, S);
+        else       setM(iShaft,hi++, X, -AB/2, (cz+(ez>0?1:0))*S, S, AB, 0.06);
+      }
+    }
+
+    // height-transition soffits at region boundaries (seal side gaps)
+    const hS=ceilingHeight(cx,cz-1), hW=ceilingHeight(cx-1,cz);
+    if(hS!==h && wi<1800){ const lo=Math.min(h,hS),hgh=Math.max(h,hS);
+      setM(iWall,wi++, X,(lo+hgh)/2, cz*S, S, hgh-lo, TH); }
+    if(hW!==h && wi<1800){ const lo=Math.min(h,hW),hgh=Math.max(h,hW);
+      setM(iWall,wi++, cx*S,(lo+hgh)/2, Z, TH, hgh-lo, S); }
+
+    // walls (extend stair-side walls down into the shaft)
+    if(edgeWallH(cx,cz) && wi<1800){
+      const yb=stairDownSideH(cx,cz)?-SD:0;
+      setM(iWall,wi++, X,(yb+h)/2, cz*S, S, h-yb, TH);
+    }
+    if(edgeWallV(cx,cz) && wi<1800) setM(iWall,wi++, cx*S, h/2, Z, TH, h, S);
+
+    if(pillarAt(cx,cz) && pi<500) setM(iPillar,pi++, X, h/2, Z, 0.7, h, 0.7);
+  }
+  iFloor.count=fi; iCeil.count=ci; iWall.count=wi; iPillar.count=pi;
+  iLight.count=li; iStep.count=si; iAbyss.count=ai; iShaft.count=hi;
+  [iFloor,iCeil,iWall,iPillar,iLight,iStep,iAbyss,iShaft].forEach(m=>m.instanceMatrix.needsUpdate=true);
+}
+
+
+/* ===========================================================================
+   AUDIO -> window.BACKROOMS_AUDIO
+   =========================================================================== */
+const Audio_ = (function(){
+  let ctx=null, master=null, bedIn=null, el=null, started=false, muted=false;
+  const MC = AUDIO_CONFIG.catalogue, RF = AUDIO_CONFIG.roomFX;
+  let tracks=[], curEls=[], lastIdx=-1, order=[], op=0;
+
+  function ensure(){ if(ctx) return;
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    master=ctx.createGain(); master.gain.value=AUDIO_CONFIG.masterVolume; master.connect(ctx.destination);
+  }
+  function makeReverbIR(seconds){
+    const rate=ctx.sampleRate, len=Math.max(1,(seconds*rate)|0), buf=ctx.createBuffer(2,len,rate);
+    for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch);
+      for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6); }   // decaying noise tail
+    return buf;
+  }
+  function buildBed(){                                  // FX bus for the room tone
+    bedIn=ctx.createGain();
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=RF.lowpassHz; lp.Q.value=0.5;
+    bedIn.connect(lp); lp.connect(master);              // dry, filtered room
+    const rv=ctx.createConvolver(); rv.buffer=makeReverbIR(RF.reverbSeconds);
+    const wet=ctx.createGain(); wet.gain.value=RF.reverbMix;
+    lp.connect(rv); rv.connect(wet); wet.connect(master); // reverberant room
+  }
+  function buildHum(){                                  // everything feeds the FX bed, not master
+    const out = bedIn || master;
+    const hg=ctx.createGain(); hg.gain.value=AUDIO_CONFIG.humVolume*0.26; hg.connect(out);
+    [60,120,180].forEach((f,i)=>{ const o=ctx.createOscillator(); o.type='sine'; o.frequency.value=f;
+      const g=ctx.createGain(); g.gain.value=[1,0.4,0.18][i]; o.connect(g); g.connect(hg); o.start(); });
+    const buf=ctx.createBuffer(1, ctx.sampleRate*2, ctx.sampleRate), dd=buf.getChannelData(0);
+    for(let i=0;i<dd.length;i++) dd[i]=Math.random()*2-1;
+    const noise=ctx.createBufferSource(); noise.buffer=buf; noise.loop=true;
+    const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=7800; bp.Q.value=0.7;
+    const ng=ctx.createGain(); ng.gain.value=AUDIO_CONFIG.humVolume*0.012;
+    noise.connect(bp); bp.connect(ng); ng.connect(out); noise.start();
+    const drone=ctx.createOscillator(); drone.type='triangle'; drone.frequency.value=43;
+    const dg=ctx.createGain(); dg.gain.value=0.0001; drone.connect(dg); dg.connect(out); drone.start();
+    const lfo=ctx.createOscillator(); lfo.frequency.value=0.04;
+    const lg=ctx.createGain(); lg.gain.value=AUDIO_CONFIG.droneVolume*0.05; lfo.connect(lg); lg.connect(dg.gain); lfo.start();
+  }
+
+  // ---- catalogue: dry playback through plain <audio> (no ctx routing => no CORS) ----
+  function trackVol(){ return Math.min(1, MC.volume * (muted?0:1) * AUDIO_CONFIG.masterVolume); }
+  function loadCatalogue(){
+    fetch(MC.url).then(r=>r.json()).then(data=>{
+      tracks=[];
+      (data.releases||[]).forEach(rel=>(rel.tracks||[]).forEach(t=>{
+        if(t.audioUrl) tracks.push({ title:t.title, artist:rel.artist, url:t.audioUrl });
+      }));
+      if(tracks.length) playNext();
+      else console.warn('[backrooms audio] catalogue loaded but had no playable (ungated) tracks.');
+    }).catch(e=>{
+      console.warn('[backrooms audio] could not load the catalogue list. If you opened this page '+
+        'as a file://, serve it over http:// instead (e.g. `npx serve`) — file:// blocks fetch. '+
+        'The audio itself needs no CORS; only this list request does.', e);
+    });
+  }
+  function stopTrackEls(){ curEls.forEach(a=>{ try{ a.pause(); a.removeAttribute('src'); }catch(e){} }); curEls=[]; }
+  function reshuffle(){                                   // Fisher-Yates bag: plays all before repeating
+    order=tracks.map((_,i)=>i);
+    for(let i=order.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=order[i]; order[i]=order[j]; order[j]=t; }
+    if(order.length>1 && order[0]===lastIdx){ const t=order[0]; order[0]=order[1]; order[1]=t; } // no repeat across bags
+    op=0;
+  }
+  function announce(t){
+    const ti=document.getElementById('np-title'); if(ti)
+      ti.textContent = t.title ? ((t.artist?t.artist+' — ':'')+t.title) : ((t.url||'').split('/').pop()||'untitled');
+    const bar=document.getElementById('np'); if(bar) bar.style.display='flex';
+  }
+  function playNext(){
+    if(!tracks.length) return;
+    if(op>=order.length) reshuffle();
+    const i=order[op++]; lastIdx=i;
+    stopTrackEls();
+    const t=tracks[i], copies=1+Math.max(0, MC.echoes|0);
+    for(let e=0;e<copies;e++){
+      const a=new Audio(); a.preload='auto'; a.src=t.url;       // NOTE: no crossOrigin => plays without CORS
+      a.playbackRate=MC.playbackRate||1;
+      a.volume=trackVol()*Math.pow(MC.echoFalloff, e);          // e>0 are the delayed pseudo-reverb taps
+      if(e===0){
+        a.addEventListener('ended', playNext);
+        a.addEventListener('error', ()=>{ setTimeout(()=>{ if(!muted) playNext(); }, 1500); });
+      }
+      const delay=e*(MC.echoDelayMs||0);
+      setTimeout(()=>{ if(!muted && (!ctx||ctx.state!=='suspended')) a.play().catch(()=>{}); }, delay);
+      curEls.push(a);
+    }
+    announce(t);
+  }
+
+  function playSoundtrack(url){ stopSoundtrack();        // dry loop, also no CORS
+    el=new Audio(url); el.loop=true; el.volume=AUDIO_CONFIG.masterVolume; el.play().catch(()=>{});
+  }
+  function stopSoundtrack(){ if(el){ el.pause(); el=null; } }
+  return {
+    start(){ if(started) return; started=true; ensure(); if(ctx.state==='suspended') ctx.resume();
+      if(AUDIO_CONFIG.proceduralHum){ buildBed(); buildHum(); }
+      if(AUDIO_CONFIG.soundtrackUrl) playSoundtrack(AUDIO_CONFIG.soundtrackUrl);
+      else if(MC.enabled){
+        if(Array.isArray(MC.tracks) && MC.tracks.length){
+          tracks = MC.tracks.map(t => typeof t==='string' ? {url:t} : t);
+          playNext();
+        } else loadCatalogue();
+      } },
+    pause(){ if(ctx) ctx.suspend(); if(el) el.pause(); curEls.forEach(a=>a.pause()); },
+    resume(){ if(ctx&&started) ctx.resume(); if(el&&!muted) el.play().catch(()=>{});
+      if(!muted) curEls.forEach(a=>a.play().catch(()=>{})); },
+    setVolume(v){ AUDIO_CONFIG.masterVolume=v; if(master&&!muted) master.gain.value=v;
+      if(el&&!muted) el.volume=v; curEls.forEach(a=>a.volume=trackVol()); },
+    mute(){ muted=true; if(master) master.gain.value=0; if(el) el.muted=true; curEls.forEach(a=>a.muted=true); },
+    unmute(){ muted=false; if(master) master.gain.value=AUDIO_CONFIG.masterVolume; if(el) el.muted=false; curEls.forEach(a=>a.muted=false); },
+    toggle(){ muted?this.unmute():this.mute(); return !muted; },
+    skipTrack(){ if(started && MC.enabled) playNext(); },
+    playSoundtrack, stopSoundtrack,
+    get ctx(){ return ctx; }, get master(){ return master; }, get tracks(){ return tracks; }
+  };
+})();
+window.BACKROOMS_AUDIO = Audio_;
+
+
+/* ===========================================================================
+   STATE / INPUT / MODES
+   =========================================================================== */
+// We deliberately DON'T try to statically classify the device as "mobile" up front —
+// every heuristic (touch support, maxTouchPoints, pointer/hover media queries) gets it
+// wrong on some hardware (touchscreen laptops, stylus phones, desktop touch monitors),
+// which is exactly how the mode ends up mismatched. Instead we just note whether touch
+// is *available* (to show touch affordances like the menu button) and then switch the
+// active control scheme the instant the player actually uses touch vs keyboard/mouse —
+// see enterTouchMode()/exitTouchMode(). The mode therefore always matches real input.
+const HAS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+if(HAS_TOUCH) document.body.classList.add('has-touch');
+
+const state = { yaw:Math.PI, pitch:0, bob:0, vy:0, falling:false, fade:1, leaving:false,
+                transitioning:false, transPhase:'out', transTarget:0,
+                running:false, endless:false, paused:true, locked:false, touch:false, t:0 };
+const pos = { x:C.cell*0.5, z:C.cell*0.5 };
+const player = { y:0 };
+const drift = { heading:Math.PI, speed:0 };
+const touchSteer = { active:false, startX:0, startY:0, dx:0, dy:0 };
+const keys = {};
+camera.position.set(pos.x, C.eyeHeight, pos.z);
+
+const elMenu=document.getElementById('menu'), elMode=document.getElementById('mode');
+const elCross=document.getElementById('crosshair'), elCX=document.getElementById('cx'),
+      elCZ=document.getElementById('cz'), elSnd=document.getElementById('snd'),
+      elFade=document.getElementById('fade'), elLV=document.getElementById('lv');
+
+const WALK_KEYS = { KeyW:1, KeyA:1, KeyS:1, KeyD:1, ArrowUp:1, ArrowDown:1, ArrowLeft:1, ArrowRight:1 };
+addEventListener('keydown', e=>{ keys[e.code]=true;
+  // Using the keyboard means this is a desktop session: drop back out of touch-steer.
+  if(WALK_KEYS[e.code]) exitTouchMode();
+  if(e.code==='KeyE') toggleEndless();
+  if(e.code==='Escape') openMenu();
+});
+addEventListener('keyup', e=>{ keys[e.code]=false; });
+
+renderer.domElement.addEventListener('mousemove', e=>{
+  if(state.locked && !state.endless){
+    state.yaw  -= e.movementX*C.lookSens;
+    state.pitch = Math.max(-1.45, Math.min(1.45, state.pitch - e.movementY*C.lookSens));
+  }
+});
+renderer.domElement.addEventListener('click', ()=>{
+  if(state.running && !state.paused && !state.endless && !state.locked) renderer.domElement.requestPointerLock();
+});
+document.addEventListener('pointerlockchange', ()=>{
+  const nowLocked = (document.pointerLockElement===renderer.domElement);
+  // Only a genuine locked→unlocked transition (Esc/Alt-Tab on desktop) pauses. On touch
+  // devices the lock never engages, so a spurious "unlocked" event must NOT pop the menu.
+  if(state.locked && !nowLocked && state.running && !state.endless && !state.touch
+     && elMenu.classList.contains('hidden')) openMenu();
+  state.locked = nowLocked;
+});
+
+// Drag-to-steer: a held finger sets a turn rate proportional to how far it has
+// dragged from where it touched down (like a self-centering steering wheel). The
+// first canvas touch during a run flips us into the camera-drives-forward steer
+// mode (see enterTouchMode), so this only kicks in once the player actually uses touch.
+if(HAS_TOUCH){
+  renderer.domElement.addEventListener('touchstart', e=>{
+    if(!state.running || state.paused) return;
+    enterTouchMode();
+    const t=e.touches[0];
+    touchSteer.active=true; touchSteer.startX=t.clientX; touchSteer.startY=t.clientY; touchSteer.dx=0; touchSteer.dy=0;
+  }, { passive:true });
+  renderer.domElement.addEventListener('touchmove', e=>{
+    if(!touchSteer.active) return;
+    e.preventDefault();
+    const t=e.touches[0];
+    touchSteer.dx = t.clientX - touchSteer.startX;
+    touchSteer.dy = t.clientY - touchSteer.startY;
+  }, { passive:false });
+  ['touchend','touchcancel'].forEach(ev=>renderer.domElement.addEventListener(ev, ()=>{
+    touchSteer.active=false; touchSteer.dx=0; touchSteer.dy=0;
+  }));
+}
+
+function dirFromYaw(y){ return { x:-Math.sin(y), z:-Math.cos(y) }; }
+function angDiff(a,b){ return ((a-b+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI; }
+function lerpAngle(a,b,t){ return a + angDiff(b,a)*t; }
+function clearDist(x,z,yaw,maxD,blk){
+  const d=dirFromYaw(yaw); let s=0.35;
+  while(s<maxD){ if(blk(x+d.x*s, z+d.z*s)) return s; s+=0.4; }
+  return maxD;
+}
+
+function startRun(endless){
+  Audio_.start(); Audio_.resume();
+  state.running=true; state.endless=endless; state.paused=false; state.touch=false;
+  drift.heading=state.yaw; drift.speed=0;
+  elMenu.classList.add('hidden');
+  elCross.style.display = endless ? 'none' : 'block';
+  // Pointer lock is a desktop affordance; on a touch device the request just no-ops
+  // and the player's first drag will switch us into touch-steer mode instead.
+  if(endless) document.exitPointerLock(); else renderer.domElement.requestPointerLock();
+  updateModeLabel();
+}
+// Switch to touch-steer: camera drives itself forward (like drift) but with plain
+// wall collision, so dragging into a pit still drops you through. Triggered by the
+// first finger-drag on the canvas, never by static device sniffing.
+function enterTouchMode(){
+  if(state.touch) return;
+  state.touch=true; state.endless=true;
+  drift.heading=state.yaw; drift.speed=0;
+  document.exitPointerLock();
+  elCross.style.display='none';
+  applyControlHints(true);
+  updateModeLabel();
+}
+// Return to keyboard/mouse control (e.g. a touchscreen-laptop user grabs the keyboard).
+function exitTouchMode(){
+  if(!state.touch) return;
+  state.touch=false; state.endless=false;
+  elCross.style.display = state.running && !state.paused ? 'block' : 'none';
+  applyControlHints(false);
+  updateModeLabel();
+}
+function openMenu(){
+  if(!state.running) return;
+  state.paused=true; Audio_.pause(); document.exitPointerLock();
+  elMenu.classList.remove('hidden'); elMode.textContent='— PAUSED —';
+}
+function toggleEndless(){
+  if(!state.running || state.paused || state.touch) return;
+  state.endless=!state.endless;
+  if(state.endless){ drift.heading=state.yaw; drift.speed=0; document.exitPointerLock(); elCross.style.display='none'; }
+  else { renderer.domElement.requestPointerLock(); elCross.style.display='block'; }
+  updateModeLabel();
+}
+function updateModeLabel(){ elMode.textContent = state.touch ? 'STEER ∞' : state.endless ? 'DRIFT ∞' : 'EXPLORING'; }
+
+// Swap the on-screen instructions between keyboard/mouse and touch wording.
+const elHint = document.getElementById('hint'), elControls = document.getElementById('controls');
+const HINT_DESKTOP = elHint ? elHint.innerHTML : '';
+const CONTROLS_DESKTOP = elControls ? elControls.innerHTML : '';
+function applyControlHints(touch){
+  if(elHint) elHint.innerHTML = touch
+    ? 'drag to steer • you move forward on your own • ⏸ menu'
+    : HINT_DESKTOP;
+  if(elControls) elControls.innerHTML = touch
+    ? '<span>DRAG</span> steer left/right &nbsp;·&nbsp; camera always drifts forward<br>steer into the dark at your own risk'
+    : CONTROLS_DESKTOP;
+}
+// Touch is available — hint at the drag control before the first touch, but keep the
+// keyboard wording too (some devices have both).
+if(HAS_TOUCH){
+  if(elHint) elHint.innerHTML = HINT_DESKTOP + '<br>or drag to steer';
+  if(elControls) elControls.innerHTML = CONTROLS_DESKTOP + '<br><span>DRAG</span> on touch to steer · camera drifts forward';
+}
+
+document.getElementById('enterBtn').onclick = ()=>startRun(false);
+document.getElementById('driftBtn').onclick = ()=>startRun(true);
+elSnd.onclick = ()=>{ const on=Audio_.toggle(); elSnd.textContent='♪ sound: '+(on?'on':'off'); };
+document.getElementById('np-skip').onclick = ()=> Audio_.skipTrack();
+document.getElementById('mobileMenuBtn').onclick = ()=> openMenu();
+
+
+/* ===========================================================================
+   MOVEMENT
+   =========================================================================== */
+function moveSlide(nx,nz,blk){
+  if(!blk(nx,pos.z)) pos.x=nx;
+  if(!blk(pos.x,nz)) pos.z=nz;
+}
+function updateWalk(dt){
+  if(state.falling) return;
+  const f=dirFromYaw(state.yaw), r={x:-f.z,z:f.x};
+  let ix=0, iz=0;
+  if(keys.KeyW||keys.ArrowUp) iz+=1;
+  if(keys.KeyS||keys.ArrowDown) iz-=1;
+  if(keys.KeyD||keys.ArrowRight) ix+=1;
+  if(keys.KeyA||keys.ArrowLeft) ix-=1;
+  let mx=f.x*iz+r.x*ix, mz=f.z*iz+r.z*ix; const len=Math.hypot(mx,mz);
+  if(len>0){ mx/=len; mz/=len;
+    const sp=C.walkSpeed*(keys.ShiftLeft?1.7:1);
+    moveSlide(pos.x+mx*sp*dt, pos.z+mz*sp*dt, blocked);
+    state.bob += dt*sp*2.4;
+  }
+}
+function chooseHeading(){
+  let best=drift.heading, bestScore=-1e9;
+  for(let a=0;a<12;a++){
+    const cand=drift.heading + (a/12)*Math.PI*2;
+    const d=clearDist(pos.x,pos.z,cand,C.cell*5,driftBlocked);
+    let score=d - Math.abs(angDiff(cand,drift.heading))*1.5
+                + hashf(Math.floor(pos.x),Math.floor(pos.z),a)*1.2;
+    if(Math.abs(angDiff(cand, drift.heading+Math.PI))<0.4) score-=3;   // avoid U-turns
+    if(score>bestScore){ bestScore=score; best=cand; }
+  }
+  return best;
+}
+function updateDrift(dt){
+  if(state.falling){ return; }
+  // re-decide only when the committed path is actually blocked
+  if(clearDist(pos.x,pos.z,drift.heading,C.cell*2.2,driftBlocked) < C.cell*1.2)
+    drift.heading = chooseHeading();
+  // smooth, framerate-independent steer
+  state.yaw = lerpAngle(state.yaw, drift.heading, 1-Math.pow(0.0001,dt));
+  state.pitch = Math.sin(state.t*0.5)*0.03;
+  // slow into sharp turns, speed up on the straights
+  const aligned = 1 - Math.min(1, Math.abs(angDiff(state.yaw,drift.heading))/0.6);
+  const open = clearDist(pos.x,pos.z,state.yaw,1.0,driftBlocked) > 0.8 ? 1 : 0;
+  drift.speed += (C.driftSpeed*aligned*open - drift.speed)*Math.min(1,dt*3.5);
+  const m=dirFromYaw(state.yaw);
+  moveSlide(pos.x+m.x*drift.speed*dt, pos.z+m.z*drift.speed*dt, driftBlocked);
+  state.bob += dt*drift.speed*1.4;
+}
+// Touch steer: forward speed is constant (no autopilot, no hazard-avoidance — unlike
+// updateDrift this uses plain wall collision, so dragging into a pit cell still falls).
+function updateMobileSteer(dt){
+  if(state.falling) return;
+  const dx = touchSteer.active ? touchSteer.dx : 0;
+  const dy = touchSteer.active ? touchSteer.dy : 0;
+  const turnRate = Math.max(-1, Math.min(1, dx/120)) * 1.8;  // rad/s, clamped to drag distance
+  state.yaw -= turnRate*dt;
+  state.pitch = Math.max(-0.4, Math.min(0.4, -dy/320));
+  const sp = C.driftSpeed;
+  const m = dirFromYaw(state.yaw);
+  moveSlide(pos.x+m.x*sp*dt, pos.z+m.z*sp*dt, blocked);
+  state.bob += dt*sp*1.4;
+}
+
+function respawn(){
+  pos.x=C.cell*0.5; pos.z=C.cell*0.5; player.y=0; state.vy=0; state.falling=false;
+  state.fade=1; lastCX=1e9; lastCZ=1e9;       // force chunk rebuild
+}
+
+// descend (+1) / ascend (-1) a level, hidden inside a quick fade
+function startTransition(delta){
+  if(state.transitioning) return;
+  state.transitioning=true; state.transPhase='out'; state.transTarget=Math.max(0, gen.level+delta);
+}
+function updateTransition(dt){
+  if(!state.transitioning) return;
+  if(state.transPhase==='out'){
+    state.fade=Math.min(1, state.fade+dt*2.6);
+    if(state.fade>=0.98){
+      gen.level=state.transTarget;                  // re-seed the world to the new depth
+      pos.x=C.cell*0.5; pos.z=C.cell*0.5; player.y=0; state.vy=0; state.falling=false;
+      state.yaw=Math.PI; drift.heading=state.yaw;
+      lastCX=1e9; lastCZ=1e9; buildChunk(0,0);
+      state.transPhase='in';
+    }
+  } else {
+    state.fade=Math.max(0, state.fade-dt*1.8);
+    if(state.fade<=0.01) state.transitioning=false;
+  }
+}
+function updateVertical(dt){
+  if(state.transitioning) return;
+  if(state.falling){
+    state.vy -= 20*dt; player.y += state.vy*dt;
+    if(player.y < -(AB-1)){
+      if(C.overworldUrl){                    // fall "through" to another world
+        if(!state.leaving){ state.leaving=true; Audio_.pause(); location.href=C.overworldUrl; }
+        return;
+      }
+      respawn();
+    }
+  } else {
+    const se = stairEndAt(pos.x,pos.z);      // reached the end of a staircase?
+    if(se!==0){ startTransition(se); return; }
+    const g = floorHeightAt(pos.x,pos.z);
+    if(g===null){ state.falling=true; state.vy=0; }
+    else player.y += (g - player.y)*Math.min(1, dt*12);   // smooth steps
+  }
+}
+
+
+/* ===========================================================================
+   MAIN LOOP
+   =========================================================================== */
+let lastCX=1e9, lastCZ=1e9, prev=performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  let dt=Math.min(0.05,(now-prev)/1000); prev=now; state.t+=dt;
+
+  if(state.running && !state.paused){
+    if(!state.transitioning){
+      if(state.touch) updateMobileSteer(dt);
+      else if(state.endless) updateDrift(dt);
+      else updateWalk(dt);
+    }
+    updateVertical(dt);
+    updateTransition(dt);
+  }
+
+  // chunk streaming with hysteresis (rebuild only every couple of cells)
+  const cx=Math.floor(pos.x/C.cell), cz=Math.floor(pos.z/C.cell);
+  if(Math.abs(cx-lastCX)>=2 || Math.abs(cz-lastCZ)>=2){ lastCX=cx; lastCZ=cz; buildChunk(cx,cz); }
+  elCX.textContent=cx; elCZ.textContent=cz; elLV.textContent=gen.level;
+
+  // fade: transitions drive it themselves; otherwise darken on a fall, ease back after
+  if(!state.transitioning){
+    if(state.falling) state.fade = Math.min(1, Math.max(state.fade, (-player.y)/AB + 0.05));
+    else state.fade += (0 - state.fade)*Math.min(1, dt*2.2);
+  }
+  elFade.style.opacity = state.fade.toFixed(3);
+
+  camera.rotation.set(state.pitch, state.yaw, 0);
+  const bob = state.falling ? 0 : Math.sin(state.bob)*0.045;
+  camera.position.set(pos.x, player.y + C.eyeHeight + bob, pos.z);
+  followLight.position.copy(camera.position);
+
+  // a fluorescent that buzzes and occasionally falters
+  const fl = 0.55 + 0.12*Math.sin(state.t*9.3)
+           + (hashf(Math.floor(state.t*3),0,7)>0.93 ? -0.35*Math.random() : 0);
+  followLight.intensity = Math.max(0.18, fl);
+  hemi.intensity = 0.5 + 0.05*Math.sin(state.t*2.1);
+
+  renderer.render(scene,camera);
+}
+
+buildChunk(0,0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
