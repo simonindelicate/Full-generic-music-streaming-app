@@ -701,6 +701,46 @@ h3 {
   letter-spacing: -0.01em;
 }
 
+.glitch-title {
+  position: relative;
+  color: #1a1604;
+}
+
+.glitch-title::before,
+.glitch-title::after {
+  content: "NO CLIP";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  overflow: hidden;
+  opacity: 0.75;
+}
+
+.glitch-title::before {
+  color: #ff2d6b;
+  animation: glitch-shift-1 2.6s infinite linear alternate-reverse;
+}
+
+.glitch-title::after {
+  color: #27e0ff;
+  animation: glitch-shift-2 2.1s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-shift-1 {
+  0%   { clip-path: inset(0 0 80% 0); transform: translate(-2px, -1px); }
+  30%  { clip-path: inset(40% 0 30% 0); transform: translate(2px, 1px); }
+  60%  { clip-path: inset(70% 0 5% 0); transform: translate(-1px, 0); }
+  100% { clip-path: inset(10% 0 60% 0); transform: translate(1px, -1px); }
+}
+
+@keyframes glitch-shift-2 {
+  0%   { clip-path: inset(60% 0 10% 0); transform: translate(2px, 1px); }
+  30%  { clip-path: inset(10% 0 70% 0); transform: translate(-2px, -1px); }
+  60%  { clip-path: inset(30% 0 40% 0); transform: translate(1px, 0); }
+  100% { clip-path: inset(80% 0 0 0); transform: translate(-1px, 1px); }
+}
+
 .album-card-meta p {
   margin: 0;
   color: var(--muted);

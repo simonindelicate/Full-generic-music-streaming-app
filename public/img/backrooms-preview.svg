@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="wall" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d4b62b"/>
+      <stop offset="100%" stop-color="#a98a16"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8a7a3f"/>
+      <stop offset="100%" stop-color="#5c5026"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="0%" r="75%">
+      <stop offset="0%" stop-color="#fff8d6" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#fff8d6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="400" height="300" fill="#3a3210"/>
+
+  <!-- ceiling -->
+  <rect width="400" height="70" fill="#46401c"/>
+  <!-- floor -->
+  <rect y="210" width="400" height="90" fill="url(#floor)"/>
+
+  <!-- left wall, receding -->
+  <polygon points="0,70 150,110 150,200 0,210" fill="url(#wall)"/>
+  <!-- right wall, receding -->
+  <polygon points="400,70 250,110 250,200 400,210" fill="url(#wall)"/>
+  <!-- far wall -->
+  <rect x="150" y="110" width="100" height="90" fill="#c2a526"/>
+
+  <!-- fluorescent light glow -->
+  <rect x="160" y="72" width="80" height="8" fill="#fff8d6"/>
+  <rect width="400" height="150" fill="url(#glow)" opacity="0.5"/>
+
+  <!-- ceiling tile lines -->
+  <g stroke="#2e2a10" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="70" x2="150" y2="110"/>
+    <line x1="400" y1="70" x2="250" y2="110"/>
+    <line x1="50" y1="70" x2="170" y2="110"/>
+    <line x1="350" y1="70" x2="230" y2="110"/>
+  </g>
+
+  <!-- wall stains -->
+  <g opacity="0.25" fill="#332b0e">
+    <ellipse cx="40" cy="150" rx="14" ry="22"/>
+    <ellipse cx="370" cy="160" rx="10" ry="18"/>
+    <ellipse cx="200" cy="160" rx="20" ry="12"/>
+  </g>
+
+  <!-- vignette -->
+  <rect width="400" height="300" fill="#000" opacity="0.18"/>
+
+  <text x="200" y="270" text-anchor="middle" font-family="monospace" font-weight="700" font-size="20" letter-spacing="3" fill="#fff8d6" opacity="0.85">NO CLIP</text>
+</svg>
